@@ -1,0 +1,175 @@
+import { create } from 'zustand'
+import type { GameState, MachineTypeId } from '../game/types'
+import { initialState } from '../game/economy'
+import { machineType } from '../game/content/machines'
+import { scanClient } from '../game/clients'
+import { advance } from '../game/tick'
+import { serialize, deserialize } from '../game/save'
+import { settleOffline } from '../game/offline'
+import { loadRaw, saveRaw } from './storage'
+import { AUTOSAVE_MS, GRID_H, GRID_W, SAVE_KEY } from '../game/constants'
+
+export interface WelcomeBack {
+  earned: number
+  awayMs: number
+}
+
+interface GameStore {
+  state: GameState
+  welcomeBack: WelcomeBack | null
+  ready: boolean
+  buyMachine: (type: MachineTypeId, x: number, y: number) => void
+  scan: (clientUid: string) => void
+  repair: (machineUid: string) => void
+  dismissWelcome: () => void
+  restart: () => void
+  start: () => void
+  stop: () => void
+}
+
+// The store is the only place in the app that touches the wall clock.
+let rafId: number | null = null
+let lastFrameAt = 0
+let sinceSaveMs = 0
+let visibilityBound = false
+
+export const useGameStore = create<GameStore>((set, get) => {
+  const persist = (state: GameState) => {
+    void saveRaw(SAVE_KEY, serialize({ ...state, lastSeenAt: Date.now() }))
+  }
+
+  const frame = (now: number) => {
+    rafId = requestAnimationFrame(frame)
+
+    const dtMs = lastFrameAt === 0 ? 0 : now - lastFrameAt
+    lastFrameAt = now
+    if (dtMs <= 0) return
+
+    const current = get().state
+    if (current.gameOver) return
+
+    const next = advance(current, dtMs)
+    set({ state: next })
+
+    sinceSaveMs += dtMs
+    if (sinceSaveMs >= AUTOSAVE_MS) {
+      sinceSaveMs = 0
+      persist(next)
+    }
+  }
+
+  const startLoop = () => {
+    if (rafId !== null) return
+    lastFrameAt = 0
+    rafId = requestAnimationFrame(frame)
+  }
+
+  const stopLoop = () => {
+    if (rafId === null) return
+    cancelAnimationFrame(rafId)
+    rafId = null
+    persist(get().state)
+  }
+
+  return {
+    state: initialState(Date.now(), Date.now()),
+    welcomeBack: null,
+    ready: false,
+
+    start: () => {
+      if (get().ready) {
+        startLoop()
+        return
+      }
+
+      void (async () => {
+        const now = Date.now()
+        const raw = await loadRaw(SAVE_KEY)
+        const loaded = raw ? deserialize(raw, now) : initialState(now, now)
+        const { state, earned, awayMs } = settleOffline(loaded, now)
+
+        set({
+          state,
+          ready: true,
+          welcomeBack: awayMs > 0 ? { earned, awayMs } : null,
+        })
+        persist(state)
+        startLoop()
+      })()
+
+      // A backgrounded tab must not drain battery or bank frames.
+      if (!visibilityBound) {
+        visibilityBound = true
+        document.addEventListener('visibilitychange', () => {
+          if (document.hidden) stopLoop()
+          else if (get().ready) startLoop()
+        })
+      }
+    },
+
+    stop: stopLoop,
+
+    buyMachine: (type, x, y) => {
+      const state = get().state
+      if (state.gameOver) return
+      if (x < 0 || y < 0 || x >= GRID_W || y >= GRID_H) return
+      if (state.machines.some(m => m.x === x && m.y === y)) return
+
+      const spec = machineType(type)
+      if (state.level < spec.minLevel) return
+      if (state.cash < spec.price) return
+
+      const next: GameState = {
+        ...state,
+        cash: state.cash - spec.price,
+        nextUid: state.nextUid + 1,
+        machines: [
+          ...state.machines,
+          { uid: `m${state.nextUid}`, type, x, y, durability: 100, occupiedBy: null },
+        ],
+        stats: { ...state.stats, totalSpent: state.stats.totalSpent + spec.price },
+      }
+      set({ state: next })
+      persist(next)
+    },
+
+    scan: clientUid => {
+      const state = get().state
+      if (state.gameOver) return
+      set({ state: scanClient(state, clientUid) })
+    },
+
+    repair: machineUid => {
+      const state = get().state
+      if (state.gameOver) return
+
+      const machine = state.machines.find(m => m.uid === machineUid)
+      if (!machine || machine.durability >= 100) return
+
+      const cost = machineType(machine.type).repairCost
+      if (state.cash < cost) return
+
+      const next: GameState = {
+        ...state,
+        cash: state.cash - cost,
+        machines: state.machines.map(m =>
+          m.uid === machineUid ? { ...m, durability: 100 } : m,
+        ),
+        stats: { ...state.stats, totalSpent: state.stats.totalSpent + cost },
+      }
+      set({ state: next })
+      persist(next)
+    },
+
+    dismissWelcome: () => set({ welcomeBack: null }),
+
+    restart: () => {
+      const now = Date.now()
+      const fresh = initialState(now, now)
+      sinceSaveMs = 0
+      set({ state: fresh, welcomeBack: null, ready: true })
+      persist(fresh)
+      startLoop()
+    },
+  }
+})
