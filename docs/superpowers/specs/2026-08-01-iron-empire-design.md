@@ -111,7 +111,7 @@ Start: lokal 8×6 kafelków, $500, poziom 1, reputacja 0.
 7. Skanowanie i ukończone treningi dają XP. Poziom odblokowuje droższy sprzęt.
 
 Napięcie v1: każda maszyna zarabia, ale pobiera prąd i się zużywa. Zbyt szybka
-rozbudowa prowadzi do bankructwa.
+rozbudowa wpędza w dług, a dług bez rosnących przychodów kończy się komornikiem.
 
 Ręczne skanowanie jest celowo uciążliwe. To praca, którą w v2 przejmie
 zatrudniona recepcjonistka — zdjęcie tej uciążliwości ma być odczuwalną nagrodą.
