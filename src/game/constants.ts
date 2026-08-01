@@ -1,0 +1,13 @@
+export const GRID_W = 8
+export const GRID_H = 6
+export const DAY_MS = 180_000
+export const START_CASH = 500
+export const DEBT_LIMIT = -20_000
+export const PATIENCE_MS = 8_000
+export const OFFLINE_CAP_MS = 8 * 60 * 60 * 1000
+export const DAILY_RENT = 60
+export const SAVE_VERSION = 1
+export const SAVE_KEY = 'iron-empire-save'
+export const XP_PER_LEVEL = 100
+export const MAX_STEP_MS = 1_000
+export const AUTOSAVE_MS = 5_000
