@@ -120,7 +120,7 @@ zatrudniona recepcjonistka — zdjęcie tej uciążliwości ma być odczuwalną 
 
 | Wartość | Zakres | Rola |
 | --- | --- | --- |
-| `cash` | ≥ 0 | gotówka; brak środków na koszty oznacza bankructwo |
+| `cash` | ≥ −20 000 | gotówka; może zejść na minus, poniżej progu gra się kończy |
 | `reputation` | 0–100 | steruje tempem napływu klientów i ceną wejścia |
 | `satisfaction` | 0–100 | średnia z ostatnich klientów; spada od kolejki i braku wolnych maszyn |
 | `durability` | 0–100 na maszynę | spada z użycia; 0 wyłącza maszynę do czasu naprawy |
@@ -131,8 +131,16 @@ Katalog sprzętu jest danymi (`content/`), nie kodem. Każda pozycja ma: cenę,
 pobór prądu, czas treningu, przyrost satysfakcji, tempo zużycia, koszt naprawy
 i wymagany poziom.
 
-Bankructwo: gdy `cash` nie wystarcza na naliczany koszt, gra pokazuje ekran
-końca i pozwala zacząć od nowa. Stan nie schodzi poniżej zera.
+Zadłużenie: `cash` może zejść poniżej zera. Ujemna gotówka nie blokuje działania
+siłowni — koszty naliczają się dalej, przychody spłacają dług. Gracz może więc
+wyjść z dołka, jeśli siłownia zarabia.
+
+Próg końca gry to **−20 000**. Przekroczenie go kończy rozgrywkę ekranem
+„Komornik wbił" z podsumowaniem i opcją rozpoczęcia od nowa. Interfejs ostrzega
+gracza wizualnie, gdy gotówka jest ujemna, i wyraźniej po przekroczeniu połowy
+progu.
+
+v1 nie nalicza odsetek od długu. Sam próg wystarcza za presję.
 
 ## Zapis i zarobek offline
 
@@ -142,9 +150,12 @@ w przeglądarce i natywnie.
 Zapis zawiera numer wersji schematu. `save.ts` przeprowadza migracje przy
 wczytaniu, więc przyszłe aktualizacje nie kasują postępu graczy.
 
-Przy powrocie `offline.ts` liczy zarobek na podstawie `lastSeenAt`:
-limit 8 godzin, 50% normalnej wydajności — nikt nie skanował kart pod
-nieobecność gracza. Koszty za ten czas naliczają się w pełnej wysokości.
+Przy powrocie `offline.ts` liczy zarobek na podstawie `lastSeenAt`. Przychody
+naliczają się w pełnej wysokości, tak samo jak koszty. Obowiązuje limit
+8 godzin — dłuższa nieobecność nie nalicza się dalej.
+
+Jeżeli rozliczenie nieobecności zepchnie gotówkę poniżej progu −20 000, gracz po
+powrocie trafia od razu na ekran „Komornik wbił".
 
 ## Grafika
 
@@ -184,9 +195,11 @@ Vitest pokrywa silnik `game/`:
 
 - determinizm `advance` — ten sam stan i `dtMs` dają ten sam wynik
 - bilans ekonomii — przychody i koszty zgadzają się na przestrzeni dnia gry
-- bankructwo — `cash` nie schodzi poniżej zera, gra zgłasza koniec
+- dług — gotówka schodzi na minus, siłownia działa dalej, przychody spłacają dług
+- koniec gry — przekroczenie −20 000 kończy rozgrywkę; −19 999 jeszcze nie
 - migracje zapisu — stary zapis wczytuje się do bieżącego schematu
-- zarobek offline — limit 8 godzin i mnożnik 50% działają na granicach
+- zarobek offline — limit 8 godzin działa na granicy, przychody i koszty pełne
+- koniec gry po powrocie — rozliczenie nieobecności może przekroczyć próg
 
 Interfejs nie jest testowany automatycznie w v1.
 
@@ -194,7 +207,8 @@ Interfejs nie jest testowany automatycznie w v1.
 
 - gra uruchamia się w przeglądarce i jest grywalna od pustego lokalu
 - gracz może kupić maszynę, postawić ją, obsłużyć klienta i zarobić
-- bankructwo i awans na kolejny poziom są osiągalne
+- zejście na dług, wyjście z długu oraz ekran „Komornik wbił" są osiągalne
+- awans na kolejny poziom jest osiągalny
 - stan przeżywa przeładowanie strony, zarobek offline nalicza się poprawnie
 - testy silnika przechodzą
 - `npx cap add ios` i `npx cap add android` wykonują się bez błędu
