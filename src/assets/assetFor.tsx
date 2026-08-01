@@ -96,12 +96,12 @@ const Floor = svg(
   </>,
 )
 
-const Logo = svg(
-  <>
-    <rect x="6" y="26" width="52" height="12" rx="6" fill={ORANGE} />
-    <rect x="0" y="18" width="12" height="28" rx="4" fill={CHARCOAL} />
-    <rect x="52" y="18" width="12" height="28" rx="4" fill={CHARCOAL} />
-  </>,
+/**
+ * The one generated asset in v1. Everything else is still SVG: at a 48px tile
+ * the flat shapes read better than detailed artwork would.
+ */
+const Logo: FC<AssetProps> = ({ className }) => (
+  <img src="/assets/logo.png" alt="" className={className} />
 )
 
 const ASSETS: Record<AssetId, FC<AssetProps>> = {

@@ -1,6 +1,19 @@
 node_modules/
 dist/
 .DS_Store
-ios/
-android/
 *.local
+*.log
+
+# The native projects are committed — they carry the portrait-orientation
+# edits, which `npx cap add` would not regenerate. Their build output is not.
+android/build/
+android/app/build/
+android/.gradle/
+android/local.properties
+android/.idea/
+android/app/src/main/assets/public/
+android/app/release/
+ios/App/Pods/
+ios/App/build/
+ios/App/App/public/
+ios/DerivedData/

@@ -1,0 +1,15 @@
+{
+  "name": "IRON EMPIRE",
+  "short_name": "IRON EMPIRE",
+  "description": "Symulator prowadzenia siłowni. Zaczynasz z pustą salą i $500.",
+  "lang": "pl",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#12141a",
+  "theme_color": "#12141a",
+  "icons": [
+    { "src": "/assets/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}
