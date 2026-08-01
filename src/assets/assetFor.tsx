@@ -97,11 +97,19 @@ const Floor = svg(
 )
 
 /**
- * The one generated asset in v1. Everything else is still SVG: at a 48px tile
- * the flat shapes read better than detailed artwork would.
+ * Shield crest, drawn inline rather than loaded from a file: it renders at any
+ * size without a network fetch. The generated raster version of this mark
+ * lives in `public/assets/` and is what the native app icons use.
  */
-const Logo: FC<AssetProps> = ({ className }) => (
-  <img src="/assets/logo.png" alt="" className={className} />
+const Logo = svg(
+  <>
+    <path d="M32 4 L58 14 V32 Q58 50 32 60 Q6 50 6 32 V14 Z" fill={CHARCOAL} />
+    <path d="M32 9 L53 17 V32 Q53 46 32 54 Q11 46 11 32 V17 Z" fill="none" stroke={ORANGE} strokeWidth="2.5" />
+    <path d="M32 18 Q40 18 40 27 V42 L32 50 L24 42 V27 Q24 18 32 18 Z" fill={ORANGE} />
+    <rect x="8" y="28" width="48" height="7" rx="3.5" fill={STEEL} stroke="#14161c" strokeWidth="2" />
+    <rect x="10" y="23" width="9" height="17" rx="3" fill={STEEL} stroke="#14161c" strokeWidth="2" />
+    <rect x="45" y="23" width="9" height="17" rx="3" fill={STEEL} stroke="#14161c" strokeWidth="2" />
+  </>,
 )
 
 const ASSETS: Record<AssetId, FC<AssetProps>> = {
