@@ -8,8 +8,8 @@ import { PATIENCE_MS } from './constants'
 const MAX_QUEUE = 6
 
 /** Chance per second that a client walks in, at zero and at full reputation. */
-const SPAWN_BASE = 0.06
-const SPAWN_PER_REP = 0.24
+const SPAWN_BASE = 0.18
+const SPAWN_PER_REP = 0.30
 
 const REP_LOSS_ON_WALKOUT = 3
 const SAT_LOSS_ON_WALKOUT = 2
