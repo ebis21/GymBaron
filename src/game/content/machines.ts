@@ -1,0 +1,18 @@
+import type { MachineType, MachineTypeId } from '../types'
+
+export const MACHINE_TYPES: MachineType[] = [
+  { id: 'dumbbells',   name: 'Hantle',               price: 350,  powerPerDay: 2,  workoutMs: 12_000, satisfaction: 6,  wearPerUse: 0.6, repairCost: 90,  minLevel: 1, xpPerUse: 4 },
+  { id: 'bench',       name: 'Ławka płaska',         price: 420,  powerPerDay: 3,  workoutMs: 15_000, satisfaction: 8,  wearPerUse: 0.8, repairCost: 110, minLevel: 1, xpPerUse: 5 },
+  { id: 'treadmill',   name: 'Bieżnia',              price: 600,  powerPerDay: 12, workoutMs: 20_000, satisfaction: 11, wearPerUse: 1.4, repairCost: 180, minLevel: 2, xpPerUse: 7 },
+  { id: 'latpulldown', name: 'Wyciąg górny',         price: 780,  powerPerDay: 6,  workoutMs: 18_000, satisfaction: 13, wearPerUse: 1.0, repairCost: 200, minLevel: 3, xpPerUse: 9 },
+  { id: 'bike',        name: 'Rower spinningowy',    price: 540,  powerPerDay: 9,  workoutMs: 17_000, satisfaction: 10, wearPerUse: 1.2, repairCost: 150, minLevel: 4, xpPerUse: 7 },
+  { id: 'cable',       name: 'Brama wielofunkcyjna', price: 1200, powerPerDay: 14, workoutMs: 22_000, satisfaction: 18, wearPerUse: 1.1, repairCost: 320, minLevel: 5, xpPerUse: 13 },
+]
+
+const BY_ID = new Map<MachineTypeId, MachineType>(MACHINE_TYPES.map(m => [m.id, m]))
+
+export function machineType(id: MachineTypeId): MachineType {
+  const t = BY_ID.get(id)
+  if (!t) throw new Error(`Unknown machine type: ${id}`)
+  return t
+}
