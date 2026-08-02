@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { GRID_H, GRID_W } from '../../game/constants'
-import { GRID_OFFSET_X, HALL_D, HALL_W, TILE, WALL_H, tileToWorld } from '../layout'
+import { HALL_D, HALL_W, TILE, WALL_H, tileToWorld } from '../layout'
 import { PALETTE, blockAt, toon } from '../style'
 
 /** Checkerboard floor. Two warm tones, no texture file, reads from any height. */
@@ -30,15 +30,6 @@ function buildFloor(): THREE.Group {
       group.add(tile)
     }
   }
-
-  // A teal training mat down the equipment floor, the way a real gym zones it.
-  const mat = new THREE.Mesh(
-    new THREE.BoxGeometry(GRID_W * TILE - TILE, 0.06, TILE * 1.4),
-    toon(PALETTE.matDark),
-  )
-  mat.position.set(GRID_OFFSET_X, 0.02, 0)
-  mat.receiveShadow = true
-  group.add(mat)
 
   return group
 }

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useGameStore } from './store/gameStore'
 import type { PlacedKind } from './game/build'
+import type { ClientRarity } from './game/types'
 import { entryFee } from './game/economy'
 import { machineType } from './game/content/machines'
 import { decorType } from './game/content/decor'
@@ -16,6 +17,14 @@ import WelcomeBack from './ui/WelcomeBack'
 import { money } from './ui/format'
 
 type Tab = 'gym' | 'shop' | 'stats'
+
+const RARITY_NAME: Record<ClientRarity, string> = {
+  common: 'Zwykły',
+  rare: 'Rzadki',
+  epic: 'Epicki',
+  legend: 'Legendarny',
+  influencer: 'Influencer',
+}
 
 interface Selection {
   kind: PlacedKind
@@ -162,10 +171,12 @@ export default function App() {
       return { label: 'Brak wolnej maszyny', hint: '', enabled: false, run: () => {} }
     }
 
-    const fee = entryFee(free.type, client.kind)
+    const fee = entryFee(free.type, client.kind, client.rarity)
+    const rarityLabel = RARITY_NAME[client.rarity]
+    const base = client.kind === 'member' ? 'Członek — 90% zniżki' : 'Przechodzień'
     return {
       label: `Skanuj +${money(fee)}`,
-      hint: client.kind === 'member' ? 'Członek — 90% zniżki' : 'Przechodzień',
+      hint: client.rarity === 'common' ? base : `${base} · ${rarityLabel}`,
       enabled: true,
       run: () => scan(focus.clientUid),
     }

@@ -1,13 +1,15 @@
 import * as THREE from 'three'
 import type { Decor, GameState, Machine, MachineTypeId, Wall } from '../game/types'
 import { GRID_H, GRID_W } from '../game/constants'
+import { PATIENCE_MS } from '../game/constants'
 import { tileOccupant, type PlacedKind } from '../game/build'
 import { buildHall } from './models/floor'
-import { buildDecor, buildWallSegment } from './models/decor'
+import { buildDecor, buildWallSegment, WALL_THICK } from './models/decor'
 import { buildGhost, buildMachine } from './models/machines'
 import { animate, animateWorkout, buildNpc, buildPlayer, type Rig } from './models/character'
 import { Controls } from './controls'
 import {
+  DOOR_QUEUE_ANCHOR,
   HALL_D,
   HALL_W,
   REACH,
@@ -16,6 +18,7 @@ import {
   queueSpot,
   tileToWorld,
   worldToTile,
+  type QueueAnchor,
 } from './layout'
 import { PALETTE, toon } from './style'
 
@@ -59,6 +62,38 @@ interface MachineView {
 interface NpcView {
   rig: Rig
   seed: number
+  /** Countdown-of-patience bar, shown only while the client is queueing. */
+  bar: THREE.Group
+  barFill: THREE.Mesh
+}
+
+const BAR_WIDTH = 0.62
+const BAR_FULL = new THREE.Color(PALETTE.ghost)
+const BAR_EMPTY = new THREE.Color(PALETTE.ghostBad)
+
+function buildPatienceBar(): { group: THREE.Group; fill: THREE.Mesh } {
+  const group = new THREE.Group()
+
+  const bg = new THREE.Mesh(
+    new THREE.PlaneGeometry(BAR_WIDTH + 0.06, 0.16),
+    new THREE.MeshBasicMaterial({ color: '#2b2438', depthTest: false }),
+  )
+  group.add(bg)
+
+  // Geometry offset so the mesh spans 0..BAR_WIDTH in local space — scaling
+  // it then drains the bar from the right instead of squeezing both edges in.
+  const fillGeometry = new THREE.PlaneGeometry(BAR_WIDTH, 0.12)
+  fillGeometry.translate(BAR_WIDTH / 2, 0, 0)
+  const fill = new THREE.Mesh(
+    fillGeometry,
+    new THREE.MeshBasicMaterial({ color: PALETTE.ghost, depthTest: false }),
+  )
+  fill.position.set(-BAR_WIDTH / 2, 0, 0.001)
+  group.add(fill)
+
+  group.renderOrder = 10
+  group.visible = false
+  return { group, fill }
 }
 
 /**
@@ -299,9 +334,19 @@ export class GymScene {
     }
   }
 
+  /** Where the queue forms: in front of the reception desk, if one is placed. */
+  private queueAnchor(state: GameState): QueueAnchor {
+    const desk = state.decor.find(d => d.type === 'reception')
+    if (!desk) return DOOR_QUEUE_ANCHOR
+
+    const at = tileToWorld(desk.x, desk.y)
+    return { x: at.x, z: at.z, angle: (desk.rotation * Math.PI) / 2 }
+  }
+
   private syncNpcs(state: GameState): void {
     const seen = new Set<string>()
     let queueIndex = 0
+    const anchor = this.queueAnchor(state)
 
     for (const client of state.clients) {
       seen.add(client.uid)
@@ -310,32 +355,50 @@ export class GymScene {
       if (!view) {
         // Derive the look from the uid so a visitor keeps one appearance.
         const seed = Number(client.uid.replace(/\D/g, '')) || 1
-        view = { rig: buildNpc(client.kind, seed), seed }
+        const { group: bar, fill: barFill } = buildPatienceBar()
+        view = { rig: buildNpc(client.kind, client.rarity, seed), seed, bar, barFill }
         this.npcs.set(client.uid, view)
-        this.scene.add(view.rig.root)
+        this.scene.add(view.rig.root, bar)
       }
 
       if (client.phase === 'queue') {
-        const spot = queueSpot(queueIndex)
+        const spot = queueSpot(queueIndex, anchor)
         queueIndex += 1
         view.rig.root.position.set(spot.x, 0, spot.z)
-        view.rig.root.rotation.y = Math.PI / 2
+        view.rig.root.rotation.y = anchor.angle + Math.PI
         animate(view.rig, this.elapsed + view.seed, false)
+
+        const remaining = Math.max(0, 1 - client.phaseMs / PATIENCE_MS)
+        view.bar.visible = true
+        view.bar.position.set(spot.x, 1.6, spot.z)
+        view.barFill.scale.x = Math.max(0.001, remaining)
+        ;(view.barFill.material as THREE.MeshBasicMaterial).color.lerpColors(
+          BAR_EMPTY,
+          BAR_FULL,
+          remaining,
+        )
         continue
       }
+
+      view.bar.visible = false
 
       const machine = state.machines.find(m => m.uid === client.machineUid)
       if (!machine) continue
 
+      // The workout spot sits in front of the machine in its own local space,
+      // so it turns along with the machine instead of staying pinned to a
+      // fixed world direction when the player rotates the equipment.
+      const angle = (machine.rotation * Math.PI) / 2
       const at = tileToWorld(machine.x, machine.y)
-      view.rig.root.position.set(at.x, 0, at.z + 0.55)
-      view.rig.root.rotation.y = Math.PI
+      view.rig.root.position.set(at.x + Math.sin(angle) * 0.55, 0, at.z + Math.cos(angle) * 0.55)
+      view.rig.root.rotation.y = angle + Math.PI
       animateWorkout(view.rig, this.elapsed + view.seed)
     }
 
     for (const [uid, view] of this.npcs) {
       if (seen.has(uid)) continue
       this.scene.remove(view.rig.root)
+      this.scene.remove(view.bar)
       this.npcs.delete(uid)
     }
   }
@@ -470,13 +533,16 @@ export class GymScene {
     if (moving) {
       const step = PLAYER_SPEED * dt
 
-      // If a machine was dropped on top of the player, every candidate
+      // If a machine or wall was dropped on top of the player, every candidate
       // position collides and they would be walled in forever. Standing
       // inside something suspends collision until they are clear of it.
       // Escaping never lets them leave the room, only the object.
-      const trapped = this.hitsMachine(this.playerPos.x, this.playerPos.z)
+      const trappedByMachine = this.hitsMachine(this.playerPos.x, this.playerPos.z)
+      const trappedByWall = this.hitsWall(this.playerPos.x, this.playerPos.z)
       const free = (x: number, z: number) =>
-        this.insideBounds(x, z) && (trapped || !this.hitsMachine(x, z))
+        this.insideBounds(x, z) &&
+        (trappedByMachine || !this.hitsMachine(x, z)) &&
+        (trappedByWall || !this.hitsWall(x, z))
 
       // Resolve each axis on its own so walking into a machine slides along it
       // instead of sticking.
@@ -524,6 +590,30 @@ export class GymScene {
         const hitX = Math.abs(x - at.x) < MACHINE_HALF + PLAYER_RADIUS
         const hitZ = Math.abs(z - at.z) < MACHINE_HALF + PLAYER_RADIUS
         if (hitX && hitZ) return true
+      }
+    }
+
+    return false
+  }
+
+  /**
+   * Overlapping a partition. Walls sit on tile edges rather than tiles, so
+   * each one is checked as its own thin rectangle rather than through the
+   * `blocked` tile set the way machines and decor are.
+   */
+  private hitsWall(x: number, z: number): boolean {
+    const state = this.state
+    if (!state) return false
+
+    const thick = WALL_THICK / 2 + PLAYER_RADIUS
+    const long = TILE / 2 + PLAYER_RADIUS
+
+    for (const wall of state.walls) {
+      const at = tileToWorld(wall.x, wall.y)
+      if (wall.side === 'n') {
+        if (Math.abs(x - at.x) < long && Math.abs(z - (at.z - TILE / 2)) < thick) return true
+      } else {
+        if (Math.abs(x - (at.x - TILE / 2)) < thick && Math.abs(z - at.z) < long) return true
       }
     }
 

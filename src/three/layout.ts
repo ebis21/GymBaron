@@ -40,12 +40,36 @@ export function insideGrid(x: number, y: number): boolean {
   return x >= 0 && y >= 0 && x < GRID_W && y < GRID_H
 }
 
+/** World position and facing of the desk clients queue in front of. */
+export interface QueueAnchor {
+  x: number
+  z: number
+  /** Radians around Y; the direction the queue trails away from the desk. */
+  angle: number
+}
+
 /**
- * Where the nth person in the queue stands. Two short columns rather than one
- * long line, so a full queue still fits in the aisle and stays readable.
+ * Where the nth person in line stands, fanned out in front of the reception
+ * desk rather than parked in a fixed spot the room's layout has no say in.
+ * Two short columns rather than one long line, so a full queue stays
+ * readable, and the whole formation rotates with the desk.
  */
-export function queueSpot(index: number): { x: number; z: number } {
+export function queueSpot(index: number, anchor: QueueAnchor): { x: number; z: number } {
   const column = Math.floor(index / 5)
   const row = index % 5
-  return { x: DOOR_X + column * 1.15, z: -2.4 + row * 1.2 }
+
+  // Local space before rotation: queue trails back along +Z from the desk's
+  // front edge, columns fan out along local X.
+  const localX = (column - 0.5) * 1.15
+  const localZ = TILE * 0.85 + row * 1.2
+
+  const sin = Math.sin(anchor.angle)
+  const cos = Math.cos(anchor.angle)
+  return {
+    x: anchor.x + localX * cos + localZ * sin,
+    z: anchor.z - localX * sin + localZ * cos,
+  }
 }
+
+/** Fallback formation used when no reception desk is placed. */
+export const DOOR_QUEUE_ANCHOR: QueueAnchor = { x: DOOR_X, z: -2.4, angle: 0 }

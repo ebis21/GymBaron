@@ -76,9 +76,16 @@ export type ClientPhase = 'queue' | 'workout'
  */
 export type ClientKind = 'walkin' | 'member'
 
+/**
+ * How much of a catch a client is. Stacks on top of the machine's own
+ * multiplier, so a lucky influencer on top-tier kit is worth a small fortune.
+ */
+export type ClientRarity = 'common' | 'rare' | 'epic' | 'legend' | 'influencer'
+
 export interface Client {
   uid: string
   kind: ClientKind
+  rarity: ClientRarity
   phase: ClientPhase
   phaseMs: number        // ms elapsed in the current phase
   machineUid: string | null

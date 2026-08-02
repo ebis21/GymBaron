@@ -1,5 +1,6 @@
-import type { ClientKind, DayLedger, GameState, MachineTypeId } from './types'
+import type { ClientKind, ClientRarity, DayLedger, GameState, MachineTypeId } from './types'
 import { machineType } from './content/machines'
+import { RARITY_MULTIPLIER } from './content/rarity'
 import {
   DAILY_RENT,
   ENTRY_FEE_BASE,
@@ -79,8 +80,8 @@ export function gymClass(state: GameState): number {
  * the multiplier, which is why the fee is charged at scan time rather than on
  * arrival — that is the moment the assignment is known.
  */
-export function entryFee(typeId: MachineTypeId, kind: ClientKind): number {
-  const base = ENTRY_FEE_BASE * machineType(typeId).revenueMultiplier
+export function entryFee(typeId: MachineTypeId, kind: ClientKind, rarity: ClientRarity): number {
+  const base = ENTRY_FEE_BASE * machineType(typeId).revenueMultiplier * RARITY_MULTIPLIER[rarity]
   return kind === 'member' ? base * MEMBER_DISCOUNT : base
 }
 
