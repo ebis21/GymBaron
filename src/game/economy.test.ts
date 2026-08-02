@@ -18,6 +18,7 @@ const machine = (uid: string, type: Machine['type']): Machine => ({
   type,
   x: 0,
   y: 0,
+  rotation: 0,
   durability: 100,
   occupiedBy: null,
 })
@@ -59,15 +60,28 @@ describe('gymClass', () => {
     expect(gymClass(s)).toBeCloseTo(1.9, 5)
   })
 
-  it('averages across the floor', () => {
+  it('adds each machine bonus on top of the floor', () => {
     const s = { ...base(), machines: [machine('m1', 'dumbbells'), machine('m2', 'cable')] }
-    expect(gymClass(s)).toBeCloseTo((1.1 + 1.9) / 2, 5)
+    expect(gymClass(s)).toBeCloseTo(1 + 0.1 + 0.9, 5)
   })
 
-  it('drops when a weaker machine joins a strong floor', () => {
+  it('rises when any machine joins, even a weak one', () => {
     const strong = { ...base(), machines: [machine('m1', 'cable')] }
-    const diluted = { ...strong, machines: [...strong.machines, machine('m2', 'dumbbells')] }
-    expect(gymClass(diluted)).toBeLessThan(gymClass(strong))
+    const bigger = { ...strong, machines: [...strong.machines, machine('m2', 'dumbbells')] }
+    expect(gymClass(bigger)).toBeGreaterThan(gymClass(strong))
+  })
+
+  it('turns a 1.4 gym into a 1.65 gym when a 1.25 machine arrives', () => {
+    // The player's own worked example: a new machine contributes its bonus,
+    // it does not replace the figure the gym already had.
+    const before = { ...base(), machines: [machine('m1', 'bike')] }
+    const after = { ...before, machines: [...before.machines, machine('m2', 'bench')] }
+    expect(gymClass(before)).toBeCloseTo(1.4, 5)
+    expect(gymClass(after)).toBeCloseTo(1.65, 5)
+  })
+
+  it('never drops below 1.0', () => {
+    expect(gymClass(base())).toBe(1)
   })
 })
 

@@ -1,37 +1,41 @@
-import type { GameState, MachineTypeId } from '../game/types'
+import type { DecorTypeId, GameState, MachineTypeId } from '../game/types'
 import { MACHINE_TYPES } from '../game/content/machines'
+import { DECOR_TYPES, WALL_PRICE } from '../game/content/decor'
 import { ENTRY_FEE_BASE } from '../game/constants'
 import { assetFor } from '../assets/assetFor'
 import { money } from './format'
 
 interface Props {
   state: GameState
-  onSelect: (type: MachineTypeId) => void
+  onBuyMachine: (type: MachineTypeId) => void
+  onBuyDecor: (type: DecorTypeId) => void
+  onBuyWall: () => void
 }
 
-export default function ShopScreen({ state, onSelect }: Props) {
-  const full = state.machines.length >= 48
+/**
+ * Nothing bought here lands on the floor. Purchases go into the bag and the
+ * player decides where they stand in build mode — so the shop never has to
+ * care whether there is room.
+ */
+export default function ShopScreen({ state, onBuyMachine, onBuyDecor, onBuyWall }: Props) {
+  const shortfall = (price: number) =>
+    state.cash < price ? `Brakuje ${money(price - state.cash)}` : null
+
+  const wallReason = shortfall(WALL_PRICE)
 
   return (
     <div className="screen">
-      <h2 className="section-title">Sklep ze sprzętem</h2>
+      <h2 className="section-title">Sprzęt</h2>
       <p className="hint">
-        Kup maszynę, wróć do sali i stań na wolnym polu, żeby ją postawić.
-        Mnożnik podbija wejściówkę na tej maszynie, a przez średnią całej sali
-        — klasę siłowni, czyli cenę każdego karnetu.
+        Mnożnik podbija wejściówkę na danej maszynie, a jego nadwyżka ponad 1,0
+        dokłada się do klasy siłowni, czyli do ceny każdego karnetu. Kupione
+        rzeczy trafiają do ekwipunku.
       </p>
 
       <div className="shop-list">
         {MACHINE_TYPES.map(m => {
-          const tooLowLevel = state.level < m.minLevel
-          const tooExpensive = state.cash < m.price
-          const reason = tooLowLevel
-            ? `Wymaga poziomu ${m.minLevel}`
-            : tooExpensive
-              ? `Brakuje ${money(m.price - state.cash)}`
-              : full
-                ? 'Brak wolnego miejsca w sali'
-                : null
+          const reason =
+            state.level < m.minLevel ? `Wymaga poziomu ${m.minLevel}` : shortfall(m.price)
           const Icon = assetFor(m.id)
 
           return (
@@ -44,16 +48,64 @@ export default function ShopScreen({ state, onSelect }: Props) {
                   Naprawa {money(m.repairCost)}
                 </div>
                 <div className="shop-mult">
-                  ×{m.revenueMultiplier.toFixed(2)} · wejściówka {money(ENTRY_FEE_BASE * m.revenueMultiplier)}
+                  ×{m.revenueMultiplier.toFixed(2)} · wejściówka{' '}
+                  {money(ENTRY_FEE_BASE * m.revenueMultiplier)} · klasa +
+                  {(m.revenueMultiplier - 1).toFixed(2)}
                 </div>
                 {reason && <div className="shop-reason">{reason}</div>}
               </div>
-              <button className="btn" disabled={reason !== null} onClick={() => onSelect(m.id)}>
+              <button className="btn" disabled={reason !== null} onClick={() => onBuyMachine(m.id)}>
                 {money(m.price)}
               </button>
             </div>
           )
         })}
+      </div>
+
+      <h2 className="section-title" style={{ marginTop: 20 }}>
+        Meble
+      </h2>
+      <p className="hint">Nic nie zarabiają i zajmują pole w sali — kupujesz je dla wyglądu.</p>
+
+      <div className="shop-list">
+        {DECOR_TYPES.map(d => {
+          const reason = shortfall(d.price)
+          return (
+            <div className={`shop-row${reason ? ' locked' : ''}`} key={d.id}>
+              <div className="inv-glyph">{d.name.charAt(0)}</div>
+              <div className="shop-info">
+                <div className="shop-name">{d.name}</div>
+                {reason && <div className="shop-reason">{reason}</div>}
+              </div>
+              <button className="btn" disabled={reason !== null} onClick={() => onBuyDecor(d.id)}>
+                {money(d.price)}
+              </button>
+            </div>
+          )
+        })}
+      </div>
+
+      <h2 className="section-title" style={{ marginTop: 20 }}>
+        Ścianki
+      </h2>
+      <p className="hint">
+        Stają na krawędziach kafli, więc nie zabierają miejsca pod sprzęt. W
+        trybie budowania włącz „Ścianki" i klikaj krawędzie; ponowne kliknięcie
+        zdejmuje ściankę z powrotem do ekwipunku.
+      </p>
+
+      <div className="shop-list">
+        <div className={`shop-row${wallReason ? ' locked' : ''}`}>
+          <div className="inv-glyph">Ś</div>
+          <div className="shop-info">
+            <div className="shop-name">Ścianka działowa</div>
+            <div className="shop-meta">Jeden odcinek na jedną krawędź</div>
+            {wallReason && <div className="shop-reason">{wallReason}</div>}
+          </div>
+          <button className="btn" disabled={wallReason !== null} onClick={onBuyWall}>
+            {money(WALL_PRICE)}
+          </button>
+        </div>
       </div>
     </div>
   )

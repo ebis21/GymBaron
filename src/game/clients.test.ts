@@ -5,7 +5,7 @@ import { MAX_QUEUE, PATIENCE_MS } from './constants'
 import type { Client, GameState, Machine, Member } from './types'
 
 const machine = (over: Partial<Machine> = {}): Machine =>
-  ({ uid: 'm1', type: 'dumbbells', x: 0, y: 0, durability: 100, occupiedBy: null, ...over })
+  ({ uid: 'm1', type: 'dumbbells', x: 0, y: 0, rotation: 0, durability: 100, occupiedBy: null, ...over })
 
 const client = (over: Partial<Client> = {}): Client => ({
   uid: 'c1',

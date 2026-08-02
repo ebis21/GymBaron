@@ -11,6 +11,7 @@ const machine = (uid: string, type: Machine['type']): Machine => ({
   type,
   x: 0,
   y: 0,
+  rotation: 0,
   durability: 100,
   occupiedBy: null,
 })

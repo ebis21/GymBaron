@@ -1,14 +1,25 @@
 import { create } from 'zustand'
-import type { GameState, MachineTypeId } from '../game/types'
+import type { DecorTypeId, GameState, MachineTypeId } from '../game/types'
 import { initialState } from '../game/economy'
 import { machineType } from '../game/content/machines'
+import { decorType, WALL_PRICE } from '../game/content/decor'
+import {
+  addToInventory,
+  movePlaced,
+  placeFromInventory,
+  placeWall,
+  removeWall,
+  rotatePlaced,
+  storePlaced,
+  type PlacedKind,
+} from '../game/build'
 import { scanClient } from '../game/clients'
 import { nextDay } from '../game/dayClose'
 import { advance } from '../game/tick'
 import { serialize, deserialize } from '../game/save'
 import { settleOffline } from '../game/offline'
 import { loadRaw, saveRaw } from './storage'
-import { AUTOSAVE_MS, GRID_H, GRID_W, SAVE_KEY } from '../game/constants'
+import { AUTOSAVE_MS, SAVE_KEY } from '../game/constants'
 
 export interface WelcomeBack {
   earned: number
@@ -19,7 +30,15 @@ interface GameStore {
   state: GameState
   welcomeBack: WelcomeBack | null
   ready: boolean
-  buyMachine: (type: MachineTypeId, x: number, y: number) => void
+  buyMachine: (type: MachineTypeId) => void
+  buyDecor: (type: DecorTypeId) => void
+  buyWall: () => void
+  placeItem: (itemUid: string, x: number, y: number) => void
+  placeWallEdge: (itemUid: string, x: number, y: number, side: 'n' | 's' | 'e' | 'w') => void
+  storeObject: (kind: PlacedKind, uid: string) => void
+  rotateObject: (kind: PlacedKind, uid: string) => void
+  moveObject: (kind: PlacedKind, uid: string, x: number, y: number) => void
+  demolishWall: (uid: string) => void
   scan: (clientUid: string) => void
   repair: (machineUid: string) => void
   advanceDay: () => void
@@ -38,6 +57,24 @@ let visibilityBound = false
 export const useGameStore = create<GameStore>((set, get) => {
   const persist = (state: GameState) => {
     void saveRaw(SAVE_KEY, serialize({ ...state, lastSeenAt: Date.now() }))
+  }
+
+  /** Money out of the till, recorded as spend. */
+  const charge = (state: GameState, price: number): GameState => ({
+    ...state,
+    cash: state.cash - price,
+    stats: { ...state.stats, totalSpent: state.stats.totalSpent + price },
+  })
+
+  /**
+   * Adopts a new state and saves it. The build functions return the state
+   * unchanged when they refuse an action, so an identity check is all it takes
+   * to skip a pointless render and write.
+   */
+  const commit = (next: GameState) => {
+    if (next === get().state) return
+    set({ state: next })
+    persist(next)
   }
 
   const frame = (now: number) => {
@@ -119,29 +156,41 @@ export const useGameStore = create<GameStore>((set, get) => {
 
     stop: stopLoop,
 
-    buyMachine: (type, x, y) => {
+    buyMachine: type => {
       const state = get().state
-      if (state.gameOver) return
-      if (x < 0 || y < 0 || x >= GRID_W || y >= GRID_H) return
-      if (state.machines.some(m => m.x === x && m.y === y)) return
-
       const spec = machineType(type)
-      if (state.level < spec.minLevel) return
-      if (state.cash < spec.price) return
+      if (state.gameOver || state.level < spec.minLevel || state.cash < spec.price) return
 
-      const next: GameState = {
-        ...state,
-        cash: state.cash - spec.price,
-        nextUid: state.nextUid + 1,
-        machines: [
-          ...state.machines,
-          { uid: `m${state.nextUid}`, type, x, y, durability: 100, occupiedBy: null },
-        ],
-        stats: { ...state.stats, totalSpent: state.stats.totalSpent + spec.price },
-      }
-      set({ state: next })
-      persist(next)
+      commit(addToInventory(charge(state, spec.price), { kind: 'machine', type }))
     },
+
+    buyDecor: type => {
+      const state = get().state
+      const spec = decorType(type)
+      if (state.gameOver || state.cash < spec.price) return
+
+      commit(addToInventory(charge(state, spec.price), { kind: 'decor', type }))
+    },
+
+    buyWall: () => {
+      const state = get().state
+      if (state.gameOver || state.cash < WALL_PRICE) return
+
+      commit(addToInventory(charge(state, WALL_PRICE), { kind: 'wall' }))
+    },
+
+    placeItem: (itemUid, x, y) => commit(placeFromInventory(get().state, itemUid, x, y)),
+
+    placeWallEdge: (itemUid, x, y, side) =>
+      commit(placeWall(get().state, itemUid, x, y, side)),
+
+    storeObject: (kind, uid) => commit(storePlaced(get().state, kind, uid)),
+
+    rotateObject: (kind, uid) => commit(rotatePlaced(get().state, kind, uid)),
+
+    moveObject: (kind, uid, x, y) => commit(movePlaced(get().state, kind, uid, x, y)),
+
+    demolishWall: uid => commit(removeWall(get().state, uid)),
 
     scan: clientUid => {
       const state = get().state

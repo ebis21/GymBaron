@@ -25,6 +25,9 @@ function isGameState(v: unknown): v is GameState {
     typeof s.dayMs === 'number' &&
     typeof s.dayEnded === 'boolean' &&
     Array.isArray(s.machines) &&
+    Array.isArray(s.decor) &&
+    Array.isArray(s.walls) &&
+    Array.isArray(s.inventory) &&
     Array.isArray(s.clients) &&
     Array.isArray(s.members) &&
     typeof s.today === 'object' && s.today !== null &&

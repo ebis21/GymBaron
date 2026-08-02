@@ -20,14 +20,53 @@ export interface MachineType {
   revenueMultiplier: number
 }
 
+/** Quarter turns clockwise. Everything on the grid snaps to these four. */
+export type Rotation = 0 | 1 | 2 | 3
+
 export interface Machine {
   uid: string
   type: MachineTypeId
   x: number
   y: number
+  rotation: Rotation
   durability: number        // 0-100; 0 means out of service
   occupiedBy: string | null // client uid
 }
+
+export type DecorTypeId = 'plant' | 'reception' | 'locker' | 'watercooler'
+
+/**
+ * Furniture that earns nothing. It still occupies a tile, so the player trades
+ * floor space for the look of the place.
+ */
+export interface Decor {
+  uid: string
+  type: DecorTypeId
+  x: number
+  y: number
+  rotation: Rotation
+}
+
+/**
+ * Walls sit on tile edges rather than in tiles, so a partition costs no floor
+ * space. Only north and west edges are ever stored — the south edge of a tile
+ * is the north edge of its neighbour, and one name per edge means a wall can
+ * never be built twice in the same place.
+ */
+export type WallSide = 'n' | 'w'
+
+export interface Wall {
+  uid: string
+  x: number
+  y: number
+  side: WallSide
+}
+
+/** Owned but not placed. Machines keep their wear while boxed up. */
+export type InventoryItem =
+  | { uid: string; kind: 'machine'; type: MachineTypeId; durability: number }
+  | { uid: string; kind: 'decor'; type: DecorTypeId }
+  | { uid: string; kind: 'wall' }
 
 export type ClientPhase = 'queue' | 'workout'
 
@@ -97,6 +136,9 @@ export interface GameState {
   level: number
   xp: number
   machines: Machine[]
+  decor: Decor[]
+  walls: Wall[]
+  inventory: InventoryItem[]
   clients: Client[]
   members: Member[]
   seed: number
