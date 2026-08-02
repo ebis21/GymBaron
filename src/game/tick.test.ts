@@ -12,9 +12,27 @@ describe('advance', () => {
     expect(advance(initialState(9, 0), 5_000).elapsedMs).toBe(5_000)
   })
 
-  it('counts whole days only', () => {
-    expect(advance(initialState(9, 0), DAY_MS).stats.daysPassed).toBe(1)
-    expect(advance(initialState(9, 0), DAY_MS - 1).stats.daysPassed).toBe(0)
+  it('tracks the position inside the day', () => {
+    expect(advance(initialState(9, 0), 5_000).dayMs).toBe(5_000)
+  })
+
+  it('never runs the clock past closing time', () => {
+    const s = advance(initialState(9, 0), DAY_MS * 5)
+    expect(s.dayMs).toBe(DAY_MS)
+    expect(s.day).toBe(1)
+  })
+
+  it('closes the day exactly at 20:00 and then stands still', () => {
+    const closed = advance(initialState(9, 0), DAY_MS)
+    expect(closed.dayEnded).toBe(true)
+    expect(closed.dayReport).not.toBeNull()
+    expect(advance(closed, 60_000)).toEqual(closed)
+  })
+
+  it('leaves cash alone until the day closes', () => {
+    const midday = advance(initialState(9, 0), DAY_MS - 1)
+    expect(midday.dayEnded).toBe(false)
+    expect(midday.cash).toBeGreaterThanOrEqual(initialState(9, 0).cash)
   })
 
   it('splits a long step so results match many small steps', () => {

@@ -3,6 +3,7 @@ import type { GameState, MachineTypeId } from '../game/types'
 import { initialState } from '../game/economy'
 import { machineType } from '../game/content/machines'
 import { scanClient } from '../game/clients'
+import { nextDay } from '../game/dayClose'
 import { advance } from '../game/tick'
 import { serialize, deserialize } from '../game/save'
 import { settleOffline } from '../game/offline'
@@ -21,6 +22,7 @@ interface GameStore {
   buyMachine: (type: MachineTypeId, x: number, y: number) => void
   scan: (clientUid: string) => void
   repair: (machineUid: string) => void
+  advanceDay: () => void
   dismissWelcome: () => void
   restart: () => void
   start: () => void
@@ -46,10 +48,18 @@ export const useGameStore = create<GameStore>((set, get) => {
     if (dtMs <= 0) return
 
     const current = get().state
-    if (current.gameOver) return
+    if (current.gameOver || current.dayEnded) return
 
     const next = advance(current, dtMs)
     set({ state: next })
+
+    // Closing time is worth a save of its own — the receipt and the bill are
+    // the one moment a player would hate to replay.
+    if (next.dayEnded) {
+      sinceSaveMs = 0
+      persist(next)
+      return
+    }
 
     sinceSaveMs += dtMs
     if (sinceSaveMs >= AUTOSAVE_MS) {
@@ -157,6 +167,15 @@ export const useGameStore = create<GameStore>((set, get) => {
         ),
         stats: { ...state.stats, totalSpent: state.stats.totalSpent + cost },
       }
+      set({ state: next })
+      persist(next)
+    },
+
+    advanceDay: () => {
+      const next = nextDay(get().state)
+      if (next === get().state) return
+
+      sinceSaveMs = 0
       set({ state: next })
       persist(next)
     },

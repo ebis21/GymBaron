@@ -1,5 +1,6 @@
 import type { GameState, MachineTypeId } from '../game/types'
 import { MACHINE_TYPES } from '../game/content/machines'
+import { ENTRY_FEE_BASE } from '../game/constants'
 import { assetFor } from '../assets/assetFor'
 import { money } from './format'
 
@@ -15,8 +16,9 @@ export default function ShopScreen({ state, onSelect }: Props) {
     <div className="screen">
       <h2 className="section-title">Sklep ze sprzętem</h2>
       <p className="hint">
-        Kup maszynę, potem wskaż dla niej wolne pole w sali. Każda maszyna
-        kosztuje prąd co dzień i zużywa się przy każdym treningu.
+        Kup maszynę, wróć do sali i stań na wolnym polu, żeby ją postawić.
+        Mnożnik podbija wejściówkę na tej maszynie, a przez średnią całej sali
+        — klasę siłowni, czyli cenę każdego karnetu.
       </p>
 
       <div className="shop-list">
@@ -40,6 +42,9 @@ export default function ShopScreen({ state, onSelect }: Props) {
                 <div className="shop-meta">
                   Prąd {money(m.powerPerDay)}/dzień · Trening {Math.round(m.workoutMs / 1000)} s ·
                   Naprawa {money(m.repairCost)}
+                </div>
+                <div className="shop-mult">
+                  ×{m.revenueMultiplier.toFixed(2)} · wejściówka {money(ENTRY_FEE_BASE * m.revenueMultiplier)}
                 </div>
                 {reason && <div className="shop-reason">{reason}</div>}
               </div>

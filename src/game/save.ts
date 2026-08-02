@@ -21,8 +21,13 @@ function isGameState(v: unknown): v is GameState {
     typeof s.lastSeenAt === 'number' &&
     typeof s.gameOver === 'boolean' &&
     typeof s.nextUid === 'number' &&
+    typeof s.day === 'number' &&
+    typeof s.dayMs === 'number' &&
+    typeof s.dayEnded === 'boolean' &&
     Array.isArray(s.machines) &&
     Array.isArray(s.clients) &&
+    Array.isArray(s.members) &&
+    typeof s.today === 'object' && s.today !== null &&
     typeof s.stats === 'object' && s.stats !== null
   )
 }
