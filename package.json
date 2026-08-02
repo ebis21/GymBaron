@@ -17,8 +17,10 @@
   "dependencies": {
     "@capacitor/core": "^8.5.0",
     "@capacitor/preferences": "^8.0.1",
+    "@types/three": "^0.185.3",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
+    "three": "^0.185.1",
     "zustand": "^5.0.14"
   },
   "devDependencies": {

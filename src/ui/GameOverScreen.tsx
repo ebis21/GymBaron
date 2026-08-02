@@ -18,7 +18,7 @@ export default function GameOverScreen({ state, onRestart }: Props) {
         <div className="stat-grid">
           <div className="stat-card">
             <div className="k">Przetrwałeś</div>
-            <div className="v">{state.stats.daysPassed} dni</div>
+            <div className="v">{state.day} dni</div>
           </div>
           <div className="stat-card">
             <div className="k">Saldo</div>
