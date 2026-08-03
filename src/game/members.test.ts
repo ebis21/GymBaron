@@ -11,6 +11,7 @@ const machine = (uid: string, type: Machine['type']): Machine => ({
   type,
   x: 0,
   y: 0,
+  rotation: 0,
   durability: 100,
   occupiedBy: null,
 })
@@ -141,7 +142,7 @@ describe('applyChurn', () => {
       day: 5,
       satisfaction: 0,
       clients: [
-        { uid: 'c1', kind: 'member', phase: 'queue', phaseMs: 0, machineUid: null, memberUid: 'p49' },
+        { uid: 'c1', kind: 'member', rarity: 'common', phase: 'queue', phaseMs: 0, machineUid: null, memberUid: 'p49' },
       ],
     })
     const { state } = applyChurn(s)

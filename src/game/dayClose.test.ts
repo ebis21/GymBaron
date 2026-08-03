@@ -11,6 +11,7 @@ const machine = (uid: string, type: Machine['type'], occupiedBy: string | null =
   type,
   x: 0,
   y: 0,
+  rotation: 0,
   durability: 100,
   occupiedBy,
 })
@@ -110,7 +111,7 @@ describe('nextDay', () => {
     const s = nextDay({
       ...closed(),
       clients: [
-        { uid: 'c1', kind: 'walkin', phase: 'workout', phaseMs: 0, machineUid: 'm1', memberUid: null },
+        { uid: 'c1', kind: 'walkin', rarity: 'common', phase: 'workout', phaseMs: 0, machineUid: 'm1', memberUid: null },
       ],
     })
     expect(s.clients).toEqual([])

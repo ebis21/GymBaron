@@ -1,19 +1,35 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useGameStore } from './store/gameStore'
-import type { MachineTypeId } from './game/types'
+import type { PlacedKind } from './game/build'
+import type { ClientRarity } from './game/types'
 import { entryFee } from './game/economy'
 import { machineType } from './game/content/machines'
+import { decorType } from './game/content/decor'
 import GymScene3D from './three/GymScene3D'
-import type { Focus } from './three/scene'
+import type { Focus, PickResult } from './three/scene'
 import TopBar from './ui/TopBar'
 import ShopScreen from './ui/ShopScreen'
 import StatsScreen from './ui/StatsScreen'
 import GameOverScreen from './ui/GameOverScreen'
 import DayReportModal from './ui/DayReportModal'
+import InventoryPanel from './ui/InventoryPanel'
 import WelcomeBack from './ui/WelcomeBack'
 import { money } from './ui/format'
 
 type Tab = 'gym' | 'shop' | 'stats'
+
+const RARITY_NAME: Record<ClientRarity, string> = {
+  common: 'Zwykły',
+  rare: 'Rzadki',
+  epic: 'Epicki',
+  legend: 'Legendarny',
+  influencer: 'Influencer',
+}
+
+interface Selection {
+  kind: PlacedKind
+  uid: string
+}
 
 interface Action {
   label: string
@@ -28,20 +44,32 @@ export default function App() {
   const ready = useGameStore(s => s.ready)
   const start = useGameStore(s => s.start)
   const stop = useGameStore(s => s.stop)
-  const buyMachine = useGameStore(s => s.buyMachine)
   const scan = useGameStore(s => s.scan)
   const repair = useGameStore(s => s.repair)
   const restart = useGameStore(s => s.restart)
   const dismissWelcome = useGameStore(s => s.dismissWelcome)
-
   const advanceDay = useGameStore(s => s.advanceDay)
 
+  const buyMachine = useGameStore(s => s.buyMachine)
+  const buyDecor = useGameStore(s => s.buyDecor)
+  const buyWall = useGameStore(s => s.buyWall)
+  const placeItem = useGameStore(s => s.placeItem)
+  const placeWallEdge = useGameStore(s => s.placeWallEdge)
+  const storeObject = useGameStore(s => s.storeObject)
+  const rotateObject = useGameStore(s => s.rotateObject)
+  const moveObject = useGameStore(s => s.moveObject)
+  const demolishWall = useGameStore(s => s.demolishWall)
+
   const [tab, setTab] = useState<Tab>('gym')
-  // Which machine the player bought and still has to place. Purely a UI
-  // concern — the engine only ever sees a completed purchase.
-  const [pending, setPending] = useState<MachineTypeId | null>(null)
-  // What the player is standing next to, reported by the 3D scene.
   const [focus, setFocus] = useState<Focus>(null)
+
+  const [buildMode, setBuildMode] = useState(false)
+  const [wallMode, setWallMode] = useState(false)
+  const [selected, setSelected] = useState<Selection | null>(null)
+  /** Tile the player tapped, waiting for something out of the bag. */
+  const [placingOn, setPlacingOn] = useState<{ x: number; y: number } | null>(null)
+  /** Object picked up for relocation; the next tile tap drops it. */
+  const [moving, setMoving] = useState<Selection | null>(null)
 
   const onFocus = useCallback((next: Focus) => setFocus(next), [])
 
@@ -49,6 +77,51 @@ export default function App() {
     start()
     return stop
   }, [start, stop])
+
+  const leaveBuildMode = () => {
+    setBuildMode(false)
+    setWallMode(false)
+    setSelected(null)
+    setMoving(null)
+    setPlacingOn(null)
+  }
+
+  /**
+   * One click, several possible meanings. Order matters: a pending move beats
+   * everything, then wall work, then selecting what is already there, and only
+   * an otherwise-empty tile opens the bag.
+   */
+  const onPick = useCallback(
+    (pick: PickResult) => {
+      if (!pick.tile) return
+
+      if (moving) {
+        moveObject(moving.kind, moving.uid, pick.tile.x, pick.tile.y)
+        setSelected(moving)
+        setMoving(null)
+        return
+      }
+
+      if (wallMode) {
+        if (pick.wallUid) {
+          demolishWall(pick.wallUid)
+          return
+        }
+        const wall = state.inventory.find(i => i.kind === 'wall')
+        if (wall && pick.edge) placeWallEdge(wall.uid, pick.edge.x, pick.edge.y, pick.edge.side)
+        return
+      }
+
+      if (pick.object) {
+        setSelected(pick.object)
+        return
+      }
+
+      setSelected(null)
+      setPlacingOn(pick.tile)
+    },
+    [moving, wallMode, state.inventory, moveObject, demolishWall, placeWallEdge],
+  )
 
   if (!ready) {
     return (
@@ -60,31 +133,22 @@ export default function App() {
     )
   }
 
-  const selectMachine = (type: MachineTypeId) => {
-    setPending(type)
-    setTab('gym')
-  }
+  const selectedMachine =
+    selected?.kind === 'machine' ? state.machines.find(m => m.uid === selected.uid) : undefined
+  const selectedDecor =
+    selected?.kind === 'decor' ? state.decor.find(d => d.uid === selected.uid) : undefined
 
-  /**
-   * Turns whatever the player is standing next to into the single button in
-   * the bottom-right corner. One focus, one action — no menus in the world.
-   */
+  const selectedName = selectedMachine
+    ? machineType(selectedMachine.type).name
+    : selectedDecor
+      ? decorType(selectedDecor.type).name
+      : null
+
+  const wallsInBag = state.inventory.filter(i => i.kind === 'wall').length
+
+  /** The proximity button, shown only outside build mode. */
   const action = ((): Action | null => {
-    if (!focus || state.dayEnded) return null
-
-    if (focus.kind === 'place') {
-      if (!pending) return null
-      const spec = machineType(pending)
-      return {
-        label: 'Postaw tutaj',
-        hint: spec.name,
-        enabled: true,
-        run: () => {
-          buyMachine(pending, focus.x, focus.y)
-          setPending(null)
-        },
-      }
-    }
+    if (!focus || state.dayEnded || buildMode) return null
 
     if (focus.kind === 'repair') {
       const machine = state.machines.find(m => m.uid === focus.machineUid)
@@ -107,10 +171,12 @@ export default function App() {
       return { label: 'Brak wolnej maszyny', hint: '', enabled: false, run: () => {} }
     }
 
-    const fee = entryFee(free.type, client.kind)
+    const fee = entryFee(free.type, client.kind, client.rarity)
+    const rarityLabel = RARITY_NAME[client.rarity]
+    const base = client.kind === 'member' ? 'Członek — 90% zniżki' : 'Przechodzień'
     return {
       label: `Skanuj +${money(fee)}`,
-      hint: client.kind === 'member' ? 'Członek — 90% zniżki' : 'Przechodzień',
+      hint: client.rarity === 'common' ? base : `${base} · ${rarityLabel}`,
       enabled: true,
       run: () => scan(focus.clientUid),
     }
@@ -118,22 +184,92 @@ export default function App() {
 
   return (
     <div className="app">
-      <GymScene3D state={state} pending={pending} onFocus={onFocus} />
+      <GymScene3D
+        state={state}
+        buildMode={buildMode}
+        selected={selected}
+        preview={null}
+        onFocus={onFocus}
+        onPick={onPick}
+      />
 
       <TopBar state={state} />
 
-      {pending && (
-        <div className="carry-banner">
-          Niesiesz: <strong>{machineType(pending).name}</strong> — stań na wolnym polu
-          <button className="btn ghost tiny" onClick={() => setPending(null)}>
-            Odłóż
-          </button>
+      {tab === 'gym' && !state.dayEnded && (
+        <button
+          className={`build-toggle${buildMode ? ' on' : ''}`}
+          onClick={() => (buildMode ? leaveBuildMode() : setBuildMode(true))}
+        >
+          {buildMode ? '✓ Gotowe' : '🔨 Buduj'}
+        </button>
+      )}
+
+      {buildMode && (
+        <div className="build-bar">
+          {moving ? (
+            <span className="build-hint">Wskaż nowe pole…</span>
+          ) : wallMode ? (
+            <>
+              <span className="build-hint">Klikaj krawędzie kafli · w torbie: {wallsInBag}</span>
+              <button className="btn ghost tiny" onClick={() => setWallMode(false)}>
+                Koniec ścian
+              </button>
+            </>
+          ) : selected && selectedName ? (
+            <>
+              <span className="build-hint">{selectedName}</span>
+              <button
+                className="btn tiny"
+                onClick={() => rotateObject(selected.kind, selected.uid)}
+              >
+                Obróć
+              </button>
+              <button
+                className="btn tiny"
+                onClick={() => {
+                  setMoving(selected)
+                  setSelected(null)
+                }}
+              >
+                Przestaw
+              </button>
+              <button
+                className="btn tiny"
+                disabled={selectedMachine?.occupiedBy != null}
+                onClick={() => {
+                  storeObject(selected.kind, selected.uid)
+                  setSelected(null)
+                }}
+              >
+                Schowaj
+              </button>
+              <button className="btn ghost tiny" onClick={() => setSelected(null)}>
+                ✕
+              </button>
+            </>
+          ) : (
+            <>
+              <span className="build-hint">Kliknij pole albo sprzęt</span>
+              <button
+                className="btn tiny"
+                onClick={() => setWallMode(true)}
+                disabled={wallsInBag === 0}
+              >
+                Ścianki ({wallsInBag})
+              </button>
+            </>
+          )}
         </div>
       )}
 
       {tab === 'shop' && (
         <div className="panel">
-          <ShopScreen state={state} onSelect={selectMachine} />
+          <ShopScreen
+            state={state}
+            onBuyMachine={buyMachine}
+            onBuyDecor={buyDecor}
+            onBuyWall={buyWall}
+          />
         </div>
       )}
       {tab === 'stats' && (
@@ -153,13 +289,36 @@ export default function App() {
         <button className={`tab${tab === 'gym' ? ' active' : ''}`} onClick={() => setTab('gym')}>
           Sala
         </button>
-        <button className={`tab${tab === 'shop' ? ' active' : ''}`} onClick={() => setTab('shop')}>
+        <button
+          className={`tab${tab === 'shop' ? ' active' : ''}`}
+          onClick={() => {
+            leaveBuildMode()
+            setTab('shop')
+          }}
+        >
           Sklep
         </button>
-        <button className={`tab${tab === 'stats' ? ' active' : ''}`} onClick={() => setTab('stats')}>
+        <button
+          className={`tab${tab === 'stats' ? ' active' : ''}`}
+          onClick={() => {
+            leaveBuildMode()
+            setTab('stats')
+          }}
+        >
           Statystyki
         </button>
       </nav>
+
+      {placingOn && (
+        <InventoryPanel
+          items={state.inventory.filter(i => i.kind !== 'wall')}
+          onChoose={itemUid => {
+            placeItem(itemUid, placingOn.x, placingOn.y)
+            setPlacingOn(null)
+          }}
+          onClose={() => setPlacingOn(null)}
+        />
+      )}
 
       {welcomeBack && welcomeBack.awayMs > 0 && (
         <WelcomeBack
@@ -173,6 +332,7 @@ export default function App() {
         <DayReportModal
           report={state.dayReport}
           onNextDay={() => {
+            leaveBuildMode()
             setTab('gym')
             advanceDay()
           }}
@@ -183,7 +343,7 @@ export default function App() {
         <GameOverScreen
           state={state}
           onRestart={() => {
-            setPending(null)
+            leaveBuildMode()
             restart()
           }}
         />

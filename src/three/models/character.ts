@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import type { ClientKind } from '../../game/types'
+import type { ClientKind, ClientRarity } from '../../game/types'
 import { PALETTE, blockAt, cylinder, sphere } from '../style'
 
 /**
@@ -22,7 +22,7 @@ interface Look {
   hair: string
 }
 
-function figure(look: Look, badge: string | null): Rig {
+function figure(look: Look, badge: string | null, crest: string | null = null): Rig {
   const root = new THREE.Group()
 
   const hips = new THREE.Group()
@@ -36,6 +36,14 @@ function figure(look: Look, badge: string | null): Rig {
   hips.add(head)
 
   hips.add(blockAt(0.5, 0.22, 0.5, look.hair, 0, 1.08, -0.02, { radius: 0.14 }))
+
+  // A rare-or-better client floats a small gem over their head, so their
+  // value reads from across the room, not just from the scan hint.
+  if (crest) {
+    const gem = sphere(0.09, crest, 10)
+    gem.position.set(0, 1.42, 0)
+    hips.add(gem)
+  }
 
   for (const side of [-1, 1]) {
     const eye = sphere(0.045, '#2b2438', 8)
@@ -86,18 +94,27 @@ export function buildPlayer(): Rig {
 const SHIRTS = [PALETTE.shirtA, PALETTE.shirtB, PALETTE.shirtC, PALETTE.shirtD]
 const SKINS = [PALETTE.skin, PALETTE.skinDeep]
 
+/** Common gets no crest — a gem over every head would just be noise. */
+const RARITY_CREST: Record<ClientRarity, string | null> = {
+  common: null,
+  rare: PALETTE.frameBlue,
+  epic: PALETTE.shirtC,
+  legend: PALETTE.frameYellow,
+  influencer: PALETTE.crestInfluencer,
+}
+
 /**
  * `variant` is derived from the client's id, so the same person keeps the same
  * shirt for their whole visit instead of flickering between frames.
  */
-export function buildNpc(kind: ClientKind, variant: number): Rig {
+export function buildNpc(kind: ClientKind, rarity: ClientRarity, variant: number): Rig {
   const look: Look = {
     shirt: SHIRTS[variant % SHIRTS.length]!,
     trousers: variant % 2 === 0 ? PALETTE.playerTrousers : PALETTE.rubber,
     skin: SKINS[variant % SKINS.length]!,
     hair: PALETTE.hair,
   }
-  return figure(look, kind === 'member' ? PALETTE.frameYellow : null)
+  return figure(look, kind === 'member' ? PALETTE.frameYellow : null, RARITY_CREST[rarity])
 }
 
 /**

@@ -1,11 +1,16 @@
 import { useEffect, useRef } from 'react'
 import type { GameState, MachineTypeId } from '../game/types'
-import { GymScene, type Focus } from './scene'
+import type { PlacedKind } from '../game/build'
+import { GymScene, type Focus, type PickResult } from './scene'
 
 interface Props {
   state: GameState
-  pending: MachineTypeId | null
+  buildMode: boolean
+  selected: { kind: PlacedKind; uid: string } | null
+  preview: MachineTypeId | null
   onFocus: (focus: Focus) => void
+  /** Fires only in build mode, when the player clicks the floor. */
+  onPick: (pick: PickResult) => void
 }
 
 const STICK_RADIUS = 52
@@ -15,15 +20,35 @@ const STICK_RADIUS = 52
  * and nothing else — the scene keeps its own render loop, because rerendering
  * a component tree at 60fps to move one character would be absurd.
  */
-export default function GymScene3D({ state, pending, onFocus }: Props) {
+export default function GymScene3D({
+  state,
+  buildMode,
+  selected,
+  preview,
+  onFocus,
+  onPick,
+}: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const sceneRef = useRef<GymScene | null>(null)
   const stickRef = useRef<HTMLDivElement>(null)
   const knobRef = useRef<HTMLDivElement>(null)
 
   // Read through a ref inside the loop so the effect never needs to re-run.
-  const latest = useRef({ state, pending, onFocus })
-  latest.current = { state, pending, onFocus }
+  const latest = useRef({ state, buildMode, onPick, onFocus })
+  latest.current = { state, buildMode, onPick, onFocus }
+
+  // Mode, selection, and preview are cheap setters, pushed on every render.
+  useEffect(() => {
+    sceneRef.current?.setBuildMode(buildMode)
+  }, [buildMode])
+
+  useEffect(() => {
+    sceneRef.current?.setSelection(selected)
+  }, [selected])
+
+  useEffect(() => {
+    sceneRef.current?.setPreview(preview)
+  }, [preview])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -40,7 +65,7 @@ export default function GymScene3D({ state, pending, onFocus }: Props) {
       const dt = last === 0 ? 16 : now - last
       last = now
 
-      scene.sync(latest.current.state, latest.current.pending)
+      scene.sync(latest.current.state)
       scene.update(dt)
     }
     raf = requestAnimationFrame(frame)
@@ -48,9 +73,31 @@ export default function GymScene3D({ state, pending, onFocus }: Props) {
     const onResize = () => scene.resize()
     window.addEventListener('resize', onResize)
 
+    // A drag is the camera or a stray swipe, not a placement, so only a click
+    // that barely moved counts as pointing at a tile.
+    let downAt: { x: number; y: number } | null = null
+
+    const onPointerDown = (e: PointerEvent) => {
+      downAt = { x: e.clientX, y: e.clientY }
+    }
+
+    const onPointerUp = (e: PointerEvent) => {
+      const start = downAt
+      downAt = null
+      if (!start || !latest.current.buildMode) return
+      if (Math.hypot(e.clientX - start.x, e.clientY - start.y) > 8) return
+
+      latest.current.onPick(scene.pick(e.clientX, e.clientY))
+    }
+
+    canvas.addEventListener('pointerdown', onPointerDown)
+    canvas.addEventListener('pointerup', onPointerUp)
+
     return () => {
       cancelAnimationFrame(raf)
       window.removeEventListener('resize', onResize)
+      canvas.removeEventListener('pointerdown', onPointerDown)
+      canvas.removeEventListener('pointerup', onPointerUp)
       scene.dispose()
       sceneRef.current = null
     }

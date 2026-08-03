@@ -1,5 +1,6 @@
-import type { ClientKind, DayLedger, GameState, MachineTypeId } from './types'
+import type { ClientKind, ClientRarity, DayLedger, GameState, MachineTypeId } from './types'
 import { machineType } from './content/machines'
+import { RARITY_MULTIPLIER } from './content/rarity'
 import {
   DAILY_RENT,
   ENTRY_FEE_BASE,
@@ -28,6 +29,16 @@ export function initialState(seed: number, now: number): GameState {
     level: 1,
     xp: 0,
     machines: [],
+    // The room starts furnished but nothing is nailed down — every one of
+    // these can be turned, shifted, or packed away in build mode.
+    decor: [
+      { uid: 'd-reception', type: 'reception', x: 0, y: 0, rotation: 0 },
+      { uid: 'd-plant-a', type: 'plant', x: 7, y: 0, rotation: 0 },
+      { uid: 'd-plant-b', type: 'plant', x: 7, y: 5, rotation: 0 },
+      { uid: 'd-plant-c', type: 'plant', x: 0, y: 5, rotation: 0 },
+    ],
+    walls: [],
+    inventory: [],
     clients: [],
     members: [],
     seed,
@@ -52,14 +63,16 @@ export function initialState(seed: number, now: number): GameState {
 }
 
 /**
- * Average revenue multiplier across the floor, 1.0 for an empty gym. Buying a
- * cheap machine adds throughput but drags this down, so expanding and
- * upgrading pull against each other — that tension is the point.
+ * Every machine contributes what it is worth above bare floor, so the class is
+ * 1.0 plus the sum of those bonuses: a 1.4 gym that buys a 1.2 machine becomes
+ * 1.6. Adding kit can never make the gym worse, which is what a player expects
+ * from a purchase.
  */
 export function gymClass(state: GameState): number {
-  if (state.machines.length === 0) return 1
-  const sum = state.machines.reduce((acc, m) => acc + machineType(m.type).revenueMultiplier, 0)
-  return sum / state.machines.length
+  return state.machines.reduce(
+    (acc, m) => acc + (machineType(m.type).revenueMultiplier - 1),
+    1,
+  )
 }
 
 /**
@@ -67,8 +80,8 @@ export function gymClass(state: GameState): number {
  * the multiplier, which is why the fee is charged at scan time rather than on
  * arrival — that is the moment the assignment is known.
  */
-export function entryFee(typeId: MachineTypeId, kind: ClientKind): number {
-  const base = ENTRY_FEE_BASE * machineType(typeId).revenueMultiplier
+export function entryFee(typeId: MachineTypeId, kind: ClientKind, rarity: ClientRarity): number {
+  const base = ENTRY_FEE_BASE * machineType(typeId).revenueMultiplier * RARITY_MULTIPLIER[rarity]
   return kind === 'member' ? base * MEMBER_DISCOUNT : base
 }
 

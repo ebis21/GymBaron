@@ -13,8 +13,6 @@ export const PALETTE = {
 
   floorLight: '#f6dfae',
   floorDark: '#ecc98a',
-  matDark: '#4fa89b',
-  matLight: '#63c3b4',
 
   wall: '#fdf3e0',
   wallTrim: '#f0d9b5',
@@ -46,6 +44,7 @@ export const PALETTE = {
   pot: '#d97757',
   ghost: '#7ee787',
   ghostBad: '#ff8f8f',
+  crestInfluencer: '#ff5fae',
 } as const
 
 /**

@@ -1,5 +1,6 @@
 import type { Client, ClientKind, GameState, Machine } from './types'
 import { machineType } from './content/machines'
+import { rollRarity } from './content/rarity'
 import { nextRandom } from './rng'
 import { addXp, entryFee } from './economy'
 import { addMember, signupChance } from './members'
@@ -28,15 +29,17 @@ function acceptingArrivals(state: GameState): boolean {
 }
 
 function enqueue(state: GameState, kind: ClientKind, memberUid: string | null): GameState {
+  const [rarity, seed] = rollRarity(state.seed)
   const client: Client = {
     uid: `c${state.nextUid}`,
     kind,
+    rarity,
     phase: 'queue',
     phaseMs: 0,
     machineUid: null,
     memberUid,
   }
-  return { ...state, nextUid: state.nextUid + 1, clients: [...state.clients, client] }
+  return { ...state, seed, nextUid: state.nextUid + 1, clients: [...state.clients, client] }
 }
 
 /**
@@ -173,7 +176,7 @@ export function scanClient(state: GameState, clientUid: string): GameState {
   const machine = state.machines.find(isUsable)
   if (!machine) return state
 
-  const fee = entryFee(machine.type, client.kind)
+  const fee = entryFee(machine.type, client.kind, client.rarity)
 
   const next: GameState = {
     ...state,

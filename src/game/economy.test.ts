@@ -18,6 +18,7 @@ const machine = (uid: string, type: Machine['type']): Machine => ({
   type,
   x: 0,
   y: 0,
+  rotation: 0,
   durability: 100,
   occupiedBy: null,
 })
@@ -26,26 +27,41 @@ const member = (uid: string, joinedDay = 1): Member => ({ uid, joinedDay })
 
 describe('entryFee', () => {
   it('scales the base price by the machine multiplier', () => {
-    expect(entryFee('dumbbells', 'walkin')).toBeCloseTo(
-      ENTRY_FEE_BASE * machineType('dumbbells').revenueMultiplier,
+    expect(entryFee('dumbbells', 'walkin', 'common')).toBeCloseTo(
+      ENTRY_FEE_BASE * machineType('dumbbells').revenueMultiplier * 1.2,
       5,
     )
   })
 
   it('pays more on better kit', () => {
-    expect(entryFee('cable', 'walkin')).toBeGreaterThan(entryFee('dumbbells', 'walkin'))
+    expect(entryFee('cable', 'walkin', 'common')).toBeGreaterThan(
+      entryFee('dumbbells', 'walkin', 'common'),
+    )
   })
 
   it('charges a member a tenth of the door price', () => {
-    expect(entryFee('dumbbells', 'member')).toBeCloseTo(
-      entryFee('dumbbells', 'walkin') * MEMBER_DISCOUNT,
+    expect(entryFee('dumbbells', 'member', 'common')).toBeCloseTo(
+      entryFee('dumbbells', 'walkin', 'common') * MEMBER_DISCOUNT,
       5,
     )
   })
 
-  it('puts the cheapest machine at 22 credits at the door and 2.2 for a member', () => {
-    expect(entryFee('dumbbells', 'walkin')).toBeCloseTo(22, 5)
-    expect(entryFee('dumbbells', 'member')).toBeCloseTo(2.2, 5)
+  it('puts the cheapest machine at 26.4 credits at the door and 2.64 for a member', () => {
+    expect(entryFee('dumbbells', 'walkin', 'common')).toBeCloseTo(26.4, 5)
+    expect(entryFee('dumbbells', 'member', 'common')).toBeCloseTo(2.64, 5)
+  })
+
+  it('scales up with rarity, from common to influencer', () => {
+    const common = entryFee('dumbbells', 'walkin', 'common')
+    const rare = entryFee('dumbbells', 'walkin', 'rare')
+    const epic = entryFee('dumbbells', 'walkin', 'epic')
+    const legend = entryFee('dumbbells', 'walkin', 'legend')
+    const influencer = entryFee('dumbbells', 'walkin', 'influencer')
+    expect(rare).toBeGreaterThan(common)
+    expect(epic).toBeGreaterThan(rare)
+    expect(legend).toBeGreaterThan(epic)
+    expect(influencer).toBeGreaterThan(legend)
+    expect(influencer).toBeCloseTo(common * (3.2 / 1.2), 5)
   })
 })
 
@@ -59,15 +75,28 @@ describe('gymClass', () => {
     expect(gymClass(s)).toBeCloseTo(1.9, 5)
   })
 
-  it('averages across the floor', () => {
+  it('adds each machine bonus on top of the floor', () => {
     const s = { ...base(), machines: [machine('m1', 'dumbbells'), machine('m2', 'cable')] }
-    expect(gymClass(s)).toBeCloseTo((1.1 + 1.9) / 2, 5)
+    expect(gymClass(s)).toBeCloseTo(1 + 0.1 + 0.9, 5)
   })
 
-  it('drops when a weaker machine joins a strong floor', () => {
+  it('rises when any machine joins, even a weak one', () => {
     const strong = { ...base(), machines: [machine('m1', 'cable')] }
-    const diluted = { ...strong, machines: [...strong.machines, machine('m2', 'dumbbells')] }
-    expect(gymClass(diluted)).toBeLessThan(gymClass(strong))
+    const bigger = { ...strong, machines: [...strong.machines, machine('m2', 'dumbbells')] }
+    expect(gymClass(bigger)).toBeGreaterThan(gymClass(strong))
+  })
+
+  it('turns a 1.4 gym into a 1.65 gym when a 1.25 machine arrives', () => {
+    // The player's own worked example: a new machine contributes its bonus,
+    // it does not replace the figure the gym already had.
+    const before = { ...base(), machines: [machine('m1', 'bike')] }
+    const after = { ...before, machines: [...before.machines, machine('m2', 'bench')] }
+    expect(gymClass(before)).toBeCloseTo(1.4, 5)
+    expect(gymClass(after)).toBeCloseTo(1.65, 5)
+  })
+
+  it('never drops below 1.0', () => {
+    expect(gymClass(base())).toBe(1)
   })
 })
 

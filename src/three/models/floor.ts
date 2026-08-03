@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { GRID_H, GRID_W } from '../../game/constants'
-import { GRID_OFFSET_X, HALL_D, HALL_W, TILE, WALL_H, tileToWorld } from '../layout'
-import { PALETTE, block, blockAt, cylinder, sphere, toon } from '../style'
+import { HALL_D, HALL_W, TILE, WALL_H, tileToWorld } from '../layout'
+import { PALETTE, blockAt, toon } from '../style'
 
 /** Checkerboard floor. Two warm tones, no texture file, reads from any height. */
 function buildFloor(): THREE.Group {
@@ -30,15 +30,6 @@ function buildFloor(): THREE.Group {
       group.add(tile)
     }
   }
-
-  // A teal training mat down the equipment floor, the way a real gym zones it.
-  const mat = new THREE.Mesh(
-    new THREE.BoxGeometry(GRID_W * TILE - TILE, 0.06, TILE * 1.4),
-    toon(PALETTE.matDark),
-  )
-  mat.position.set(GRID_OFFSET_X, 0.02, 0)
-  mat.receiveShadow = true
-  group.add(mat)
 
   return group
 }
@@ -87,61 +78,14 @@ function buildWalls(): THREE.Group {
   return group
 }
 
-/** Reception desk in the corner — the spot the whole business orbits. */
-function buildReception(): THREE.Group {
-  const group = new THREE.Group()
-
-  const desk = block(2.6, 1.05, 1.1, PALETTE.wood, { radius: 0.14 })
-  desk.position.set(-HALL_W / 2 + 1.6, 0.52, -HALL_D / 2 + 1.0)
-  group.add(desk)
-
-  group.add(
-    blockAt(2.9, 0.16, 1.35, PALETTE.frameCream, -HALL_W / 2 + 1.6, 1.12, -HALL_D / 2 + 1.0, {
-      radius: 0.07,
-    }),
-  )
-  group.add(
-    blockAt(0.7, 0.5, 0.08, PALETTE.frameTeal, -HALL_W / 2 + 1.6, 1.45, -HALL_D / 2 + 1.0, {
-      radius: 0.05,
-    }),
-  )
-
-  return group
-}
-
-function buildPlant(x: number, z: number): THREE.Group {
-  const group = new THREE.Group()
-
-  const pot = cylinder(0.32, 0.24, 0.5, PALETTE.pot)
-  pot.position.y = 0.25
-  group.add(pot)
-
-  const leaves: Array<[number, number, number, number]> = [
-    [0, 0.75, 0, 0.42],
-    [0.22, 1.05, 0.1, 0.3],
-    [-0.2, 1.0, -0.12, 0.27],
-  ]
-  for (const [px, py, pz, r] of leaves) {
-    const leaf = sphere(r, PALETTE.leaf, 12)
-    leaf.position.set(px, py, pz)
-    group.add(leaf)
-  }
-
-  group.position.set(x, 0, z)
-  return group
-}
-
 /**
- * The whole room, built once. Nothing in here reacts to game state — machines
- * and people are added separately by the scene.
+ * The shell of the room, built once: floor, outer walls, windows. Nothing in
+ * here reacts to game state and nothing here can be edited. The reception desk
+ * and the plants used to live in this file, but the player can now move them,
+ * so they became ordinary decor entities that the scene places from state.
  */
 export function buildHall(): THREE.Group {
   const hall = new THREE.Group()
-  hall.add(buildFloor(), buildWalls(), buildReception())
-
-  hall.add(buildPlant(HALL_W / 2 - 0.9, -HALL_D / 2 + 0.9))
-  hall.add(buildPlant(HALL_W / 2 - 0.9, HALL_D / 2 - 0.9))
-  hall.add(buildPlant(-HALL_W / 2 + 0.9, HALL_D / 2 - 0.9))
-
+  hall.add(buildFloor(), buildWalls())
   return hall
 }
