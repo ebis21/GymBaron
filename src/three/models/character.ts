@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import type { ClientKind, ClientRarity } from '../../game/types'
+import { RARITY_LABEL } from '../../game/content/rarity'
 import { PALETTE, blockAt, cylinder, sphere } from '../style'
 
 /**
@@ -9,11 +10,16 @@ import { PALETTE, blockAt, cylinder, sphere } from '../style'
  */
 export interface Rig {
   root: THREE.Group
+  /** Everything above the feet. Poses tip this over to lie a figure down. */
+  hips: THREE.Group
   armL: THREE.Group
   armR: THREE.Group
   legL: THREE.Group
   legR: THREE.Group
 }
+
+/** Resting height of the hips inside the root. */
+const HIP_Y = 0.52
 
 interface Look {
   shirt: string
@@ -22,11 +28,64 @@ interface Look {
   hair: string
 }
 
-function figure(look: Look, badge: string | null, crest: string | null = null): Rig {
+const RARITY_TINT: Record<ClientRarity, string> = {
+  common: '#8a7f6f',
+  rare: PALETTE.frameBlue,
+  epic: PALETTE.shirtC,
+  legend: '#e09a12',
+  influencer: PALETTE.crestInfluencer,
+}
+
+const TAG_WIDTH = 320
+const TAG_HEIGHT = 88
+const tagTextures = new Map<ClientRarity, THREE.Texture>()
+
+/** Painted once per rarity and shared — a room can hold a lot of commons. */
+function rarityTexture(rarity: ClientRarity): THREE.Texture {
+  const cached = tagTextures.get(rarity)
+  if (cached) return cached
+
+  const canvas = document.createElement('canvas')
+  canvas.width = TAG_WIDTH
+  canvas.height = TAG_HEIGHT
+  const ctx = canvas.getContext('2d')!
+
+  const inset = 8
+  const radius = (TAG_HEIGHT - inset * 2) / 2
+  ctx.beginPath()
+  ctx.roundRect(inset, inset, TAG_WIDTH - inset * 2, TAG_HEIGHT - inset * 2, radius)
+  ctx.fillStyle = RARITY_TINT[rarity]
+  ctx.fill()
+  ctx.lineWidth = 7
+  ctx.strokeStyle = '#2b2438'
+  ctx.stroke()
+
+  ctx.fillStyle = '#fffdf7'
+  ctx.font = '800 42px Nunito, "Baloo 2", system-ui, sans-serif'
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.fillText(RARITY_LABEL[rarity], TAG_WIDTH / 2, TAG_HEIGHT / 2 + 2)
+
+  const texture = new THREE.CanvasTexture(canvas)
+  texture.colorSpace = THREE.SRGBColorSpace
+  tagTextures.set(rarity, texture)
+  return texture
+}
+
+function rarityTag(rarity: ClientRarity): THREE.Sprite {
+  const sprite = new THREE.Sprite(
+    new THREE.SpriteMaterial({ map: rarityTexture(rarity), transparent: true }),
+  )
+  sprite.scale.set(1.05, 1.05 * (TAG_HEIGHT / TAG_WIDTH), 1)
+  sprite.position.y = 2.05
+  return sprite
+}
+
+function figure(look: Look, badge: string | null, rarity: ClientRarity | null = null): Rig {
   const root = new THREE.Group()
 
   const hips = new THREE.Group()
-  hips.position.y = 0.52
+  hips.position.y = HIP_Y
   root.add(hips)
 
   hips.add(blockAt(0.52, 0.6, 0.34, look.shirt, 0, 0.3, 0, { radius: 0.14 }))
@@ -37,13 +96,10 @@ function figure(look: Look, badge: string | null, crest: string | null = null): 
 
   hips.add(blockAt(0.5, 0.22, 0.5, look.hair, 0, 1.08, -0.02, { radius: 0.14 }))
 
-  // A rare-or-better client floats a small gem over their head, so their
-  // value reads from across the room, not just from the scan hint.
-  if (crest) {
-    const gem = sphere(0.09, crest, 10)
-    gem.position.set(0, 1.42, 0)
-    hips.add(gem)
-  }
+  // A name tag over the head, so how much someone is worth reads from across
+  // the room. It hangs off the root rather than the hips: a client lying on a
+  // bench should still have their label the right way up, above them.
+  if (rarity) root.add(rarityTag(rarity))
 
   for (const side of [-1, 1]) {
     const eye = sphere(0.045, '#2b2438', 8)
@@ -76,7 +132,7 @@ function figure(look: Look, badge: string | null, crest: string | null = null): 
   blob.castShadow = false
   root.add(blob)
 
-  return { root, armL, armR, legL, legR }
+  return { root, hips, armL, armR, legL, legR }
 }
 
 export function buildPlayer(): Rig {
@@ -94,15 +150,6 @@ export function buildPlayer(): Rig {
 const SHIRTS = [PALETTE.shirtA, PALETTE.shirtB, PALETTE.shirtC, PALETTE.shirtD]
 const SKINS = [PALETTE.skin, PALETTE.skinDeep]
 
-/** Common gets no crest — a gem over every head would just be noise. */
-const RARITY_CREST: Record<ClientRarity, string | null> = {
-  common: null,
-  rare: PALETTE.frameBlue,
-  epic: PALETTE.shirtC,
-  legend: PALETTE.frameYellow,
-  influencer: PALETTE.crestInfluencer,
-}
-
 /**
  * `variant` is derived from the client's id, so the same person keeps the same
  * shirt for their whole visit instead of flickering between frames.
@@ -114,7 +161,17 @@ export function buildNpc(kind: ClientKind, rarity: ClientRarity, variant: number
     skin: SKINS[variant % SKINS.length]!,
     hair: PALETTE.hair,
   }
-  return figure(look, kind === 'member' ? PALETTE.frameYellow : null, RARITY_CREST[rarity])
+  return figure(look, kind === 'member' ? PALETTE.frameYellow : null, rarity)
+}
+
+/** Puts the body back upright before a pose that assumes it. */
+function stand(rig: Rig): void {
+  rig.hips.rotation.set(0, 0, 0)
+  rig.hips.position.set(0, HIP_Y, 0)
+  rig.armL.rotation.set(0, 0, 0)
+  rig.armR.rotation.set(0, 0, 0)
+  rig.legL.rotation.set(0, 0, 0)
+  rig.legR.rotation.set(0, 0, 0)
 }
 
 /**
@@ -122,6 +179,8 @@ export function buildNpc(kind: ClientKind, rarity: ClientRarity, variant: number
  * steadier than a keyframed clip, and it never desyncs from movement.
  */
 export function animate(rig: Rig, timeSec: number, moving: boolean): void {
+  stand(rig)
+
   if (moving) {
     const swing = Math.sin(timeSec * 9) * 0.7
     rig.legL.rotation.x = swing
@@ -140,12 +199,92 @@ export function animate(rig: Rig, timeSec: number, moving: boolean): void {
   rig.root.position.y = 0
 }
 
-/** Someone mid-set: seated, pumping. Used for clients on a machine. */
-export function animateWorkout(rig: Rig, timeSec: number): void {
-  const pump = Math.sin(timeSec * 5)
-  rig.armL.rotation.x = -1.1 + pump * 0.5
-  rig.armR.rotation.x = -1.1 + pump * 0.5
-  rig.legL.rotation.x = -0.5
-  rig.legR.rotation.x = -0.5
-  rig.root.position.y = 0.1 + pump * 0.03
+/**
+ * How somebody uses one particular machine. Poses only ever touch the hips and
+ * the limbs — where the figure stands, how high, and which way it faces is the
+ * scene's business, and a pose that moved the root would fight it.
+ */
+export type Pose = (rig: Rig, timeSec: number) => void
+
+/**
+ * Flat on their back under the bar. This is the only pose that lays the body
+ * down: the hips tip a quarter turn backwards, which sends the head along the
+ * figure's own −Z and turns its face to the ceiling.
+ */
+export const poseBenchPress: Pose = (rig, t) => {
+  stand(rig)
+  const pump = Math.sin(t * 3.4)
+
+  rig.hips.rotation.x = -Math.PI / 2
+  rig.hips.position.set(0, 0.88, 0)
+
+  // Arms straight up, bending at the bottom of each rep.
+  const press = -Math.PI / 2 + 0.42 + pump * 0.42
+  rig.armL.rotation.x = press
+  rig.armR.rotation.x = press
+
+  // Legs down either side of the bench rather than through it.
+  rig.legL.rotation.set(1.45, 0, 0.5)
+  rig.legR.rotation.set(1.45, 0, -0.5)
+}
+
+/** Seated, hauling a bar down from overhead. */
+export const poseSeatedPull: Pose = (rig, t) => {
+  stand(rig)
+  const pump = Math.sin(t * 3)
+
+  const reach = -2.2 + Math.abs(pump) * 0.85
+  rig.armL.rotation.set(reach, 0, 0.22)
+  rig.armR.rotation.set(reach, 0, -0.22)
+  rig.legL.rotation.x = -1.35
+  rig.legR.rotation.x = -1.35
+  rig.hips.position.y = HIP_Y - 0.04 + Math.abs(pump) * 0.04
+}
+
+/** Seated on the saddle, hands on the bars, legs going round. */
+export const poseCycle: Pose = (rig, t) => {
+  stand(rig)
+  const spin = t * 6
+
+  rig.armL.rotation.set(-1.35, 0, 0.12)
+  rig.armR.rotation.set(-1.35, 0, -0.12)
+  rig.legL.rotation.x = -1.1 + Math.sin(spin) * 0.55
+  rig.legR.rotation.x = -1.1 + Math.sin(spin + Math.PI) * 0.55
+  rig.hips.rotation.x = 0.28
+}
+
+/** Running on the belt: the walk cycle, quicker, holding onto the rails. */
+export const poseRun: Pose = (rig, t) => {
+  stand(rig)
+  const swing = Math.sin(t * 11) * 0.85
+
+  rig.legL.rotation.x = swing
+  rig.legR.rotation.x = -swing
+  rig.armL.rotation.set(-0.9, 0, 0.18)
+  rig.armR.rotation.set(-0.9, 0, -0.18)
+  rig.hips.position.y = HIP_Y + Math.abs(Math.sin(t * 11)) * 0.07
+  rig.hips.rotation.x = 0.12
+}
+
+/** Standing at the rack, curling a pair of dumbbells. */
+export const poseCurl: Pose = (rig, t) => {
+  stand(rig)
+  const pump = (Math.sin(t * 3.6) + 1) / 2
+
+  const curl = -0.15 - pump * 1.5
+  rig.armL.rotation.set(curl, 0, 0.12)
+  rig.armR.rotation.set(curl, 0, -0.12)
+  rig.hips.position.y = HIP_Y - pump * 0.03
+}
+
+/** Standing between the towers, bringing both handles together. */
+export const poseCablePull: Pose = (rig, t) => {
+  stand(rig)
+  const pump = (Math.sin(t * 2.6) + 1) / 2
+
+  rig.armL.rotation.set(-1.5, 0, 1.15 - pump * 0.85)
+  rig.armR.rotation.set(-1.5, 0, -1.15 + pump * 0.85)
+  rig.legL.rotation.set(0.12, 0, 0.16)
+  rig.legR.rotation.set(0.12, 0, -0.16)
+  rig.hips.rotation.x = 0.14 + pump * 0.1
 }

@@ -128,6 +128,10 @@ export function block(
   if (thickness > 0) {
     const ink = new THREE.Mesh(geometry, OUTLINE)
     ink.scale.setScalar(1 + thickness / Math.max(w, h, d))
+    // Flagged so anything that fades an object can take the outline off
+    // altogether: an inverted hull painted ink has no inside worth seeing
+    // through, and dimming it just turns the object into a black slab.
+    ink.userData.outline = true
     group.add(ink)
   }
 
@@ -164,6 +168,25 @@ export function cylinder(
   mesh.castShadow = true
   mesh.receiveShadow = true
   return mesh
+}
+
+/**
+ * Breaks a group off the shared material cache and hands back its own copies,
+ * so it can be faded — or otherwise repainted — without every other object of
+ * the same colour changing with it. Only worth doing for the few objects that
+ * really animate their material; everything else keeps sharing.
+ */
+export function ownMaterials(root: THREE.Object3D): THREE.Material[] {
+  const materials: THREE.Material[] = []
+
+  root.traverse(child => {
+    if (!(child instanceof THREE.Mesh)) return
+    const own = (child.material as THREE.Material).clone()
+    child.material = own
+    materials.push(own)
+  })
+
+  return materials
 }
 
 export function sphere(radius: number, color: string, segments = 18): THREE.Mesh {

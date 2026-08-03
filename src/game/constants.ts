@@ -12,7 +12,12 @@ export const DAY_MS = DAY_HOURS * HOUR_MS
 
 export const START_CASH = 500
 export const DEBT_LIMIT = -20_000
-export const PATIENCE_MS = 8_000
+/**
+ * How long somebody waits at the desk before walking out. Generous on
+ * purpose: the player has a whole room to cross, and losing a visitor because
+ * they were three tiles away reads as a punishment for moving around.
+ */
+export const PATIENCE_MS = 26_000
 export const OFFLINE_CAP_MS = 8 * 60 * 60 * 1000
 export const SAVE_VERSION = 3
 export const SAVE_KEY = 'iron-empire-save'
