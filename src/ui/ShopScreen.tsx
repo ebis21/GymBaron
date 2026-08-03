@@ -90,8 +90,9 @@ export default function ShopScreen({ state, onBuyMachine, onBuyDecor, onBuyWall 
       </h2>
       <p className="hint">
         Stają na krawędziach kafli, więc nie zabierają miejsca pod sprzęt. W
-        trybie budowania włącz „Ścianki" i klikaj krawędzie; ponowne kliknięcie
-        zdejmuje ściankę z powrotem do ekwipunku.
+        trybie budowania weź ściankę z ekwipunku i kliknij krawędź kafla.
+        Kliknięcie postawionej ścianki wybiera ją — wtedy możesz ją przestawić
+        albo schować z powrotem do ekwipunku.
       </p>
 
       <div className="shop-list">

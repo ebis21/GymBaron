@@ -8,6 +8,8 @@ interface Props {
   buildMode: boolean
   selected: { kind: PlacedKind; uid: string } | null
   preview: MachineTypeId | null
+  /** Client the player is face to face with, or null for the usual camera. */
+  facing: string | null
   onFocus: (focus: Focus) => void
   /** Fires only in build mode, when the player clicks the floor. */
   onPick: (pick: PickResult) => void
@@ -25,6 +27,7 @@ export default function GymScene3D({
   buildMode,
   selected,
   preview,
+  facing,
   onFocus,
   onPick,
 }: Props) {
@@ -42,6 +45,14 @@ export default function GymScene3D({
     sceneRef.current?.setBuildMode(buildMode)
   }, [buildMode])
 
+  // The stick is about to disappear from under the player's thumb; leaving its
+  // last value behind would walk the character off on its own.
+  useEffect(() => {
+    if (!buildMode && !facing) return
+    sceneRef.current?.setStick(0, 0)
+    if (knobRef.current) knobRef.current.style.transform = 'translate(0px, 0px)'
+  }, [buildMode, facing])
+
   useEffect(() => {
     sceneRef.current?.setSelection(selected)
   }, [selected])
@@ -49,6 +60,10 @@ export default function GymScene3D({
   useEffect(() => {
     sceneRef.current?.setPreview(preview)
   }, [preview])
+
+  useEffect(() => {
+    sceneRef.current?.setFacing(facing)
+  }, [facing])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -162,7 +177,13 @@ export default function GymScene3D({
   return (
     <>
       <canvas ref={canvasRef} className="gym-canvas" />
-      <div className="joystick" ref={stickRef} aria-hidden="true">
+      {/* Build mode looks down on the room from overhead and a conversation
+          holds the player still — neither has any use for a walk stick. */}
+      <div
+        className={`joystick${buildMode || facing ? ' hidden' : ''}`}
+        ref={stickRef}
+        aria-hidden="true"
+      >
         <div className="joystick-knob" ref={knobRef} />
       </div>
     </>

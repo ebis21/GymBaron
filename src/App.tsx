@@ -2,20 +2,22 @@ import { useCallback, useEffect, useState } from 'react'
 import { useGameStore } from './store/gameStore'
 import type { PlacedKind } from './game/build'
 import type { ClientRarity } from './game/types'
-import { entryFee } from './game/economy'
 import { machineType } from './game/content/machines'
 import { decorType } from './game/content/decor'
 import GymScene3D from './three/GymScene3D'
 import type { Focus, PickResult } from './three/scene'
 import TopBar from './ui/TopBar'
+import Phone, { type PhoneApp } from './ui/Phone'
 import ShopScreen from './ui/ShopScreen'
 import StatsScreen from './ui/StatsScreen'
 import GameOverScreen from './ui/GameOverScreen'
 import DayReportModal from './ui/DayReportModal'
 import InventoryPanel from './ui/InventoryPanel'
+import ClientCard from './ui/ClientCard'
 import WelcomeBack from './ui/WelcomeBack'
 import { money } from './ui/format'
 
+/** Which full-screen panel is over the room, if any. */
 type Tab = 'gym' | 'shop' | 'stats'
 
 const RARITY_NAME: Record<ClientRarity, string> = {
@@ -30,6 +32,13 @@ interface Selection {
   kind: PlacedKind
   uid: string
 }
+
+/**
+ * How close to a tile's edge a tap has to land before it counts as aiming at
+ * the partition there rather than at the floor. Half a tile would make every
+ * click ambiguous; this is a comfortable thumb's width in world units.
+ */
+const EDGE_GRAB = 0.45
 
 interface Action {
   label: string
@@ -58,18 +67,27 @@ export default function App() {
   const storeObject = useGameStore(s => s.storeObject)
   const rotateObject = useGameStore(s => s.rotateObject)
   const moveObject = useGameStore(s => s.moveObject)
+  const moveWallEdge = useGameStore(s => s.moveWallEdge)
   const demolishWall = useGameStore(s => s.demolishWall)
 
   const [tab, setTab] = useState<Tab>('gym')
+  const [phoneOpen, setPhoneOpen] = useState(false)
   const [focus, setFocus] = useState<Focus>(null)
 
   const [buildMode, setBuildMode] = useState(false)
-  const [wallMode, setWallMode] = useState(false)
+  /** Client the player has stepped up to, face to face. */
+  const [talking, setTalking] = useState<string | null>(null)
   const [selected, setSelected] = useState<Selection | null>(null)
-  /** Tile the player tapped, waiting for something out of the bag. */
-  const [placingOn, setPlacingOn] = useState<{ x: number; y: number } | null>(null)
+  /** Wall tapped in wall mode: the one the buttons act on. */
+  const [selectedWall, setSelectedWall] = useState<string | null>(null)
+  /** The bag, opened either on a tile or empty-handed from the build bar. */
+  const [bag, setBag] = useState<{ tile: { x: number; y: number } | null } | null>(null)
+  /** Item taken out of the bag, waiting for a tile to be dropped on. */
+  const [carrying, setCarrying] = useState<string | null>(null)
   /** Object picked up for relocation; the next tile tap drops it. */
   const [moving, setMoving] = useState<Selection | null>(null)
+  /** Wall picked up for relocation; the next edge tap drops it. */
+  const [movingWall, setMovingWall] = useState<string | null>(null)
 
   const onFocus = useCallback((next: Focus) => setFocus(next), [])
 
@@ -78,22 +96,61 @@ export default function App() {
     return stop
   }, [start, stop])
 
+  // Somebody who ran out of patience — or has already been sent to a machine —
+  // is no longer standing at the counter, so the conversation ends by itself.
+  const talkingGone = talking !== null && !state.clients.some(c => c.uid === talking && c.phase === 'queue')
+  useEffect(() => {
+    if (talkingGone) setTalking(null)
+  }, [talkingGone])
+
+  const clearBuildState = () => {
+    setSelected(null)
+    setSelectedWall(null)
+    setMoving(null)
+    setMovingWall(null)
+    setCarrying(null)
+    setBag(null)
+  }
+
   const leaveBuildMode = () => {
     setBuildMode(false)
-    setWallMode(false)
-    setSelected(null)
-    setMoving(null)
-    setPlacingOn(null)
+    clearBuildState()
+  }
+
+  const openApp = (app: PhoneApp) => {
+    // Nothing to open yet — the tile is there so the plan is visible.
+    if (app === 'staff') return
+
+    setPhoneOpen(false)
+
+    if (app === 'build') {
+      setTab('gym')
+      setTalking(null)
+      setBuildMode(true)
+      return
+    }
+
+    if (app === 'gym') {
+      setTab('gym')
+      leaveBuildMode()
+      return
+    }
+
+    // The shop and the stats sit over whatever is underneath, so opening them
+    // mid-build does not throw away a half-arranged room.
+    setTab(app)
   }
 
   /**
-   * One click, several possible meanings. Order matters: a pending move beats
-   * everything, then wall work, then selecting what is already there, and only
-   * an otherwise-empty tile opens the bag.
+   * One click, several possible meanings, resolved without the player having
+   * to say in advance whether they are working on walls or on equipment. Order
+   * matters: a pending move beats everything, then an item in hand, then a
+   * partition the click landed on top of, then whatever stands on the tile,
+   * and only an otherwise-empty tile opens the bag.
    */
   const onPick = useCallback(
     (pick: PickResult) => {
-      if (!pick.tile) return
+      if (!pick.tile || !pick.edge) return
 
       if (moving) {
         moveObject(moving.kind, moving.uid, pick.tile.x, pick.tile.y)
@@ -102,15 +159,33 @@ export default function App() {
         return
       }
 
-      if (wallMode) {
-        if (pick.wallUid) {
-          demolishWall(pick.wallUid)
-          return
-        }
-        const wall = state.inventory.find(i => i.kind === 'wall')
-        if (wall && pick.edge) placeWallEdge(wall.uid, pick.edge.x, pick.edge.y, pick.edge.side)
+      if (movingWall) {
+        moveWallEdge(movingWall, pick.edge.x, pick.edge.y, pick.edge.side)
+        setSelectedWall(movingWall)
+        setMovingWall(null)
         return
       }
+
+      if (carrying) {
+        const item = state.inventory.find(i => i.uid === carrying)
+        if (item?.kind === 'wall') {
+          placeWallEdge(carrying, pick.edge.x, pick.edge.y, pick.edge.side)
+        } else {
+          placeItem(carrying, pick.tile.x, pick.tile.y)
+        }
+        setCarrying(null)
+        return
+      }
+
+      // A tap near a tile's boundary is a tap on the partition standing there,
+      // not on the floor behind it.
+      if (pick.wallUid && pick.edgeDistance < EDGE_GRAB) {
+        setSelected(null)
+        setSelectedWall(pick.wallUid)
+        return
+      }
+
+      setSelectedWall(null)
 
       if (pick.object) {
         setSelected(pick.object)
@@ -118,9 +193,9 @@ export default function App() {
       }
 
       setSelected(null)
-      setPlacingOn(pick.tile)
+      setBag({ tile: pick.tile })
     },
-    [moving, wallMode, state.inventory, moveObject, demolishWall, placeWallEdge],
+    [moving, movingWall, carrying, state.inventory, moveObject, moveWallEdge, placeWallEdge, placeItem],
   )
 
   if (!ready) {
@@ -144,11 +219,13 @@ export default function App() {
       ? decorType(selectedDecor.type).name
       : null
 
-  const wallsInBag = state.inventory.filter(i => i.kind === 'wall').length
+  const carried = carrying ? state.inventory.find(i => i.uid === carrying) : undefined
+  const activeApp: PhoneApp = tab !== 'gym' ? tab : buildMode ? 'build' : 'gym'
+  const partner = talking ? state.clients.find(c => c.uid === talking) : undefined
 
   /** The proximity button, shown only outside build mode. */
   const action = ((): Action | null => {
-    if (!focus || state.dayEnded || buildMode) return null
+    if (!focus || state.dayEnded || buildMode || talking) return null
 
     if (focus.kind === 'repair') {
       const machine = state.machines.find(m => m.uid === focus.machineUid)
@@ -165,54 +242,69 @@ export default function App() {
     const client = state.clients.find(c => c.uid === focus.clientUid)
     if (!client) return null
 
-    // The engine hands the client the first free machine, so quote that one.
-    const free = state.machines.find(m => m.durability > 0 && m.occupiedBy === null)
-    if (!free) {
-      return { label: 'Brak wolnej maszyny', hint: '', enabled: false, run: () => {} }
-    }
-
-    const fee = entryFee(free.type, client.kind, client.rarity)
-    const rarityLabel = RARITY_NAME[client.rarity]
-    const base = client.kind === 'member' ? 'Członek — 90% zniżki' : 'Przechodzień'
+    // Scanning is now a face-to-face: this button only walks up to them, and
+    // the card that follows is where the pass is actually charged.
     return {
-      label: `Skanuj +${money(fee)}`,
-      hint: client.rarity === 'common' ? base : `${base} · ${rarityLabel}`,
+      label: 'Obsłuż klienta',
+      hint: `${client.kind === 'member' ? 'Członek' : 'Przechodzień'} · ${RARITY_NAME[client.rarity]}`,
       enabled: true,
-      run: () => scan(focus.clientUid),
+      run: () => setTalking(focus.clientUid),
     }
   })()
 
   return (
-    <div className="app">
+    <div className={`app${tab === 'gym' ? '' : ' panelled'}`}>
       <GymScene3D
         state={state}
         buildMode={buildMode}
         selected={selected}
         preview={null}
+        facing={talking}
         onFocus={onFocus}
         onPick={onPick}
       />
 
       <TopBar state={state} />
 
-      {tab === 'gym' && !state.dayEnded && (
-        <button
-          className={`build-toggle${buildMode ? ' on' : ''}`}
-          onClick={() => (buildMode ? leaveBuildMode() : setBuildMode(true))}
-        >
-          {buildMode ? '✓ Gotowe' : '🔨 Buduj'}
-        </button>
-      )}
-
-      {buildMode && (
+      {buildMode && tab === 'gym' && (
         <div className="build-bar">
           {moving ? (
             <span className="build-hint">Wskaż nowe pole…</span>
-          ) : wallMode ? (
+          ) : movingWall ? (
             <>
-              <span className="build-hint">Klikaj krawędzie kafli · w torbie: {wallsInBag}</span>
-              <button className="btn ghost tiny" onClick={() => setWallMode(false)}>
-                Koniec ścian
+              <span className="build-hint">Wskaż nową krawędź…</span>
+              <button className="btn ghost tiny" onClick={() => setMovingWall(null)}>
+                Anuluj
+              </button>
+            </>
+          ) : carrying ? (
+            <>
+              <span className="build-hint">
+                {carried?.kind === 'wall'
+                  ? 'Kliknij krawędź kafla…'
+                  : 'Wskaż pole dla przedmiotu…'}
+              </span>
+              <button className="btn ghost tiny" onClick={() => setCarrying(null)}>
+                Anuluj
+              </button>
+            </>
+          ) : selectedWall ? (
+            <>
+              <span className="build-hint">Ścianka</span>
+              <button className="btn tiny" onClick={() => setMovingWall(selectedWall)}>
+                Przestaw
+              </button>
+              <button
+                className="btn tiny"
+                onClick={() => {
+                  demolishWall(selectedWall)
+                  setSelectedWall(null)
+                }}
+              >
+                Schowaj
+              </button>
+              <button className="btn ghost tiny" onClick={() => setSelectedWall(null)}>
+                ✕
               </button>
             </>
           ) : selected && selectedName ? (
@@ -249,32 +341,36 @@ export default function App() {
             </>
           ) : (
             <>
-              <span className="build-hint">Kliknij pole albo sprzęt</span>
-              <button
-                className="btn tiny"
-                onClick={() => setWallMode(true)}
-                disabled={wallsInBag === 0}
-              >
-                Ścianki ({wallsInBag})
+              <span className="build-hint">Kliknij sprzęt, ściankę albo puste pole</span>
+              <button className="btn tiny" onClick={() => setBag({ tile: null })}>
+                Ekwipunek ({state.inventory.length})
+              </button>
+              <button className="btn tiny" onClick={() => setTab('shop')}>
+                Sklep
+              </button>
+              <button className="btn primary tiny" onClick={leaveBuildMode}>
+                ✓ Gotowe
               </button>
             </>
           )}
         </div>
       )}
 
-      {tab === 'shop' && (
+      {tab !== 'gym' && (
         <div className="panel">
-          <ShopScreen
-            state={state}
-            onBuyMachine={buyMachine}
-            onBuyDecor={buyDecor}
-            onBuyWall={buyWall}
-          />
-        </div>
-      )}
-      {tab === 'stats' && (
-        <div className="panel">
-          <StatsScreen state={state} />
+          <button className="panel-close" onClick={() => setTab('gym')} aria-label="Zamknij">
+            ✕
+          </button>
+          {tab === 'shop' ? (
+            <ShopScreen
+              state={state}
+              onBuyMachine={buyMachine}
+              onBuyDecor={buyDecor}
+              onBuyWall={buyWall}
+            />
+          ) : (
+            <StatsScreen state={state} />
+          )}
         </div>
       )}
 
@@ -285,38 +381,45 @@ export default function App() {
         </button>
       )}
 
-      <nav className="tabs">
-        <button className={`tab${tab === 'gym' ? ' active' : ''}`} onClick={() => setTab('gym')}>
-          Sala
-        </button>
-        <button
-          className={`tab${tab === 'shop' ? ' active' : ''}`}
-          onClick={() => {
-            leaveBuildMode()
-            setTab('shop')
-          }}
-        >
-          Sklep
-        </button>
-        <button
-          className={`tab${tab === 'stats' ? ' active' : ''}`}
-          onClick={() => {
-            leaveBuildMode()
-            setTab('stats')
-          }}
-        >
-          Statystyki
-        </button>
-      </nav>
+      <Phone
+        state={state}
+        open={phoneOpen}
+        active={activeApp}
+        onToggle={() => setPhoneOpen(o => !o)}
+        onOpen={openApp}
+      />
 
-      {placingOn && (
+      {bag && (
         <InventoryPanel
-          items={state.inventory.filter(i => i.kind !== 'wall')}
+          items={state.inventory}
+          hint={
+            bag.tile
+              ? 'Ścianki stawia się na krawędzi — wybierz ją, a potem kliknij krawędź kafla.'
+              : 'Wybierz przedmiot, potem wskaż mu miejsce na sali.'
+          }
           onChoose={itemUid => {
-            placeItem(itemUid, placingOn.x, placingOn.y)
-            setPlacingOn(null)
+            const tile = bag.tile
+            const item = state.inventory.find(i => i.uid === itemUid)
+
+            // A wall needs an edge, which a tile tap has not chosen — so it
+            // always goes into the hand and waits for the next click.
+            if (tile && item?.kind !== 'wall') placeItem(itemUid, tile.x, tile.y)
+            else setCarrying(itemUid)
+            setBag(null)
           }}
-          onClose={() => setPlacingOn(null)}
+          onClose={() => setBag(null)}
+        />
+      )}
+
+      {partner && (
+        <ClientCard
+          state={state}
+          client={partner}
+          onScan={() => {
+            scan(partner.uid)
+            setTalking(null)
+          }}
+          onClose={() => setTalking(null)}
         />
       )}
 

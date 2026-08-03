@@ -11,10 +11,15 @@ import { PALETTE, blockAt, cylinder, toon } from '../style'
  * models for loaded glTF files means rewriting this file and nothing else.
  */
 
-/** Weight plate on its edge, the shape that reads as "gym" at a glance. */
-function plate(radius: number, color: string): THREE.Mesh {
+/**
+ * Weight plate on its edge, the shape that reads as "gym" at a glance. A
+ * cylinder stands on its end by default, so every plate has to be tipped onto
+ * the axis of the bar it is loaded on — `axis` says which one that is.
+ */
+function plate(radius: number, color: string, axis: 'x' | 'z' = 'x'): THREE.Mesh {
   const disc = cylinder(radius, radius, 0.12, color, 20)
-  disc.rotation.z = Math.PI / 2
+  if (axis === 'x') disc.rotation.z = Math.PI / 2
+  else disc.rotation.x = Math.PI / 2
   return disc
 }
 
@@ -84,15 +89,22 @@ function buildBench(): THREE.Group {
   bar.position.set(-0.62, 1.16, 0)
   g.add(bar)
 
+  // Plates loaded onto the bar: threaded on its Z axis, not lying on the floor.
   for (const side of [-1, 1]) {
     for (const [offset, radius] of [
       [0.6, 0.3],
       [0.46, 0.26],
     ] as const) {
-      const disc = cylinder(radius, radius, 0.1, PALETTE.frameYellow, 20)
+      const disc = plate(radius, PALETTE.frameYellow, 'z')
       disc.position.set(-0.62, 1.16, side * offset)
       g.add(disc)
     }
+
+    // Collar holding the stack against the sleeve.
+    const collar = cylinder(0.09, 0.09, 0.09, PALETTE.chrome, 12)
+    collar.rotation.x = Math.PI / 2
+    collar.position.set(-0.62, 1.16, side * 0.68)
+    g.add(collar)
   }
 
   return g

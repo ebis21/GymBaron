@@ -5,6 +5,8 @@ import { assetFor } from '../assets/assetFor'
 
 interface Props {
   items: InventoryItem[]
+  /** What choosing an item will do, since the bag opens from two directions. */
+  hint?: string
   onChoose: (itemUid: string) => void
   onClose: () => void
 }
@@ -35,7 +37,7 @@ function Thumb({ item }: { item: InventoryItem }) {
  * tile straight away — there is no separate confirm step, because the tile was
  * already chosen when the panel opened.
  */
-export default function InventoryPanel({ items, onChoose, onClose }: Props) {
+export default function InventoryPanel({ items, hint, onChoose, onClose }: Props) {
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal inventory" onClick={e => e.stopPropagation()}>
@@ -52,15 +54,18 @@ export default function InventoryPanel({ items, onChoose, onClose }: Props) {
             tutaj i czeka, aż wskażesz mu miejsce.
           </p>
         ) : (
-          <div className="inv-grid">
-            {items.map(item => (
-              <button key={item.uid} className="inv-item" onClick={() => onChoose(item.uid)}>
-                <Thumb item={item} />
-                <span className="inv-name">{label(item)}</span>
-                {detail(item) && <span className="inv-detail">{detail(item)}</span>}
-              </button>
-            ))}
-          </div>
+          <>
+            {hint && <p className="hint">{hint}</p>}
+            <div className="inv-grid">
+              {items.map(item => (
+                <button key={item.uid} className="inv-item" onClick={() => onChoose(item.uid)}>
+                  <Thumb item={item} />
+                  <span className="inv-name">{label(item)}</span>
+                  {detail(item) && <span className="inv-detail">{detail(item)}</span>}
+                </button>
+              ))}
+            </div>
+          </>
         )}
       </div>
     </div>

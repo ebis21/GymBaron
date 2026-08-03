@@ -3,6 +3,7 @@ import {
   addToInventory,
   canonicalEdge,
   movePlaced,
+  moveWall,
   nextRotation,
   placeFromInventory,
   placeWall,
@@ -274,6 +275,50 @@ describe('walls', () => {
     const s0 = bagged()
     const s = placeWall(s0, s0.inventory[0]!.uid, 2, 2, 'n')
     expect(removeWall(s, 'nope')).toBe(s)
+  })
+
+  describe('moveWall', () => {
+    const built = () => {
+      const s0 = bagged()
+      return placeWall(s0, s0.inventory[0]!.uid, 2, 2, 'n')
+    }
+
+    it('slides a wall onto another edge without a trip through the bag', () => {
+      const s = built()
+      const after = moveWall(s, s.walls[0]!.uid, 4, 1, 'w')
+
+      expect(after.walls).toHaveLength(1)
+      expect(after.walls[0]).toMatchObject({ uid: s.walls[0]!.uid, x: 4, y: 1, side: 'w' })
+      expect(after.inventory).toHaveLength(0)
+    })
+
+    it('canonicalises the destination edge', () => {
+      const s = built()
+      expect(moveWall(s, s.walls[0]!.uid, 3, 3, 'e').walls[0]).toMatchObject({
+        x: 4,
+        y: 3,
+        side: 'w',
+      })
+    })
+
+    it('refuses an edge another wall already stands on', () => {
+      const spare = addToInventory(built(), { kind: 'wall' })
+      const two = placeWall(spare, spare.inventory[0]!.uid, 5, 5, 'n')
+
+      expect(two.walls).toHaveLength(2)
+      expect(moveWall(two, two.walls[0]!.uid, 5, 5, 'n')).toBe(two)
+    })
+
+    it('leaves a wall put back on its own edge alone', () => {
+      const s = built()
+      expect(moveWall(s, s.walls[0]!.uid, 2, 2, 'n')).toBe(s)
+    })
+
+    it('refuses an edge off the grid, and an unknown wall', () => {
+      const s = built()
+      expect(moveWall(s, s.walls[0]!.uid, 20, 20, 'n')).toBe(s)
+      expect(moveWall(s, 'nope', 1, 1, 'n')).toBe(s)
+    })
   })
 })
 

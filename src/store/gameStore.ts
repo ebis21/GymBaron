@@ -6,6 +6,7 @@ import { decorType, WALL_PRICE } from '../game/content/decor'
 import {
   addToInventory,
   movePlaced,
+  moveWall,
   placeFromInventory,
   placeWall,
   removeWall,
@@ -38,6 +39,7 @@ interface GameStore {
   storeObject: (kind: PlacedKind, uid: string) => void
   rotateObject: (kind: PlacedKind, uid: string) => void
   moveObject: (kind: PlacedKind, uid: string, x: number, y: number) => void
+  moveWallEdge: (uid: string, x: number, y: number, side: 'n' | 's' | 'e' | 'w') => void
   demolishWall: (uid: string) => void
   scan: (clientUid: string) => void
   repair: (machineUid: string) => void
@@ -189,6 +191,8 @@ export const useGameStore = create<GameStore>((set, get) => {
     rotateObject: (kind, uid) => commit(rotatePlaced(get().state, kind, uid)),
 
     moveObject: (kind, uid, x, y) => commit(movePlaced(get().state, kind, uid, x, y)),
+
+    moveWallEdge: (uid, x, y, side) => commit(moveWall(get().state, uid, x, y, side)),
 
     demolishWall: uid => commit(removeWall(get().state, uid)),
 

@@ -167,6 +167,29 @@ export function storePlaced(state: GameState, kind: PlacedKind, uid: string): Ga
   )
 }
 
+/**
+ * Slides a partition onto another edge. Going through the bag would work too,
+ * but a wall the player is repositioning should never be at risk of getting
+ * lost among a dozen identical spare ones.
+ */
+export function moveWall(
+  state: GameState,
+  uid: string,
+  x: number,
+  y: number,
+  side: 'n' | 's' | 'e' | 'w',
+): GameState {
+  if (!state.walls.some(w => w.uid === uid)) return state
+  if (!insideGrid(x, y)) return state
+
+  const edge = canonicalEdge(x, y, side)
+
+  // Landing back on its own edge, or on one already taken, changes nothing.
+  if (wallAt(state, edge.x, edge.y, edge.side)) return state
+
+  return { ...state, walls: state.walls.map(w => (w.uid === uid ? { uid, ...edge } : w)) }
+}
+
 export function removeWall(state: GameState, uid: string): GameState {
   if (!state.walls.some(w => w.uid === uid)) return state
   return addToInventory(

@@ -16,6 +16,7 @@
   --leaf: #61b954;
   --leaf-dark: #46943b;
   --gold: #f6b73c;
+  --plum: #8a6bd1;
   --danger: #d9403a;
 
   --radius: 18px;
@@ -67,7 +68,7 @@ body {
 .joystick {
   position: absolute;
   left: 22px;
-  bottom: calc(96px + var(--safe-bottom));
+  bottom: calc(24px + var(--safe-bottom));
   width: 132px;
   height: 132px;
   border-radius: 50%;
@@ -77,7 +78,13 @@ body {
   display: grid;
   place-items: center;
   touch-action: none;
+  transition: opacity 160ms ease;
   z-index: 5;
+}
+
+.joystick.hidden {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .joystick-knob {
@@ -216,7 +223,7 @@ body {
 .action-btn {
   position: absolute;
   right: 20px;
-  bottom: calc(104px + var(--safe-bottom));
+  bottom: calc(32px + var(--safe-bottom));
   z-index: 10;
   min-width: 148px;
   display: flex;
@@ -263,39 +270,252 @@ body {
   }
 }
 
-/* --- tabs ---------------------------------------------------------------- */
+/* --- client card ---------------------------------------------------------- */
 
-.tabs {
+/*
+ * The counter, seen from behind it. Anchored to the bottom of the screen so
+ * the client's face stays in view above it — the whole point of stepping into
+ * the first-person view is being able to see who you are serving.
+ */
+.client-card {
   position: absolute;
   left: 12px;
-  right: 12px;
-  bottom: calc(12px + var(--safe-bottom));
+  right: 72px;
+  bottom: calc(16px + var(--safe-bottom));
   z-index: 20;
-  display: flex;
-  gap: 6px;
-  background: var(--cream);
+  padding: 14px 16px 16px;
+  background: var(--paper);
   border: 4px solid var(--wood);
   border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  padding: 6px;
+  box-shadow: var(--shadow-soft);
+  animation: rise 200ms cubic-bezier(0.2, 1.2, 0.4, 1);
 }
 
-.tab {
-  flex: 1;
-  padding: 12px 4px;
+.client-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 32px;
+  height: 32px;
   font: inherit;
-  font-size: 14px;
-  color: var(--ink-soft);
-  background: transparent;
-  border: none;
-  border-radius: 12px;
+  font-size: 13px;
+  color: var(--wood-dark);
+  background: var(--cream);
+  border: 3px solid var(--wood);
+  border-radius: 50%;
   cursor: pointer;
 }
 
-.tab.active {
+.client-rarity {
+  display: inline-block;
+  padding: 3px 12px;
+  font-size: 12px;
+  letter-spacing: 0.1em;
   color: #fff;
-  background: var(--wood);
-  box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.18);
+  background: #8a7f6f;
+  border: 3px solid #2b2438;
+  border-radius: 999px;
+}
+
+.client-rarity.rare {
+  background: var(--sky);
+}
+.client-rarity.epic {
+  background: #7a6ff0;
+}
+.client-rarity.legend {
+  background: #e09a12;
+}
+.client-rarity.influencer {
+  background: #ff5fae;
+}
+
+.client-kind {
+  margin: 8px 0 10px;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+.client-rows {
+  margin-bottom: 12px;
+}
+
+.client-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  border-top: 2px dashed rgba(168, 106, 61, 0.3);
+}
+
+.client-row strong {
+  color: var(--ink);
+}
+
+/* --- phone --------------------------------------------------------------- */
+
+/*
+ * The menu is a phone parked against the right edge. Only its grip sticks out
+ * until it is tapped, so the whole width of the room stays visible while the
+ * gym is running.
+ */
+.phone {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  z-index: 25;
+  display: flex;
+  align-items: center;
+  transform: translate(calc(100% - 52px), -50%);
+  transition: transform 300ms cubic-bezier(0.22, 1, 0.3, 1);
+}
+
+.phone.open {
+  transform: translate(0, -50%);
+}
+
+.phone-handle {
+  flex: none;
+  width: 52px;
+  height: 72px;
+  font: inherit;
+  font-size: 24px;
+  line-height: 1;
+  color: var(--wood-dark);
+  background: var(--cream);
+  border: 4px solid var(--wood);
+  border-right: none;
+  border-radius: 18px 0 0 18px;
+  box-shadow: -4px 5px 0 rgba(125, 74, 38, 0.3);
+  cursor: pointer;
+}
+
+.phone-handle:active {
+  transform: translateY(2px);
+}
+
+.phone-shell {
+  flex: none;
+  width: 240px;
+  padding: 10px 10px 12px;
+  background: linear-gradient(180deg, #3c3452, #241e33);
+  border: 5px solid #17121f;
+  border-right: none;
+  border-radius: 30px 0 0 30px;
+  box-shadow: var(--shadow-soft);
+}
+
+.phone-speaker {
+  width: 44px;
+  height: 6px;
+  margin: 2px auto 9px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.28);
+}
+
+.phone-status {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 0 8px 8px;
+  font-size: 10px;
+  color: rgba(255, 246, 227, 0.72);
+  font-variant-numeric: tabular-nums;
+}
+
+.phone-apps {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+  padding: 10px 8px;
+  border-radius: 20px;
+  background: rgba(255, 246, 227, 0.12);
+}
+
+.phone-app {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 4px;
+  font: inherit;
+  color: var(--paper);
+  background: transparent;
+  border: none;
+  border-radius: 16px;
+  cursor: pointer;
+}
+
+.phone-app.active {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.phone-app:active:not(.soon) {
+  transform: translateY(2px);
+}
+
+/* Listed but not built. Dimmed rather than hidden, so the plan is legible. */
+.phone-app.soon {
+  grid-column: 1 / -1;
+  flex-direction: row;
+  justify-content: center;
+  gap: 10px;
+  opacity: 0.7;
+  cursor: default;
+}
+
+.phone-icon {
+  width: 46px;
+  height: 46px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  font-size: 23px;
+  border-radius: 15px;
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.32);
+}
+
+.phone-icon.coral {
+  background: var(--coral);
+}
+.phone-icon.gold {
+  background: var(--gold);
+}
+.phone-icon.leaf {
+  background: var(--leaf);
+}
+.phone-icon.sky {
+  background: var(--sky);
+}
+.phone-icon.plum {
+  background: var(--plum);
+}
+
+.phone-label {
+  font-size: 10.5px;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.phone-soon {
+  padding: 2px 8px;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  color: #3a2a12;
+  background: var(--gold);
+  border-radius: 999px;
+}
+
+.phone-home {
+  width: 74px;
+  height: 5px;
+  margin: 11px auto 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.32);
 }
 
 /* --- overlay panels ------------------------------------------------------ */
@@ -305,13 +525,38 @@ body {
   top: calc(var(--safe-top) + 104px);
   left: 12px;
   right: 12px;
-  bottom: calc(84px + var(--safe-bottom));
+  bottom: calc(16px + var(--safe-bottom));
   z-index: 15;
   background: var(--paper);
   border: 4px solid var(--wood);
   border-radius: var(--radius);
   box-shadow: var(--shadow-soft);
   overflow: hidden;
+}
+
+.panel-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  width: 36px;
+  height: 36px;
+  font: inherit;
+  font-size: 15px;
+  color: var(--wood-dark);
+  background: var(--cream);
+  border: 3px solid var(--wood);
+  border-radius: 50%;
+  box-shadow: 0 3px 0 var(--wood);
+  cursor: pointer;
+}
+
+/*
+ * The phone's grip floats over everything, including an open panel. Rows in
+ * that panel keep their buttons clear of it rather than hiding underneath.
+ */
+.app.panelled .screen {
+  padding-right: 56px;
 }
 
 .screen {
@@ -649,39 +894,11 @@ body {
 
 /* --- build mode ---------------------------------------------------------- */
 
-.build-toggle {
-  position: absolute;
-  right: 20px;
-  top: calc(var(--safe-top) + 108px);
-  z-index: 10;
-  padding: 10px 16px;
-  font: inherit;
-  font-size: 14px;
-  color: var(--wood-dark);
-  background: var(--cream);
-  border: 4px solid var(--wood);
-  border-radius: 999px;
-  box-shadow: var(--shadow);
-  cursor: pointer;
-}
-
-.build-toggle.on {
-  color: #fff;
-  background: var(--leaf);
-  border-color: var(--leaf-dark);
-  box-shadow: 0 6px 0 var(--leaf-dark);
-}
-
-.build-toggle:active {
-  transform: translateY(3px);
-  box-shadow: none;
-}
-
 .build-bar {
   position: absolute;
   left: 12px;
-  right: 12px;
-  bottom: calc(84px + var(--safe-bottom));
+  right: 68px;
+  bottom: calc(16px + var(--safe-bottom));
   z-index: 16;
   display: flex;
   flex-wrap: wrap;
@@ -784,11 +1001,10 @@ body {
     margin-inline: auto;
   }
 
-  .tabs {
-    left: 50%;
-    right: auto;
-    width: 760px;
-    transform: translateX(-50%);
+  .build-bar,
+  .client-card {
+    max-width: 760px;
+    margin-inline: auto;
   }
 
   .panel {

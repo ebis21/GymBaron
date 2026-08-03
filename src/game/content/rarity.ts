@@ -3,6 +3,19 @@ import { nextRandom } from '../rng'
 
 export const CLIENT_RARITIES: ClientRarity[] = ['common', 'rare', 'epic', 'legend', 'influencer']
 
+/**
+ * Shown over a client's head and on their card. Deliberately the raw tier
+ * names rather than a translation: they are the same words the tag in the room
+ * is printed with, and a player reads the two as one thing.
+ */
+export const RARITY_LABEL: Record<ClientRarity, string> = {
+  common: 'COMMON',
+  rare: 'RARE',
+  epic: 'EPIC',
+  legend: 'LEGEND',
+  influencer: 'INFLUENCER',
+}
+
 /** Stacks on top of the machine's own multiplier when the door fee is charged. */
 export const RARITY_MULTIPLIER: Record<ClientRarity, number> = {
   common: 1.2,

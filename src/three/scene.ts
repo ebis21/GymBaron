@@ -6,7 +6,9 @@ import { tileOccupant, type PlacedKind } from '../game/build'
 import { buildHall } from './models/floor'
 import { buildDecor, buildWallSegment, WALL_THICK } from './models/decor'
 import { buildGhost, buildMachine } from './models/machines'
-import { animate, animateWorkout, buildNpc, buildPlayer, type Rig } from './models/character'
+import { animate, buildNpc, buildPlayer, type Rig } from './models/character'
+import { DECOR_FOOTPRINT, MACHINE_FOOTPRINT, type Footprint } from './models/footprint'
+import { stanceFor } from './models/stance'
 import { Controls } from './controls'
 import {
   DOOR_QUEUE_ANCHOR,
@@ -15,12 +17,14 @@ import {
   REACH,
   TILE,
   insideGrid,
+  overheadFraming,
   queueSpot,
   tileToWorld,
   worldToTile,
   type QueueAnchor,
 } from './layout'
-import { PALETTE, toon } from './style'
+import { blockingSight } from './sight'
+import { PALETTE, ownMaterials, toon } from './style'
 
 /** What the player is close enough to act on right now. */
 export type Focus =
@@ -38,14 +42,23 @@ export type EdgeSide = 'n' | 's' | 'e' | 'w'
 export interface PickResult {
   tile: { x: number; y: number } | null
   edge: { x: number; y: number; side: EdgeSide } | null
+  /** World units from the click to that edge — how surely an edge was meant. */
+  edgeDistance: number
   object: { kind: PlacedKind; uid: string } | null
   wallUid: string | null
 }
 
 const PLAYER_SPEED = 5.4
 const PLAYER_RADIUS = 0.42
-/** Half-width of a machine's footprint for collision, a little under a tile. */
-const MACHINE_HALF = 0.78
+
+/** How solid a partition stays while it is standing in front of the player. */
+const WALL_FADED = 0.22
+/** Where a character's eyes are, for the face-to-face camera. */
+const EYE_HEIGHT = 1.5
+/** How close to the reception desk counts as being behind it. */
+const DESK_REACH = 2.6
+
+const DEFAULT_UP = new THREE.Vector3(0, 1, 0)
 
 const sameFocus = (a: Focus, b: Focus): boolean => {
   if (a === null || b === null) return a === b
@@ -57,6 +70,36 @@ const sameFocus = (a: Focus, b: Focus): boolean => {
 interface MachineView {
   group: THREE.Group
   broken: THREE.Mesh
+}
+
+/**
+ * One obstacle on the floor: a centre, a facing, and how far it reaches along
+ * its own two axes. Objects are placed a whole tile at a time but they are not
+ * a whole tile big, so walking uses these rather than the tile grid.
+ */
+interface Solid {
+  x: number
+  z: number
+  /** Sine and cosine of the object's rotation, kept so collision stays cheap. */
+  sin: number
+  cos: number
+  hx: number
+  hz: number
+}
+
+/**
+ * A partition, plus everything needed to dissolve it. Walls own their
+ * materials rather than sharing the cached ones, because one wall going
+ * see-through must not take every other wall in the room with it.
+ */
+interface WallView {
+  group: THREE.Group
+  /** The painted body — what a sight line is tested against, and what fades. */
+  meshes: THREE.Mesh[]
+  /** Ink hulls, switched off entirely while the wall is see-through. */
+  outlines: THREE.Mesh[]
+  materials: THREE.Material[]
+  opacity: number
 }
 
 interface NpcView {
@@ -113,10 +156,11 @@ export class GymScene {
 
   private readonly machines = new Map<string, MachineView>()
   private readonly npcs = new Map<string, NpcView>()
-  private readonly blocked = new Set<string>()
+  /** Collision boxes of everything standing on the floor, rebuilt on sync. */
+  private solids: Solid[] = []
 
   private readonly decorViews = new Map<string, THREE.Group>()
-  private readonly wallViews = new Map<string, THREE.Group>()
+  private readonly wallViews = new Map<string, WallView>()
 
   private readonly gridOverlay = new THREE.Group()
   private readonly marker: THREE.Mesh
@@ -124,14 +168,25 @@ export class GymScene {
   private previewType: MachineTypeId | null = null
 
   private readonly raycaster = new THREE.Raycaster()
+  /** Kept apart from `raycaster`: this one carries a `far` limit of its own. */
+  private readonly sightRay = new THREE.Raycaster()
   private readonly groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0)
 
   private state: GameState | null = null
   private buildMode = false
+  /** Client the player has stepped up to, or null for the usual chase camera. */
+  private facing: string | null = null
   private selected: { kind: PlacedKind; uid: string } | null = null
   private focus: Focus = null
   private elapsed = 0
   private cameraPlaced = false
+
+  /** Where the camera is aimed right now, eased towards the mode's target. */
+  private readonly lookAtNow = new THREE.Vector3()
+  /** Overhead framing of the whole hall, recomputed whenever the view resizes. */
+  private readonly buildEye = new THREE.Vector3(0, 30, 0)
+  private readonly buildUp = new THREE.Vector3(0, 0, -1)
+  private readonly fog: THREE.Fog
 
   constructor(
     private readonly canvas: HTMLCanvasElement,
@@ -143,7 +198,8 @@ export class GymScene {
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap
 
     this.scene.background = new THREE.Color(PALETTE.sky)
-    this.scene.fog = new THREE.Fog(PALETTE.sky, 34, 66)
+    this.fog = new THREE.Fog(PALETTE.sky, 34, 66)
+    this.scene.fog = this.fog
 
     this.camera = new THREE.PerspectiveCamera(35, 1, 0.1, 200)
     this.scene.add(buildHall())
@@ -226,6 +282,7 @@ export class GymScene {
    */
   sync(state: GameState): void {
     this.state = state
+    this.solids = []
 
     this.syncMachines(state.machines)
     this.syncDecor(state.decor)
@@ -233,13 +290,27 @@ export class GymScene {
     this.syncNpcs(state)
   }
 
+  /** Records an object's collision box, turned to match how it was placed. */
+  private addSolid(x: number, y: number, rotation: number, print: Footprint): void {
+    const at = tileToWorld(x, y)
+    const angle = (rotation * Math.PI) / 2
+
+    this.solids.push({
+      x: at.x,
+      z: at.z,
+      sin: Math.sin(angle),
+      cos: Math.cos(angle),
+      hx: print.hx,
+      hz: print.hz,
+    })
+  }
+
   private syncMachines(machines: Machine[]): void {
     const seen = new Set<string>()
-    this.blocked.clear()
 
     for (const machine of machines) {
       seen.add(machine.uid)
-      this.blocked.add(`${machine.x},${machine.y}`)
+      this.addSolid(machine.x, machine.y, machine.rotation, MACHINE_FOOTPRINT[machine.type])
 
       let view = this.machines.get(machine.uid)
       if (!view) {
@@ -279,7 +350,7 @@ export class GymScene {
 
     for (const item of decor) {
       seen.add(item.uid)
-      this.blocked.add(`${item.x},${item.y}`)
+      this.addSolid(item.x, item.y, item.rotation, DECOR_FOOTPRINT[item.type])
 
       let view = this.decorViews.get(item.uid)
       if (!view) {
@@ -312,26 +383,108 @@ export class GymScene {
 
       let view = this.wallViews.get(wall.uid)
       if (!view) {
-        view = buildWallSegment(TILE)
+        const group = buildWallSegment(TILE)
+        ownMaterials(group)
+
+        const meshes: THREE.Mesh[] = []
+        const outlines: THREE.Mesh[] = []
+        const materials: THREE.Material[] = []
+
+        group.traverse(child => {
+          if (!(child instanceof THREE.Mesh)) return
+
+          if (child.userData.outline) {
+            outlines.push(child)
+            return
+          }
+
+          // Stamped on the mesh so a raycast hit maps back to its wall.
+          child.userData.wallUid = wall.uid
+          meshes.push(child)
+          materials.push(child.material as THREE.Material)
+        })
+
+        view = { group, meshes, outlines, materials, opacity: 1 }
         this.wallViews.set(wall.uid, view)
-        this.scene.add(view)
+        this.scene.add(group)
       }
 
       const at = tileToWorld(wall.x, wall.y)
       if (wall.side === 'n') {
-        view.position.set(at.x, 0, at.z - TILE / 2)
-        view.rotation.y = 0
+        view.group.position.set(at.x, 0, at.z - TILE / 2)
+        view.group.rotation.y = 0
       } else {
-        view.position.set(at.x - TILE / 2, 0, at.z)
-        view.rotation.y = Math.PI / 2
+        view.group.position.set(at.x - TILE / 2, 0, at.z)
+        view.group.rotation.y = Math.PI / 2
       }
     }
 
     for (const [uid, view] of this.wallViews) {
       if (seen.has(uid)) continue
-      this.scene.remove(view)
+      this.scene.remove(view.group)
+      for (const material of view.materials) material.dispose()
       this.wallViews.delete(uid)
     }
+  }
+
+  /**
+   * Dissolves any partition standing between the camera and the player. Losing
+   * sight of your own character behind a wall you built yourself is the one
+   * thing a top-down room builder must never do, so the wall gives way rather
+   * than the camera.
+   */
+  private updateWallSight(dt: number): void {
+    const blocking = new Set<string>()
+
+    // Nothing occludes from straight overhead, and a build view full of
+    // half-dissolved walls would be harder to read, not easier.
+    if (!this.buildMode && this.wallViews.size > 0) {
+      const meshes: THREE.Mesh[] = []
+      for (const view of this.wallViews.values()) meshes.push(...view.meshes)
+
+      for (const uid of blockingSight(
+        this.sightRay,
+        this.camera.position,
+        this.playerPos,
+        meshes,
+      )) {
+        blocking.add(uid)
+      }
+    }
+
+    for (const [uid, view] of this.wallViews) {
+      const wanted = blocking.has(uid) ? WALL_FADED : 1
+      if (Math.abs(view.opacity - wanted) < 0.005) {
+        if (view.opacity === wanted) continue
+        view.opacity = wanted
+      } else {
+        view.opacity += (wanted - view.opacity) * Math.min(1, dt * 10)
+      }
+
+      const solid = view.opacity > 0.995
+      for (const mesh of view.outlines) mesh.visible = solid
+      for (const mesh of view.meshes) mesh.castShadow = solid
+
+      for (const material of view.materials) {
+        material.opacity = view.opacity
+        material.depthWrite = solid
+        if (material.transparent === solid) {
+          // Switching a material between the opaque and the see-through pass
+          // changes how it is compiled, so it has to be told.
+          material.transparent = !solid
+          material.needsUpdate = true
+        }
+      }
+    }
+  }
+
+  /** True while the player is stood at the reception desk. */
+  private atReception(state: GameState): boolean {
+    const desk = state.decor.find(d => d.type === 'reception')
+    if (!desk) return false
+
+    const at = tileToWorld(desk.x, desk.y)
+    return Math.hypot(at.x - this.playerPos.x, at.z - this.playerPos.z) < DESK_REACH
   }
 
   /** Where the queue forms: in front of the reception desk, if one is placed. */
@@ -385,14 +538,22 @@ export class GymScene {
       const machine = state.machines.find(m => m.uid === client.machineUid)
       if (!machine) continue
 
-      // The workout spot sits in front of the machine in its own local space,
-      // so it turns along with the machine instead of staying pinned to a
-      // fixed world direction when the player rotates the equipment.
+      // Each machine has its own spot: on the saddle, on the belt, flat on the
+      // bench. It is given in the machine's local space, so it turns with the
+      // equipment instead of staying pinned to a fixed world direction.
       const angle = (machine.rotation * Math.PI) / 2
       const at = tileToWorld(machine.x, machine.y)
-      view.rig.root.position.set(at.x + Math.sin(angle) * 0.55, 0, at.z + Math.cos(angle) * 0.55)
-      view.rig.root.rotation.y = angle + Math.PI
-      animateWorkout(view.rig, this.elapsed + view.seed)
+      const stance = stanceFor(machine.type)
+      const sin = Math.sin(angle)
+      const cos = Math.cos(angle)
+
+      view.rig.root.position.set(
+        at.x + stance.x * cos + stance.z * sin,
+        stance.lift,
+        at.z - stance.x * sin + stance.z * cos,
+      )
+      view.rig.root.rotation.y = angle + stance.facing
+      stance.pose(view.rig, this.elapsed + view.seed)
     }
 
     for (const [uid, view] of this.npcs) {
@@ -405,13 +566,38 @@ export class GymScene {
 
   // --- build mode -----------------------------------------------------------
 
+  /**
+   * Build mode is a different view of the same room: the camera leaves the
+   * player's shoulder and hangs directly over the hall, so the whole floor
+   * plan is on screen at once while things are being moved around.
+   */
   setBuildMode(on: boolean): void {
+    if (on === this.buildMode) return
     this.buildMode = on
     this.gridOverlay.visible = on
+
+    // From that height the room would be lost inside the haze.
+    this.scene.fog = on ? null : this.fog
+    this.camera.up.copy(on ? this.buildUp : DEFAULT_UP)
+
+    // Cut rather than swing: sliding between two views this far apart reads
+    // as the room moving, not the camera.
+    this.cameraPlaced = false
+
     if (!on) {
       this.setSelection(null)
       this.setPreview(null)
     }
+  }
+
+  /** Points the build camera at the whole hall, for the current viewport. */
+  private frameHall(): void {
+    const framing = overheadFraming(this.camera.fov, this.camera.aspect || 1)
+
+    this.buildEye.set(0, framing.height, 0)
+    this.buildUp.set(framing.up.x, 0, framing.up.z)
+
+    if (this.buildMode) this.camera.up.copy(this.buildUp)
   }
 
   /** Highlights the tile a selected object stands on. */
@@ -443,7 +629,13 @@ export class GymScene {
    * machine, not whatever happens to be behind it.
    */
   pick(clientX: number, clientY: number): PickResult {
-    const empty: PickResult = { tile: null, edge: null, object: null, wallUid: null }
+    const empty: PickResult = {
+      tile: null,
+      edge: null,
+      edgeDistance: Infinity,
+      object: null,
+      wallUid: null,
+    }
     const state = this.state
     if (!state) return empty
 
@@ -478,9 +670,14 @@ export class GymScene {
       w => w.x === canonical.x && w.y === canonical.y && w.side === canonical.side,
     )
 
+    // How far the click landed from that edge, so a caller can tell a tap
+    // meant for a partition from one meant for the middle of the tile.
+    const edgeDistance = (0.5 - Math.max(Math.abs(dx), Math.abs(dz))) * TILE
+
     return {
       tile,
       edge: { x: tile.x, y: tile.y, side },
+      edgeDistance,
       object: tileOccupant(state, tile.x, tile.y),
       wallUid: wall?.uid ?? null,
     }
@@ -522,11 +719,25 @@ export class GymScene {
     this.updateMarker()
     this.updateFocus()
     this.followCamera(dt)
+    this.updateWallSight(dt)
 
     this.renderer.render(this.scene, this.camera)
   }
 
   private movePlayer(dt: number): void {
+    // Mid-conversation the player stands still and turns to whoever they are
+    // talking to; walking away from a face-to-face would be nonsense.
+    const partner = this.facingRig()
+    if (partner) {
+      this.playerFacing = Math.atan2(
+        partner.root.position.x - this.playerPos.x,
+        partner.root.position.z - this.playerPos.z,
+      )
+      this.turnPlayer(dt)
+      animate(this.player, this.elapsed, false)
+      return
+    }
+
     const dir = this.controls.vector()
     const moving = dir.x !== 0 || dir.z !== 0
 
@@ -537,11 +748,11 @@ export class GymScene {
       // position collides and they would be walled in forever. Standing
       // inside something suspends collision until they are clear of it.
       // Escaping never lets them leave the room, only the object.
-      const trappedByMachine = this.hitsMachine(this.playerPos.x, this.playerPos.z)
+      const trappedBySolid = this.hitsSolid(this.playerPos.x, this.playerPos.z)
       const trappedByWall = this.hitsWall(this.playerPos.x, this.playerPos.z)
       const free = (x: number, z: number) =>
         this.insideBounds(x, z) &&
-        (trappedByMachine || !this.hitsMachine(x, z)) &&
+        (trappedBySolid || !this.hitsSolid(x, z)) &&
         (trappedByWall || !this.hitsWall(x, z))
 
       // Resolve each axis on its own so walking into a machine slides along it
@@ -555,15 +766,31 @@ export class GymScene {
       this.playerFacing = Math.atan2(dir.x, dir.z)
     }
 
+    this.turnPlayer(dt)
+    animate(this.player, this.elapsed, moving)
+  }
+
+  /** Eases into the current heading rather than snapping to it. */
+  private turnPlayer(dt: number): void {
     this.player.root.position.x = this.playerPos.x
     this.player.root.position.z = this.playerPos.z
 
-    // Ease into the new heading rather than snapping.
     const turn =
       ((this.playerFacing - this.player.root.rotation.y + Math.PI) % (Math.PI * 2)) - Math.PI
     this.player.root.rotation.y += turn * Math.min(1, dt * 14)
+  }
 
-    animate(this.player, this.elapsed, moving)
+  /**
+   * Steps the camera into the player's own eyes, facing one client. Passing
+   * null hands the view back to the usual over-the-shoulder camera.
+   */
+  setFacing(clientUid: string | null): void {
+    this.facing = clientUid
+  }
+
+  private facingRig(): Rig | null {
+    if (!this.facing || this.buildMode) return null
+    return this.npcs.get(this.facing)?.rig ?? null
   }
 
   /** Inside the four walls. This one is never suspended. */
@@ -574,22 +801,29 @@ export class GymScene {
   }
 
   /**
-   * Overlapping a machine's footprint. Checks the tile under the point and
-   * its neighbours, since the body is wider than a point.
+   * Standing inside something. Each object is tested against its own box,
+   * turned the way it was placed — so the player can walk right past the side
+   * of a treadmill or squeeze behind a pot plant, instead of the whole two
+   * metre tile being a wall.
    */
-  private hitsMachine(x: number, z: number): boolean {
-    const tile = worldToTile(x, z)
+  private hitsSolid(x: number, z: number): boolean {
+    for (const solid of this.solids) {
+      const dx = x - solid.x
+      const dz = z - solid.z
 
-    for (let dy = -1; dy <= 1; dy += 1) {
-      for (let dx = -1; dx <= 1; dx += 1) {
-        const tx = tile.x + dx
-        const ty = tile.y + dy
-        if (!this.blocked.has(`${tx},${ty}`)) continue
+      // Cheap reject before the rotation: nothing reaches further than this.
+      if (Math.abs(dx) > 1.6 || Math.abs(dz) > 1.6) continue
 
-        const at = tileToWorld(tx, ty)
-        const hitX = Math.abs(x - at.x) < MACHINE_HALF + PLAYER_RADIUS
-        const hitZ = Math.abs(z - at.z) < MACHINE_HALF + PLAYER_RADIUS
-        if (hitX && hitZ) return true
+      // Into the object's own frame, which is the same as turning the point
+      // back by the object's rotation.
+      const localX = dx * solid.cos - dz * solid.sin
+      const localZ = dx * solid.sin + dz * solid.cos
+
+      if (
+        Math.abs(localX) < solid.hx + PLAYER_RADIUS &&
+        Math.abs(localZ) < solid.hz + PLAYER_RADIUS
+      ) {
+        return true
       }
     }
 
@@ -644,6 +878,14 @@ export class GymScene {
         }
       }
 
+      // Standing at the desk serves whoever is at the front of the line, even
+      // when the line itself trails off across the room. Working the counter
+      // is the job; chasing individual visitors around the floor is not.
+      if (!next && this.atReception(state)) {
+        const front = state.clients.find(c => c.phase === 'queue')
+        if (front) next = { kind: 'scan', clientUid: front.uid }
+      }
+
       for (const machine of state.machines) {
         if (machine.durability > 0) continue
         const at = tileToWorld(machine.x, machine.y)
@@ -661,19 +903,49 @@ export class GymScene {
   }
 
   private followCamera(dt: number): void {
-    // Roughly 45° above and behind — Hay Day's reading angle.
-    const target = new THREE.Vector3(this.playerPos.x - 1.5, 12.5, this.playerPos.z + 13.5)
+    const partner = this.facingRig()
 
-    // Snap on the opening frame. Lerping in from the origin would swoop the
-    // camera up through the floor every time the game loads.
-    if (this.cameraPlaced) {
-      this.camera.position.lerp(target, Math.min(1, dt * 3.2))
+    // The player's own body would fill a first-person view from the inside.
+    this.player.root.visible = partner === null
+
+    // Build mode looks straight down at the middle of the room, a
+    // conversation looks out of the player's own eyes, and otherwise the
+    // camera sits roughly 45° above and behind — Hay Day's reading angle.
+    let eye: THREE.Vector3
+    let aim: THREE.Vector3
+
+    if (this.buildMode) {
+      eye = this.buildEye
+      aim = new THREE.Vector3(0, 0, 0)
+    } else if (partner) {
+      const head = new THREE.Vector3(
+        partner.root.position.x,
+        EYE_HEIGHT,
+        partner.root.position.z,
+      )
+      // A pace out of the player's own head, so the view is theirs without
+      // the near plane clipping through their hair.
+      eye = new THREE.Vector3(this.playerPos.x, EYE_HEIGHT, this.playerPos.z)
+      eye.lerp(head, 0.16)
+      aim = head
     } else {
-      this.camera.position.copy(target)
+      eye = new THREE.Vector3(this.playerPos.x - 1.5, 12.5, this.playerPos.z + 13.5)
+      aim = new THREE.Vector3(this.playerPos.x, 1.1, this.playerPos.z - 0.5)
+    }
+
+    // Snap on the opening frame and on a change of view. Lerping in from the
+    // origin would swoop the camera up through the floor on load.
+    if (this.cameraPlaced) {
+      const ease = Math.min(1, dt * (partner ? 5 : 3.2))
+      this.camera.position.lerp(eye, ease)
+      this.lookAtNow.lerp(aim, ease)
+    } else {
+      this.camera.position.copy(eye)
+      this.lookAtNow.copy(aim)
       this.cameraPlaced = true
     }
 
-    this.camera.lookAt(this.playerPos.x, 1.1, this.playerPos.z - 0.5)
+    this.camera.lookAt(this.lookAtNow)
   }
 
   // --- lifecycle ------------------------------------------------------------
@@ -689,6 +961,10 @@ export class GymScene {
     this.renderer.setSize(width, height, false)
     this.camera.aspect = width / height
     this.camera.updateProjectionMatrix()
+
+    // The overhead framing depends on the aspect ratio, so it has to be redone
+    // whenever the window changes shape — including a phone being turned.
+    this.frameHall()
   }
 
   dispose(): void {
