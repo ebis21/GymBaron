@@ -9,6 +9,7 @@ import {
 } from './layout'
 import { findPath } from './pathfind'
 import { stepAlongPath } from './walk'
+import { REP_LOSS_ON_WALKOUT, SAT_LOSS_ON_WALKOUT, clamp } from './clients'
 
 /** Visitors all walk at the same pace; rarity says what they are worth, not how fast they move. */
 export const CLIENT_SPEED = 2.0
@@ -61,14 +62,24 @@ function queueAreaReachable(state: GameState, from: Tile): boolean {
  * queueing or training in the same tick rather than the next one.
  *
  * A client with nowhere to walk is not left stuck: on the way in they are
- * counted as lost — walling off the entrance has to cost reputation — and on
- * the way to a machine they give the machine back and head out.
+ * counted as lost — walling off the entrance costs reputation and
+ * satisfaction exactly as an impatient walkout does — and on the way to a
+ * machine they give the machine back and head out.
+ *
+ * `changed` tracks whether any client's stored fields actually differ from
+ * what they already were, not merely whether we computed a step for them.
+ * Every settled client (already standing on its target, nothing re-planned)
+ * is pushed back by reference: with a full queue idling between scans, that
+ * is what lets `commit()` skip the render on reference identity instead of
+ * rebuilding every client object on every tick for nothing.
  */
 export function moveClients(state: GameState, dtMs: number): GameState {
   if (state.clients.length === 0) return state
 
   const survivors: Client[] = []
   const freed: string[] = []
+  let reputation = state.reputation
+  let satisfaction = state.satisfaction
   let lost = 0
   let queueIndex = 0
   let changed = false
@@ -86,17 +97,18 @@ export function moveClients(state: GameState, dtMs: number): GameState {
       // The machine vanished from under a walking client.
       changed = true
       if (client.machineUid) freed.push(client.machineUid)
-      survivors.push({ ...client, phase: 'leaving', phaseMs: 0, path: [], goal: null })
+      survivors.push({ ...client, phase: 'leaving', phaseMs: 0, machineUid: null, path: [], goal: null })
       continue
     }
 
     const here = worldToTile(client.x, client.z)
     const goal = worldToTile(end.x, end.z)
     const onMachine = client.phase === 'toMachine'
+    const goalChanged = !client.goal || client.goal.x !== goal.x || client.goal.y !== goal.y
 
     // Re-plan whenever the aim moved: the queue shuffles forward constantly.
     let path = client.path
-    if (!client.goal || client.goal.x !== goal.x || client.goal.y !== goal.y) {
+    if (goalChanged) {
       const queueing = client.phase === 'arriving' || client.phase === 'queue'
       const found = queueing && !queueAreaReachable(state, here)
         ? null
@@ -106,27 +118,48 @@ export function moveClients(state: GameState, dtMs: number): GameState {
         if (client.phase === 'leaving') continue // already settled; just vanish
         if (client.phase === 'toMachine' && client.machineUid) {
           freed.push(client.machineUid)
-          survivors.push({ ...client, phase: 'leaving', phaseMs: 0, path: [], goal: null })
+          survivors.push({ ...client, phase: 'leaving', phaseMs: 0, machineUid: null, path: [], goal: null })
           continue
         }
-        lost += 1 // walled off on the way in
+        // Walled off on the way in — the same hit an impatient walkout costs.
+        lost += 1
+        reputation = clamp(reputation - REP_LOSS_ON_WALKOUT, 0, 100)
+        satisfaction = clamp(satisfaction - SAT_LOSS_ON_WALKOUT, 0, 100)
         continue
       }
       path = found
     }
 
     const step = stepAlongPath(client, path, end, CLIENT_SPEED, dtMs)
-    changed = true
 
     if (!step.arrived) {
-      survivors.push({ ...client, x: step.pos.x, z: step.pos.z, path: step.path, goal })
+      const posChanged = step.pos.x !== client.x || step.pos.z !== client.z
+      const pathChanged = step.path !== client.path
+      if (posChanged || pathChanged || goalChanged) {
+        changed = true
+        survivors.push({ ...client, x: step.pos.x, z: step.pos.z, path: step.path, goal })
+      } else {
+        survivors.push(client)
+      }
       continue
     }
 
-    if (client.phase === 'leaving') continue // out of the door, gone
+    if (client.phase === 'leaving') {
+      changed = true // out of the door, gone
+      continue
+    }
 
     const phase = client.phase === 'toMachine' ? 'workout' : 'queue'
+    const phaseChanged = client.phase !== phase
+    const posChanged = step.pos.x !== client.x || step.pos.z !== client.z
+    const pathChanged = client.path.length !== 0
 
+    if (!phaseChanged && !posChanged && !pathChanged && !goalChanged) {
+      survivors.push(client) // already settled here; nothing to update
+      continue
+    }
+
+    changed = true
     survivors.push({
       ...client,
       x: step.pos.x,
@@ -136,7 +169,7 @@ export function moveClients(state: GameState, dtMs: number): GameState {
       phase,
       // Patience and workout clocks both start on arrival, not on dispatch.
       // Somebody already queuing who merely shuffled forward keeps their timer.
-      phaseMs: client.phase === phase ? client.phaseMs : 0,
+      phaseMs: phaseChanged ? 0 : client.phaseMs,
     })
   }
 
@@ -152,6 +185,8 @@ export function moveClients(state: GameState, dtMs: number): GameState {
     ...state,
     machines,
     clients: survivors,
+    reputation,
+    satisfaction,
     today: { ...state.today, clientsLost: state.today.clientsLost + lost },
     stats: { ...state.stats, clientsLost: state.stats.clientsLost + lost },
   }

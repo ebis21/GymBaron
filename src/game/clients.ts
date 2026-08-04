@@ -14,12 +14,13 @@ const SPAWN_PER_REP = 0.30
 /** Times an average member turns up over a full 8:00–20:00 day. */
 const MEMBER_VISITS_PER_DAY = 1.6
 
-const REP_LOSS_ON_WALKOUT = 3
-const SAT_LOSS_ON_WALKOUT = 2
+/** Shared with clientMove.ts: a walled-off entrance costs exactly what an impatient walkout does. */
+export const REP_LOSS_ON_WALKOUT = 3
+export const SAT_LOSS_ON_WALKOUT = 2
 const REP_GAIN_ON_WORKOUT = 1.5
 const XP_ON_SCAN = 2
 
-const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v))
+export const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v))
 
 const isUsable = (m: Machine) => m.durability > 0 && m.occupiedBy === null
 
