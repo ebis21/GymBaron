@@ -4,6 +4,7 @@ import { buildNpc, animate, type Rig } from './models/character'
 import { stanceFor } from './models/stance'
 import { tileToWorld } from '../game/layout'
 import { PATIENCE_MS } from '../game/constants'
+import { queueAnchorFor } from '../game/clientMove'
 import { PALETTE } from './style'
 
 const BAR_WIDTH = 0.62
@@ -44,6 +45,30 @@ interface ActorView {
 }
 
 /**
+ * Frees a subtree's GPU resources when an actor leaves the floor. Geometry
+ * is always safe to free: `blockAt`/`sphere`/`cylinder` (and the bar's own
+ * planes) build a fresh one per mesh, never a shared one. Materials are not
+ * always safe — a rig's paint comes from `toon()`'s colour cache in style.ts
+ * and is shared with every other rig, machine and wall painted the same
+ * hue, so disposing it here would break whoever else is still using it.
+ * `ownMaterial` marks the few things built with a private material instead:
+ * the patience bar's two planes. The one exception either way is a Sprite
+ * (the rarity tag) — its own material is always private per rig, even
+ * though the texture it points at is still the shared per-rarity cache, so
+ * only the material is disposed, never `sprite.material.map`.
+ */
+function disposeSubtree(root: THREE.Object3D, ownMaterial: boolean): void {
+  root.traverse(obj => {
+    if (obj instanceof THREE.Mesh) {
+      obj.geometry.dispose()
+      if (ownMaterial) (obj.material as THREE.Material).dispose()
+    } else if (obj instanceof THREE.Sprite) {
+      obj.material.dispose()
+    }
+  })
+}
+
+/**
  * Draws everyone on the floor. Positions come from the engine, which owns
  * movement so that time spent away from the app still counts; this layer only
  * smooths them out so a 30 Hz simulation does not look like a slideshow.
@@ -71,6 +96,8 @@ export class ActorLayer {
       if (seen.has(uid)) continue
       this.scene.remove(view.rig.root)
       this.scene.remove(view.bar)
+      disposeSubtree(view.rig.root, false)
+      disposeSubtree(view.bar, true)
       this.views.delete(uid)
     }
   }
@@ -85,6 +112,8 @@ export class ActorLayer {
     for (const [, view] of this.views) {
       this.scene.remove(view.rig.root)
       this.scene.remove(view.bar)
+      disposeSubtree(view.rig.root, false)
+      disposeSubtree(view.bar, true)
     }
     this.views.clear()
   }
@@ -129,10 +158,16 @@ export class ActorLayer {
     if (view.rig.root.position.lengthSq() === 0) view.rig.root.position.copy(target)
     else view.rig.root.position.lerp(target, 0.25)
 
-    // Face the way you are going; standing still, keep the last heading.
+    // Face the way you are going; standing still, keep the last heading —
+    // except settled in the queue, where the desk is the point, not
+    // whichever way the last step of the walk-up happened to leave you.
     const dx = client.x - view.rig.root.position.x
     const dz = client.z - view.rig.root.position.z
-    if (dx * dx + dz * dz > 1e-4) view.rig.root.rotation.y = Math.atan2(dx, dz)
+    if (client.phase === 'queue' && client.path.length === 0) {
+      view.rig.root.rotation.y = queueAnchorFor(state).angle + Math.PI
+    } else if (dx * dx + dz * dz > 1e-4) {
+      view.rig.root.rotation.y = Math.atan2(dx, dz)
+    }
 
     const walking = client.path.length > 0
     animate(view.rig, elapsed + view.seed, walking)
