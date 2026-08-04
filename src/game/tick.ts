@@ -4,6 +4,7 @@ import { moveClients } from './clientMove'
 import { closeDay } from './dayClose'
 import { msLeftInDay } from './clock'
 import { DAY_MS, MAX_STEP_MS } from './constants'
+import { ageStains } from './stains'
 
 type System = (state: GameState, dtMs: number) => GameState
 
@@ -11,7 +12,7 @@ type System = (state: GameState, dtMs: number) => GameState
  * The whole simulation, in order. Costs are deliberately absent — money only
  * leaves the till at closing time, never by the millisecond.
  */
-const SYSTEMS: System[] = [spawnWalkins, spawnMembers, moveClients, advanceClients]
+const SYSTEMS: System[] = [spawnWalkins, spawnMembers, moveClients, advanceClients, ageStains]
 
 function step(state: GameState, dtMs: number): GameState {
   let next = state

@@ -6,6 +6,7 @@ import { addXp, entryFee } from './economy'
 import { addMember, signupChance } from './members'
 import { DAY_MS, MAX_QUEUE, PATIENCE_MS } from './constants'
 import { DOOR_X, DOOR_QUEUE_ANCHOR } from './layout'
+import { spawnStain, STAIN_CHANCE } from './stains'
 
 /** Chance per second that a client walks in, at zero and at full reputation. */
 const SPAWN_BASE = 0.18
@@ -106,6 +107,7 @@ export function advanceClients(state: GameState, dtMs: number): GameState {
   const machines = state.machines.map(m => ({ ...m }))
   const byUid = new Map(machines.map(m => [m.uid, m]))
   const survivors: Client[] = []
+  const dirtied: { x: number; y: number }[] = []
 
   for (const client of state.clients) {
     // Walking phases are advanced by moveClients; only timers live here.
@@ -141,6 +143,9 @@ export function advanceClients(state: GameState, dtMs: number): GameState {
     reputation = clamp(reputation + REP_GAIN_ON_WORKOUT, 0, 100)
     machine.durability = clamp(machine.durability - type.wearPerUse, 0, 100)
     machine.occupiedBy = null
+    const [dirtRoll, dirtSeed] = nextRandom(seed)
+    seed = dirtSeed
+    if (dirtRoll < STAIN_CHANCE) dirtied.push({ x: machine.x, y: machine.y })
     xpAwarded += type.xpPerUse
 
     // Finished clients walk out rather than blinking away.
@@ -179,6 +184,7 @@ export function advanceClients(state: GameState, dtMs: number): GameState {
     },
   }
 
+  for (const tile of dirtied) next = spawnStain(next, tile.x, tile.y)
   for (let i = 0; i < signups; i += 1) next = addMember(next)
   return xpAwarded > 0 ? addXp(next, xpAwarded) : next
 }
