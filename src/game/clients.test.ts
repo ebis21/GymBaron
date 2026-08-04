@@ -15,6 +15,10 @@ const client = (over: Partial<Client> = {}): Client => ({
   phaseMs: 0,
   machineUid: null,
   memberUid: null,
+  x: 0,
+  z: 0,
+  path: [],
+  goal: null,
   ...over,
 })
 
@@ -114,7 +118,7 @@ describe('scanClient', () => {
     const s = scanClient(s0, 'c1')
     expect(s.cash).toBeGreaterThan(s0.cash)
     expect(s.stats.totalEarned).toBeGreaterThan(0)
-    expect(s.clients[0]!.phase).toBe('workout')
+    expect(s.clients[0]!.phase).toBe('toMachine')
     expect(s.clients[0]!.machineUid).toBe('m1')
     expect(s.machines[0]!.occupiedBy).toBe('c1')
   })
@@ -167,7 +171,7 @@ describe('workout completion', () => {
       machines: [machine({ occupiedBy: 'c1' })],
       clients: [client({ phase: 'workout', machineUid: 'm1' })] }
     const s = advanceClients(s0, 99_000)
-    expect(s.clients).toHaveLength(0)
+    expect(s.clients[0]!.phase).toBe('leaving')
     expect(s.machines[0]!.occupiedBy).toBeNull()
     expect(s.machines[0]!.durability).toBeLessThan(100)
     expect(s.stats.clientsServed).toBe(1)
