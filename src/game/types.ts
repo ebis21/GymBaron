@@ -1,3 +1,5 @@
+import type { Point, Tile } from './layout'
+
 export type MachineTypeId =
   | 'dumbbells' | 'bench' | 'treadmill' | 'latpulldown' | 'bike' | 'cable'
 
@@ -68,7 +70,12 @@ export type InventoryItem =
   | { uid: string; kind: 'decor'; type: DecorTypeId }
   | { uid: string; kind: 'wall' }
 
-export type ClientPhase = 'queue' | 'workout'
+export type ClientPhase =
+  | 'arriving'   // from the door to a place in the queue
+  | 'queue'      // waiting to be scanned; patience runs only here
+  | 'toMachine'  // scanned and paid, walking to the reserved machine
+  | 'workout'    // training
+  | 'leaving'    // heading back to the door, then gone
 
 /**
  * Members queue and get scanned exactly like walk-ins — the pass buys them a
@@ -82,7 +89,7 @@ export type ClientKind = 'walkin' | 'member'
  */
 export type ClientRarity = 'common' | 'rare' | 'epic' | 'legend' | 'influencer'
 
-export interface Client {
+export interface Client extends Walker {
   uid: string
   kind: ClientKind
   rarity: ClientRarity
@@ -148,6 +155,11 @@ export interface GameState {
   inventory: InventoryItem[]
   clients: Client[]
   members: Member[]
+  staff: Staff[]
+  stains: Stain[]
+  candidates: Candidate[]
+  /** Day the pool was drawn for; keeps a stale pool from surviving the night. */
+  candidatesDay: number
   seed: number
   /** 1-based. The player advances it by hand; nothing else may. */
   day: number
@@ -163,4 +175,47 @@ export interface GameState {
   gameOver: boolean
   stats: GameStats
   nextUid: number
+}
+
+/**
+ * Everything that walks the floor. Position is in world units rather than
+ * tiles because a walker spends most of its life between two of them.
+ */
+export interface Walker extends Point {
+  /** Tiles still to cross; the head is the next step. Empty means standing. */
+  path: Tile[]
+  /** Where this walker is ultimately headed, so a changed room can re-route it. */
+  goal: Tile | null
+}
+
+export type StaffRole = 'reception' | 'cleaner' | 'repair'
+export type StaffRank = 'rare' | 'epic' | 'legend'
+
+export interface Staff extends Walker {
+  uid: string
+  name: string
+  role: StaffRole
+  rank: StaffRank
+  /** uid of a stain, a machine or a client — whichever the role works on. */
+  targetUid: string | null
+  /** ms already spent working at the target. */
+  workMs: number
+  /** Unpaid wage. Anything above zero means this one is on strike. */
+  owed: number
+}
+
+/** Left behind by a finished workout. Drags reputation down until wiped. */
+export interface Stain {
+  uid: string
+  x: number
+  y: number
+  ageMs: number
+}
+
+/** An entry in the hiring pool. Not an employee yet. */
+export interface Candidate {
+  uid: string
+  name: string
+  role: StaffRole
+  rank: StaffRank
 }

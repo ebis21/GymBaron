@@ -1,16 +1,18 @@
-import type { GameState } from './types'
+import type { Client, GameState } from './types'
 import { initialState } from './economy'
 import { SAVE_VERSION } from './constants'
+import { DOOR_X, DOOR_QUEUE_ANCHOR } from './layout'
 
 export function serialize(state: GameState): string {
   return JSON.stringify(state)
 }
 
-function isGameState(v: unknown): v is GameState {
+/** The shape every version has had since v1. Version is checked separately. */
+function looksLikeSave(v: unknown): v is Record<string, unknown> {
   if (typeof v !== 'object' || v === null) return false
   const s = v as Record<string, unknown>
   return (
-    s.version === SAVE_VERSION &&
+    typeof s.version === 'number' &&
     typeof s.cash === 'number' &&
     typeof s.reputation === 'number' &&
     typeof s.satisfaction === 'number' &&
@@ -36,14 +38,48 @@ function isGameState(v: unknown): v is GameState {
 }
 
 /**
- * Returns a fresh state on unparseable, malformed, or unknown-version input
+ * Brings a version 3 save up to 4: staff, stains and the hiring pool did not
+ * exist, and clients had no position because nobody walked anywhere. Wiping a
+ * player's gym over a schema change is not an option, so the missing pieces
+ * are filled in rather than the save thrown away.
+ *
+ * Migrated clients are parked at the door with an empty path. The next tick
+ * re-routes them; a frame of standing still beats losing the save.
+ */
+function migrate(raw: Record<string, unknown>): GameState {
+  const clients = (raw.clients as Client[]).map(c => ({
+    ...c,
+    x: DOOR_X,
+    z: DOOR_QUEUE_ANCHOR.z,
+    path: [],
+    goal: null,
+  }))
+
+  return {
+    ...(raw as unknown as GameState),
+    version: SAVE_VERSION,
+    clients,
+    staff: [],
+    stains: [],
+    candidates: [],
+    candidatesDay: 0,
+  }
+}
+
+/**
+ * Returns a fresh state on unparseable, malformed, or future-version input
  * rather than throwing — a corrupt save must never brick the app.
  */
 export function deserialize(raw: string, now: number): GameState {
   try {
     const parsed: unknown = JSON.parse(raw)
-    if (!isGameState(parsed)) return initialState(now, now)
-    return parsed
+    if (!looksLikeSave(parsed)) return initialState(now, now)
+
+    const version = parsed.version as number
+    if (version === SAVE_VERSION) return parsed as unknown as GameState
+    if (version === 3) return migrate(parsed)
+
+    return initialState(now, now)
   } catch {
     return initialState(now, now)
   }
