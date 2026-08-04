@@ -70,4 +70,21 @@ describe('migration to version 4', () => {
   it('still returns a fresh state for junk', () => {
     expect(deserialize('not json', 0).cash).toBe(500)
   })
+
+  it('rejects a v4-labelled save that is missing the v4 fields as corrupt', () => {
+    const corrupt = JSON.stringify({
+      ...initialState(7, 0),
+      version: SAVE_VERSION,
+      cash: 4321,
+      staff: undefined,
+      stains: undefined,
+      candidates: undefined,
+      candidatesDay: undefined,
+    })
+
+    const loaded = deserialize(corrupt, 0)
+
+    expect(loaded.cash).toBe(500)
+    expect(loaded.staff).toEqual([])
+  })
 })

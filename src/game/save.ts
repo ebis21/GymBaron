@@ -7,7 +7,11 @@ export function serialize(state: GameState): string {
   return JSON.stringify(state)
 }
 
-/** The shape every version has had since v1. Version is checked separately. */
+/**
+ * Structural shape common to every version since v1. Checked before the
+ * version is known, so it must stop at fields v3 already had — a v3 save
+ * legitimately lacks the v4 ones, and `migrate` is what fills those in.
+ */
 function looksLikeSave(v: unknown): v is Record<string, unknown> {
   if (typeof v !== 'object' || v === null) return false
   const s = v as Record<string, unknown>
@@ -34,6 +38,21 @@ function looksLikeSave(v: unknown): v is Record<string, unknown> {
     Array.isArray(s.members) &&
     typeof s.today === 'object' && s.today !== null &&
     typeof s.stats === 'object' && s.stats !== null
+  )
+}
+
+/**
+ * Fields introduced in v4, checked only once a save claims to already be v4 —
+ * a save at this version missing them is not an old save waiting to migrate,
+ * it is corrupt (hand-edited storage, a future write bug, truncated data) and
+ * must be rejected rather than handed to the app with `staff` etc. undefined.
+ */
+function looksLikeV4(s: Record<string, unknown>): boolean {
+  return (
+    Array.isArray(s.staff) &&
+    Array.isArray(s.stains) &&
+    Array.isArray(s.candidates) &&
+    typeof s.candidatesDay === 'number'
   )
 }
 
@@ -76,7 +95,9 @@ export function deserialize(raw: string, now: number): GameState {
     if (!looksLikeSave(parsed)) return initialState(now, now)
 
     const version = parsed.version as number
-    if (version === SAVE_VERSION) return parsed as unknown as GameState
+    if (version === SAVE_VERSION) {
+      return looksLikeV4(parsed) ? (parsed as unknown as GameState) : initialState(now, now)
+    }
     if (version === 3) return migrate(parsed)
 
     return initialState(now, now)
