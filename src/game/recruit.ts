@@ -1,0 +1,81 @@
+import type { Candidate, GameState, StaffRank } from './types'
+import { nextRandom } from './rng'
+import { STAFF_RANKS, STAFF_ROLES } from './content/staff'
+
+export const POOL_SIZE = 3
+export const REFRESH_PRICE = 500
+
+/**
+ * Relative odds, not percentages — the same shape as the client rarity table.
+ * A legend turns up roughly once in twenty draws, so about once a week of play,
+ * and by then the player needs five figures ready for the first wage.
+ */
+export const RANK_WEIGHT: Record<StaffRank, number> = {
+  rare: 70,
+  epic: 25,
+  legend: 5,
+}
+
+const TOTAL_WEIGHT = STAFF_RANKS.reduce((sum, r) => sum + RANK_WEIGHT[r], 0)
+
+const FIRST_NAMES = [
+  'Marta', 'Piotr', 'Ola', 'Kamil', 'Zofia', 'Bartek',
+  'Iwona', 'Rafał', 'Ewa', 'Damian', 'Kinga', 'Sławek',
+]
+
+const SURNAME_INITIALS = ['K.', 'W.', 'D.', 'N.', 'S.', 'M.', 'L.', 'B.']
+
+function pick<T>(list: T[], seed: number): [T, number] {
+  const [roll, next] = nextRandom(seed)
+  const index = Math.min(list.length - 1, Math.floor(roll * list.length))
+  return [list[index]!, next]
+}
+
+function rollRank(seed: number): [StaffRank, number] {
+  const [roll, next] = nextRandom(seed)
+  const target = roll * TOTAL_WEIGHT
+
+  let acc = 0
+  for (const rank of STAFF_RANKS) {
+    acc += RANK_WEIGHT[rank]
+    if (target < acc) return [rank, next]
+  }
+  return [STAFF_RANKS[STAFF_RANKS.length - 1]!, next]
+}
+
+/** Draws a fresh board of candidates, threading the seed like the rest of the engine. */
+export function rollPool(state: GameState): GameState {
+  let seed = state.seed
+  let uid = state.nextUid
+  const candidates: Candidate[] = []
+
+  for (let i = 0; i < POOL_SIZE; i += 1) {
+    const [first, s1] = pick(FIRST_NAMES, seed)
+    const [initial, s2] = pick(SURNAME_INITIALS, s1)
+    const [role, s3] = pick(STAFF_ROLES, s2)
+    const [rank, s4] = rollRank(s3)
+    seed = s4
+
+    candidates.push({ uid: `k${uid}`, name: `${first} ${initial}`, role, rank })
+    uid += 1
+  }
+
+  return { ...state, seed, nextUid: uid, candidates, candidatesDay: state.day }
+}
+
+/** Draws a board for today if the one on the table is from an earlier day. */
+export function ensurePool(state: GameState): GameState {
+  if (state.candidatesDay === state.day && state.candidates.length > 0) return state
+  return rollPool(state)
+}
+
+export function refreshPool(state: GameState): GameState {
+  if (state.cash < REFRESH_PRICE) return state
+
+  const next = rollPool(state)
+  return {
+    ...next,
+    cash: next.cash - REFRESH_PRICE,
+    stats: { ...next.stats, totalSpent: next.stats.totalSpent + REFRESH_PRICE },
+  }
+}
