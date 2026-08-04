@@ -26,6 +26,7 @@ import { ActorLayer } from './actors'
 export type Focus =
   | { kind: 'scan'; clientUid: string }
   | { kind: 'repair'; machineUid: string }
+  | { kind: 'wipe'; stainUid: string }
   | null
 
 export type EdgeSide = 'n' | 's' | 'e' | 'w'
@@ -60,6 +61,7 @@ const sameFocus = (a: Focus, b: Focus): boolean => {
   if (a === null || b === null) return a === b
   if (a.kind === 'scan' && b.kind === 'scan') return a.clientUid === b.clientUid
   if (a.kind === 'repair' && b.kind === 'repair') return a.machineUid === b.machineUid
+  if (a.kind === 'wipe' && b.kind === 'wipe') return a.stainUid === b.stainUid
   return false
 }
 
@@ -775,6 +777,15 @@ export class GymScene {
         if (d < best) {
           best = d
           next = { kind: 'repair', machineUid: machine.uid }
+        }
+      }
+
+      for (const stain of state.stains) {
+        const at = tileToWorld(stain.x, stain.y)
+        const d = Math.hypot(at.x - this.playerPos.x, at.z - this.playerPos.z)
+        if (d < best) {
+          best = d
+          next = { kind: 'wipe', stainUid: stain.uid }
         }
       }
     }

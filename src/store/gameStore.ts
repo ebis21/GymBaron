@@ -15,6 +15,7 @@ import {
   type PlacedKind,
 } from '../game/build'
 import { scanClient } from '../game/clients'
+import { wipeStain } from '../game/stains'
 import { nextDay } from '../game/dayClose'
 import { advance } from '../game/tick'
 import { serialize, deserialize } from '../game/save'
@@ -45,6 +46,7 @@ interface GameStore {
   demolishWall: (uid: string) => void
   scan: (clientUid: string) => void
   repair: (machineUid: string) => void
+  wipe: (stainUid: string) => void
   hireCandidate: (candidateUid: string) => void
   fireStaff: (staffUid: string) => void
   settleArrears: (staffUid: string) => void
@@ -230,6 +232,12 @@ export const useGameStore = create<GameStore>((set, get) => {
       }
       set({ state: next })
       persist(next)
+    },
+
+    wipe: uid => {
+      const state = get().state
+      if (state.gameOver) return
+      commit(wipeStain(state, uid))
     },
 
     hireCandidate: uid => {

@@ -57,6 +57,7 @@ export default function App() {
   const stop = useGameStore(s => s.stop)
   const scan = useGameStore(s => s.scan)
   const repair = useGameStore(s => s.repair)
+  const wipe = useGameStore(s => s.wipe)
   const restart = useGameStore(s => s.restart)
   const dismissWelcome = useGameStore(s => s.dismissWelcome)
   const advanceDay = useGameStore(s => s.advanceDay)
@@ -247,6 +248,15 @@ export default function App() {
         hint: spec.name,
         enabled: state.cash >= spec.repairCost,
         run: () => repair(focus.machineUid),
+      }
+    }
+
+    if (focus.kind === 'wipe') {
+      return {
+        label: 'Posprzątaj',
+        hint: '',
+        enabled: true,
+        run: () => wipe(focus.stainUid),
       }
     }
 
