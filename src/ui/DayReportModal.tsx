@@ -46,6 +46,7 @@ export default function DayReportModal({ report, onNextDay }: Props) {
           <Row label="Czynsz" value={`−${money(report.rent)}`} tone="out" />
           <Row label="Prąd" value={`−${money(report.power)}`} tone="out" />
           <Row label="Utrzymanie członków" value={`−${money(report.memberUpkeep)}`} tone="out" />
+          <Row label="Wypłaty" value={`−${money(report.wages)}`} tone="out" />
           <div className="receipt-row total">
             <span>Rachunek</span>
             <span className="receipt-out">−{money(report.bill)}</span>

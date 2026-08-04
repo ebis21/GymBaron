@@ -19,6 +19,8 @@ import { nextDay } from '../game/dayClose'
 import { advance } from '../game/tick'
 import { serialize, deserialize } from '../game/save'
 import { settleOffline } from '../game/offline'
+import { hire, fire, payArrears } from '../game/staff'
+import { refreshPool, ensurePool } from '../game/recruit'
 import { loadRaw, saveRaw } from './storage'
 import { AUTOSAVE_MS, SAVE_KEY } from '../game/constants'
 
@@ -43,6 +45,10 @@ interface GameStore {
   demolishWall: (uid: string) => void
   scan: (clientUid: string) => void
   repair: (machineUid: string) => void
+  hireCandidate: (candidateUid: string) => void
+  fireStaff: (staffUid: string) => void
+  settleArrears: (staffUid: string) => void
+  rerollCandidates: () => void
   advanceDay: () => void
   dismissWelcome: () => void
   restart: () => void
@@ -135,7 +141,9 @@ export const useGameStore = create<GameStore>((set, get) => {
         const now = Date.now()
         const raw = await loadRaw(SAVE_KEY)
         const loaded = raw ? deserialize(raw, now) : initialState(now, now)
-        const { state, earned, awayMs } = settleOffline(loaded, now)
+        const settled = settleOffline(loaded, now)
+        const { earned, awayMs } = settled
+        const state = ensurePool(settled.state)
 
         set({
           state,
@@ -222,6 +230,30 @@ export const useGameStore = create<GameStore>((set, get) => {
       }
       set({ state: next })
       persist(next)
+    },
+
+    hireCandidate: uid => {
+      const state = get().state
+      if (state.gameOver) return
+      commit(hire(state, uid))
+    },
+
+    fireStaff: uid => {
+      const state = get().state
+      if (state.gameOver) return
+      commit(fire(state, uid))
+    },
+
+    settleArrears: uid => {
+      const state = get().state
+      if (state.gameOver) return
+      commit(payArrears(state, uid))
+    },
+
+    rerollCandidates: () => {
+      const state = get().state
+      if (state.gameOver) return
+      commit(refreshPool(state))
     },
 
     advanceDay: () => {

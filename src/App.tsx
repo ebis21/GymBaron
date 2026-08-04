@@ -10,6 +10,8 @@ import TopBar from './ui/TopBar'
 import Phone, { type PhoneApp } from './ui/Phone'
 import ShopScreen from './ui/ShopScreen'
 import StatsScreen from './ui/StatsScreen'
+import StaffPanel from './ui/StaffPanel'
+import RecruitScreen from './ui/RecruitScreen'
 import GameOverScreen from './ui/GameOverScreen'
 import DayReportModal from './ui/DayReportModal'
 import InventoryPanel from './ui/InventoryPanel'
@@ -18,7 +20,7 @@ import WelcomeBack from './ui/WelcomeBack'
 import { money } from './ui/format'
 
 /** Which full-screen panel is over the room, if any. */
-type Tab = 'gym' | 'shop' | 'stats'
+type Tab = 'gym' | 'shop' | 'stats' | 'staff'
 
 const RARITY_NAME: Record<ClientRarity, string> = {
   common: 'Zwykły',
@@ -70,9 +72,15 @@ export default function App() {
   const moveWallEdge = useGameStore(s => s.moveWallEdge)
   const demolishWall = useGameStore(s => s.demolishWall)
 
+  const hireCandidate = useGameStore(s => s.hireCandidate)
+  const fireStaff = useGameStore(s => s.fireStaff)
+  const settleArrears = useGameStore(s => s.settleArrears)
+  const rerollCandidates = useGameStore(s => s.rerollCandidates)
+
   const [tab, setTab] = useState<Tab>('gym')
   const [phoneOpen, setPhoneOpen] = useState(false)
   const [focus, setFocus] = useState<Focus>(null)
+  const [recruiting, setRecruiting] = useState(false)
 
   const [buildMode, setBuildMode] = useState(false)
   /** Client the player has stepped up to, face to face. */
@@ -103,6 +111,12 @@ export default function App() {
     if (talkingGone) setTalking(null)
   }, [talkingGone])
 
+  // Leaving the staff tab — by the panel's ✕ or by switching apps — should not
+  // leave the recruit sub-screen armed for next time the tab opens.
+  useEffect(() => {
+    if (tab !== 'staff') setRecruiting(false)
+  }, [tab])
+
   const clearBuildState = () => {
     setSelected(null)
     setSelectedWall(null)
@@ -118,9 +132,6 @@ export default function App() {
   }
 
   const openApp = (app: PhoneApp) => {
-    // Nothing to open yet — the tile is there so the plan is visible.
-    if (app === 'staff') return
-
     setPhoneOpen(false)
 
     if (app === 'build') {
@@ -368,6 +379,25 @@ export default function App() {
               onBuyDecor={buyDecor}
               onBuyWall={buyWall}
             />
+          ) : tab === 'staff' ? (
+            recruiting ? (
+              <RecruitScreen
+                state={state}
+                onHire={uid => {
+                  hireCandidate(uid)
+                  setRecruiting(false)
+                }}
+                onReroll={rerollCandidates}
+                onBack={() => setRecruiting(false)}
+              />
+            ) : (
+              <StaffPanel
+                state={state}
+                onFire={fireStaff}
+                onSettle={settleArrears}
+                onOpenRecruit={() => setRecruiting(true)}
+              />
+            )
           ) : (
             <StatsScreen state={state} />
           )}

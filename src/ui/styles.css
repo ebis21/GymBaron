@@ -993,6 +993,293 @@ body {
   color: var(--ink-soft);
 }
 
+/* --- shared screen chrome -------------------------------------------------- */
+
+.screen-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.screen-head h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.screen-head > button:not(.back) {
+  font: inherit;
+  font-size: 12.5px;
+  color: var(--wood-dark);
+  background: var(--cream);
+  border: 3px solid var(--wood);
+  border-radius: 14px;
+  padding: 7px 12px;
+  box-shadow: 0 3px 0 var(--wood);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.screen-head > button:not(.back):active:not(:disabled) {
+  transform: translateY(3px);
+  box-shadow: none;
+}
+
+.screen-head > button:not(.back):disabled {
+  background: #c7bcae;
+  border-color: #a89c8e;
+  box-shadow: 0 3px 0 #a89c8e;
+  cursor: not-allowed;
+}
+
+.back {
+  font: inherit;
+  font-size: 18px;
+  line-height: 1;
+  flex: none;
+  width: 38px;
+  height: 38px;
+  color: var(--wood-dark);
+  background: var(--cream);
+  border: 3px solid var(--wood);
+  border-radius: 50%;
+  box-shadow: 0 3px 0 var(--wood);
+  cursor: pointer;
+}
+
+.back:active {
+  transform: translateY(3px);
+  box-shadow: none;
+}
+
+.muted {
+  color: var(--ink-soft);
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+p.muted {
+  margin: 0 0 14px;
+  line-height: 1.5;
+}
+
+.warn {
+  color: var(--danger);
+  font-size: 12.5px;
+  font-weight: 800;
+}
+
+p.warn {
+  margin: 0 0 14px;
+  line-height: 1.5;
+  padding: 10px 12px;
+  background: rgba(217, 64, 58, 0.12);
+  border: 2px solid rgba(217, 64, 58, 0.4);
+  border-radius: 12px;
+}
+
+.primary {
+  font: inherit;
+  font-size: 14px;
+  color: #fff;
+  background: var(--coral);
+  border: 3px solid var(--coral-dark);
+  border-radius: 14px;
+  padding: 10px 16px;
+  box-shadow: 0 4px 0 var(--coral-dark);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.primary:active:not(:disabled) {
+  transform: translateY(3px);
+  box-shadow: none;
+}
+
+.primary:disabled {
+  background: #c7bcae;
+  border-color: #a89c8e;
+  box-shadow: 0 4px 0 #a89c8e;
+  cursor: not-allowed;
+}
+
+.danger {
+  font: inherit;
+  font-size: 13px;
+  color: #fff;
+  background: var(--danger);
+  border: 3px solid #a72e29;
+  border-radius: 14px;
+  padding: 8px 14px;
+  box-shadow: 0 4px 0 #a72e29;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.danger:active:not(:disabled) {
+  transform: translateY(3px);
+  box-shadow: none;
+}
+
+/* --- rank pills ------------------------------------------------------------ */
+
+.rank {
+  display: inline-block;
+  padding: 2px 10px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #fff;
+  background: #8a7f6f;
+  border: 2px solid #2b2438;
+  border-radius: 999px;
+}
+
+.rank-rare {
+  background: var(--sky);
+}
+
+.rank-epic {
+  background: var(--plum);
+}
+
+.rank-legend {
+  background: var(--gold);
+  color: var(--ink);
+}
+
+/* --- staff panel ------------------------------------------------------------ */
+
+.staff-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  list-style: none;
+  margin: 0 0 16px;
+  padding: 0;
+}
+
+.staff-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--cream);
+  border: 3px solid rgba(168, 106, 61, 0.45);
+  border-radius: 16px;
+  padding: 12px;
+}
+
+.staff-row.striking {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 3px rgba(217, 64, 58, 0.18);
+}
+
+.staff-id {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.staff-id strong {
+  font-size: 14px;
+}
+
+.staff-role {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-soft);
+}
+
+.staff-state {
+  font-size: 12.5px;
+}
+
+.staff-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.staff-actions > button:not(.danger) {
+  font: inherit;
+  font-size: 13px;
+  color: var(--wood-dark);
+  background: var(--cream);
+  border: 3px solid var(--wood);
+  border-radius: 14px;
+  padding: 8px 14px;
+  box-shadow: 0 4px 0 var(--wood);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.staff-actions > button:not(.danger):active:not(:disabled) {
+  transform: translateY(3px);
+  box-shadow: none;
+}
+
+.staff-actions > button:not(.danger):disabled {
+  background: #c7bcae;
+  border-color: #a89c8e;
+  box-shadow: 0 4px 0 #a89c8e;
+  cursor: not-allowed;
+}
+
+.staff-panel > .primary {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+}
+
+/* --- recruitment ------------------------------------------------------------ */
+
+.recruit .screen-head h2 {
+  flex: 1;
+  text-align: center;
+}
+
+.candidate-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  list-style: none;
+  margin: 0 0 16px;
+  padding: 0;
+}
+
+.candidate {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--cream);
+  border: 3px solid rgba(168, 106, 61, 0.45);
+  border-radius: 16px;
+  padding: 12px;
+}
+
+.candidate-id {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.candidate-stats {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+
+.candidate > .primary {
+  display: block;
+  width: 100%;
+}
+
 /* --- desktop ------------------------------------------------------------- */
 
 @media (min-width: 720px) {
