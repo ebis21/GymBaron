@@ -142,7 +142,7 @@ describe('applyChurn', () => {
       day: 5,
       satisfaction: 0,
       clients: [
-        { uid: 'c1', kind: 'member', rarity: 'common', phase: 'queue', phaseMs: 0, machineUid: null, memberUid: 'p49' },
+        { uid: 'c1', kind: 'member', rarity: 'common', phase: 'queue', phaseMs: 0, machineUid: null, memberUid: 'p49', x: 0, z: 0, path: [], goal: null },
       ],
     })
     const { state } = applyChurn(s)

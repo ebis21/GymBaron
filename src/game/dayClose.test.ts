@@ -111,7 +111,7 @@ describe('nextDay', () => {
     const s = nextDay({
       ...closed(),
       clients: [
-        { uid: 'c1', kind: 'walkin', rarity: 'common', phase: 'workout', phaseMs: 0, machineUid: 'm1', memberUid: null },
+        { uid: 'c1', kind: 'walkin', rarity: 'common', phase: 'workout', phaseMs: 0, machineUid: 'm1', memberUid: null, x: 0, z: 0, path: [], goal: null },
       ],
     })
     expect(s.clients).toEqual([])

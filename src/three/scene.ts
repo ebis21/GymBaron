@@ -1,30 +1,26 @@
 import * as THREE from 'three'
 import type { Decor, GameState, Machine, MachineTypeId, Wall } from '../game/types'
 import { GRID_H, GRID_W } from '../game/constants'
-import { PATIENCE_MS } from '../game/constants'
 import { tileOccupant, type PlacedKind } from '../game/build'
 import { buildHall } from './models/floor'
 import { buildDecor, buildWallSegment, WALL_THICK } from './models/decor'
 import { buildGhost, buildMachine } from './models/machines'
-import { animate, buildNpc, buildPlayer, type Rig } from './models/character'
+import { animate, buildPlayer, type Rig } from './models/character'
 import { DECOR_FOOTPRINT, MACHINE_FOOTPRINT, type Footprint } from './models/footprint'
-import { stanceFor } from './models/stance'
 import { Controls } from './controls'
 import {
-  DOOR_QUEUE_ANCHOR,
   HALL_D,
   HALL_W,
   REACH,
   TILE,
   insideGrid,
   overheadFraming,
-  queueSpot,
   tileToWorld,
   worldToTile,
-  type QueueAnchor,
 } from './layout'
 import { blockingSight } from './sight'
 import { PALETTE, ownMaterials, toon } from './style'
+import { ActorLayer } from './actors'
 
 /** What the player is close enough to act on right now. */
 export type Focus =
@@ -102,43 +98,6 @@ interface WallView {
   opacity: number
 }
 
-interface NpcView {
-  rig: Rig
-  seed: number
-  /** Countdown-of-patience bar, shown only while the client is queueing. */
-  bar: THREE.Group
-  barFill: THREE.Mesh
-}
-
-const BAR_WIDTH = 0.62
-const BAR_FULL = new THREE.Color(PALETTE.ghost)
-const BAR_EMPTY = new THREE.Color(PALETTE.ghostBad)
-
-function buildPatienceBar(): { group: THREE.Group; fill: THREE.Mesh } {
-  const group = new THREE.Group()
-
-  const bg = new THREE.Mesh(
-    new THREE.PlaneGeometry(BAR_WIDTH + 0.06, 0.16),
-    new THREE.MeshBasicMaterial({ color: '#2b2438', depthTest: false }),
-  )
-  group.add(bg)
-
-  // Geometry offset so the mesh spans 0..BAR_WIDTH in local space — scaling
-  // it then drains the bar from the right instead of squeezing both edges in.
-  const fillGeometry = new THREE.PlaneGeometry(BAR_WIDTH, 0.12)
-  fillGeometry.translate(BAR_WIDTH / 2, 0, 0)
-  const fill = new THREE.Mesh(
-    fillGeometry,
-    new THREE.MeshBasicMaterial({ color: PALETTE.ghost, depthTest: false }),
-  )
-  fill.position.set(-BAR_WIDTH / 2, 0, 0.001)
-  group.add(fill)
-
-  group.renderOrder = 10
-  group.visible = false
-  return { group, fill }
-}
-
 /**
  * Owns the whole 3D world. The engine never learns that this exists: the scene
  * reads game state in `sync`, reports what the player is standing next to
@@ -155,7 +114,7 @@ export class GymScene {
   private playerFacing = 0
 
   private readonly machines = new Map<string, MachineView>()
-  private readonly npcs = new Map<string, NpcView>()
+  private readonly actors = new ActorLayer(this.scene)
   /** Collision boxes of everything standing on the floor, rebuilt on sync. */
   private solids: Solid[] = []
 
@@ -287,7 +246,7 @@ export class GymScene {
     this.syncMachines(state.machines)
     this.syncDecor(state.decor)
     this.syncWalls(state.walls)
-    this.syncNpcs(state)
+    this.actors.sync(state, this.elapsed)
   }
 
   /** Records an object's collision box, turned to match how it was placed. */
@@ -485,83 +444,6 @@ export class GymScene {
 
     const at = tileToWorld(desk.x, desk.y)
     return Math.hypot(at.x - this.playerPos.x, at.z - this.playerPos.z) < DESK_REACH
-  }
-
-  /** Where the queue forms: in front of the reception desk, if one is placed. */
-  private queueAnchor(state: GameState): QueueAnchor {
-    const desk = state.decor.find(d => d.type === 'reception')
-    if (!desk) return DOOR_QUEUE_ANCHOR
-
-    const at = tileToWorld(desk.x, desk.y)
-    return { x: at.x, z: at.z, angle: (desk.rotation * Math.PI) / 2 }
-  }
-
-  private syncNpcs(state: GameState): void {
-    const seen = new Set<string>()
-    let queueIndex = 0
-    const anchor = this.queueAnchor(state)
-
-    for (const client of state.clients) {
-      seen.add(client.uid)
-
-      let view = this.npcs.get(client.uid)
-      if (!view) {
-        // Derive the look from the uid so a visitor keeps one appearance.
-        const seed = Number(client.uid.replace(/\D/g, '')) || 1
-        const { group: bar, fill: barFill } = buildPatienceBar()
-        view = { rig: buildNpc(client.kind, client.rarity, seed), seed, bar, barFill }
-        this.npcs.set(client.uid, view)
-        this.scene.add(view.rig.root, bar)
-      }
-
-      if (client.phase === 'queue') {
-        const spot = queueSpot(queueIndex, anchor)
-        queueIndex += 1
-        view.rig.root.position.set(spot.x, 0, spot.z)
-        view.rig.root.rotation.y = anchor.angle + Math.PI
-        animate(view.rig, this.elapsed + view.seed, false)
-
-        const remaining = Math.max(0, 1 - client.phaseMs / PATIENCE_MS)
-        view.bar.visible = true
-        view.bar.position.set(spot.x, 1.6, spot.z)
-        view.barFill.scale.x = Math.max(0.001, remaining)
-        ;(view.barFill.material as THREE.MeshBasicMaterial).color.lerpColors(
-          BAR_EMPTY,
-          BAR_FULL,
-          remaining,
-        )
-        continue
-      }
-
-      view.bar.visible = false
-
-      const machine = state.machines.find(m => m.uid === client.machineUid)
-      if (!machine) continue
-
-      // Each machine has its own spot: on the saddle, on the belt, flat on the
-      // bench. It is given in the machine's local space, so it turns with the
-      // equipment instead of staying pinned to a fixed world direction.
-      const angle = (machine.rotation * Math.PI) / 2
-      const at = tileToWorld(machine.x, machine.y)
-      const stance = stanceFor(machine.type)
-      const sin = Math.sin(angle)
-      const cos = Math.cos(angle)
-
-      view.rig.root.position.set(
-        at.x + stance.x * cos + stance.z * sin,
-        stance.lift,
-        at.z - stance.x * sin + stance.z * cos,
-      )
-      view.rig.root.rotation.y = angle + stance.facing
-      stance.pose(view.rig, this.elapsed + view.seed)
-    }
-
-    for (const [uid, view] of this.npcs) {
-      if (seen.has(uid)) continue
-      this.scene.remove(view.rig.root)
-      this.scene.remove(view.bar)
-      this.npcs.delete(uid)
-    }
   }
 
   // --- build mode -----------------------------------------------------------
@@ -790,7 +672,7 @@ export class GymScene {
 
   private facingRig(): Rig | null {
     if (!this.facing || this.buildMode) return null
-    return this.npcs.get(this.facing)?.rig ?? null
+    return this.actors.rigFor(this.facing) ?? null
   }
 
   /** Inside the four walls. This one is never suspended. */
@@ -868,10 +750,10 @@ export class GymScene {
 
       for (const client of state.clients) {
         if (client.phase !== 'queue') continue
-        const view = this.npcs.get(client.uid)
-        if (!view) continue
+        const rig = this.actors.rigFor(client.uid)
+        if (!rig) continue
 
-        const d = view.rig.root.position.distanceTo(this.playerPos)
+        const d = rig.root.position.distanceTo(this.playerPos)
         if (d < best) {
           best = d
           next = { kind: 'scan', clientUid: client.uid }
@@ -969,6 +851,7 @@ export class GymScene {
 
   dispose(): void {
     this.controls.dispose()
+    this.actors.dispose()
     this.scene.traverse(obj => {
       if (obj instanceof THREE.Mesh) obj.geometry.dispose()
     })

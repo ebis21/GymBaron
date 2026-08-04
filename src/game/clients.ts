@@ -5,6 +5,7 @@ import { nextRandom } from './rng'
 import { addXp, entryFee } from './economy'
 import { addMember, signupChance } from './members'
 import { DAY_MS, MAX_QUEUE, PATIENCE_MS } from './constants'
+import { DOOR_X, DOOR_QUEUE_ANCHOR } from './layout'
 
 /** Chance per second that a client walks in, at zero and at full reputation. */
 const SPAWN_BASE = 0.18
@@ -13,19 +14,21 @@ const SPAWN_PER_REP = 0.30
 /** Times an average member turns up over a full 8:00–20:00 day. */
 const MEMBER_VISITS_PER_DAY = 1.6
 
-const REP_LOSS_ON_WALKOUT = 3
-const SAT_LOSS_ON_WALKOUT = 2
+/** Shared with clientMove.ts: a walled-off entrance costs exactly what an impatient walkout does. */
+export const REP_LOSS_ON_WALKOUT = 3
+export const SAT_LOSS_ON_WALKOUT = 2
 const REP_GAIN_ON_WORKOUT = 1.5
 const XP_ON_SCAN = 2
 
-const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v))
+export const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v))
 
 const isUsable = (m: Machine) => m.durability > 0 && m.occupiedBy === null
 
 /** True when the gym can take one more person through the door right now. */
 function acceptingArrivals(state: GameState): boolean {
   if (!state.machines.some(isUsable)) return false
-  return state.clients.filter(c => c.phase === 'queue').length < MAX_QUEUE
+  const waiting = state.clients.filter(c => c.phase === 'queue' || c.phase === 'arriving').length
+  return waiting < MAX_QUEUE
 }
 
 function enqueue(state: GameState, kind: ClientKind, memberUid: string | null): GameState {
@@ -34,10 +37,14 @@ function enqueue(state: GameState, kind: ClientKind, memberUid: string | null): 
     uid: `c${state.nextUid}`,
     kind,
     rarity,
-    phase: 'queue',
+    phase: 'arriving',
     phaseMs: 0,
     machineUid: null,
     memberUid,
+    x: DOOR_X,
+    z: DOOR_QUEUE_ANCHOR.z,
+    path: [],
+    goal: null,
   }
   return { ...state, seed, nextUid: state.nextUid + 1, clients: [...state.clients, client] }
 }
@@ -101,6 +108,12 @@ export function advanceClients(state: GameState, dtMs: number): GameState {
   const survivors: Client[] = []
 
   for (const client of state.clients) {
+    // Walking phases are advanced by moveClients; only timers live here.
+    if (client.phase === 'arriving' || client.phase === 'toMachine' || client.phase === 'leaving') {
+      survivors.push(client)
+      continue
+    }
+
     const phaseMs = client.phaseMs + dtMs
 
     if (client.phase === 'queue') {
@@ -130,7 +143,16 @@ export function advanceClients(state: GameState, dtMs: number): GameState {
     machine.occupiedBy = null
     xpAwarded += type.xpPerUse
 
-    // A good session is what sells a pass. Members already hold one.
+    // Finished clients walk out rather than blinking away.
+    survivors.push({
+      ...client,
+      phase: 'leaving',
+      phaseMs: 0,
+      machineUid: null,
+      path: [],
+      goal: null,
+    })
+
     if (client.kind === 'walkin') {
       const [roll, nextSeed] = nextRandom(seed)
       seed = nextSeed
@@ -186,7 +208,14 @@ export function scanClient(state: GameState, clientUid: string): GameState {
     ),
     clients: state.clients.map(c =>
       c.uid === client.uid
-        ? { ...c, phase: 'workout' as const, phaseMs: 0, machineUid: machine.uid }
+        ? {
+            ...c,
+            phase: 'toMachine' as const,
+            phaseMs: 0,
+            machineUid: machine.uid,
+            path: [],
+            goal: null,
+          }
         : c,
     ),
     today: { ...state.today, entryFees: state.today.entryFees + fee },
