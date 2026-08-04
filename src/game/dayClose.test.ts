@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { closeDay, nextDay } from './dayClose'
 import { initialState, dailyCosts, passPrice } from './economy'
 import { DAILY_RENT, DAY_MS, DEBT_LIMIT, MEMBER_UPKEEP } from './constants'
-import type { GameState, Machine, Member } from './types'
+import type { GameState, Machine, Member, Staff } from './types'
 
 const base = () => initialState(5, 0)
 
@@ -144,5 +144,55 @@ describe('nextDay', () => {
   it('refuses to reopen after the run is over', () => {
     const dead = { ...closed(), gameOver: true }
     expect(nextDay(dead)).toBe(dead)
+  })
+})
+
+describe('wages', () => {
+  const employee = (uid: string, over: Partial<Staff> = {}): Staff => ({
+    uid, name: 'Marta K.', role: 'reception', rank: 'rare',
+    x: 0, z: 0, path: [], goal: null,
+    targetUid: null, workMs: 0, owed: 0, ...over,
+  })
+
+  it('pays everybody when the money is there', () => {
+    const s = closeDay({ ...initialState(7, 0), cash: 50_000, staff: [employee('e1')] })
+    expect(s.staff[0]!.owed).toBe(0)
+    expect(s.dayReport!.wages).toBe(1000)
+  })
+
+  it('bills wages on top of rent, not instead of it', () => {
+    const withStaff = closeDay({ ...initialState(7, 0), cash: 50_000, staff: [employee('e1')] })
+    const without = closeDay({ ...initialState(7, 0), cash: 50_000 })
+    expect(withStaff.cash).toBe(without.cash - 1000)
+  })
+
+  it('pays in hiring order and leaves the rest owed', () => {
+    // Enough for the first 1000 wage and the 60 rent, not for the second.
+    const s = closeDay({
+      ...initialState(7, 0),
+      cash: 1100,
+      staff: [employee('e1'), employee('e2')],
+    })
+    expect(s.staff[0]!.owed).toBe(0)
+    expect(s.staff[1]!.owed).toBe(1000)
+  })
+
+  it('does not charge a striking employee again', () => {
+    const s = closeDay({
+      ...initialState(7, 0),
+      cash: 50_000,
+      staff: [employee('e1', { owed: 1000 })],
+    })
+    expect(s.staff[0]!.owed).toBe(1000)
+    expect(s.dayReport!.wages).toBe(0)
+  })
+
+  it('charges the higher rate for a higher rank', () => {
+    const s = closeDay({
+      ...initialState(7, 0),
+      cash: 100_000,
+      staff: [employee('e1', { rank: 'legend', role: 'repair' })],
+    })
+    expect(s.dayReport!.wages).toBe(20_000)
   })
 })
