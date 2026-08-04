@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { assignStaff, workStaff, fire, payArrears, onDuty, restTileFor } from './staff'
 import { initialState } from './economy'
 import { tileToWorld } from './layout'
-import type { GameState, Machine, Staff, Stain } from './types'
+import type { Decor, GameState, Machine, Staff, Stain } from './types'
 
 const at = (x: number, y: number) => tileToWorld(x, y)
 
@@ -18,6 +18,8 @@ const machine = (over: Partial<Machine> = {}): Machine => ({
 })
 
 const stain = (over: Partial<Stain> = {}): Stain => ({ uid: 's1', x: 2, y: 2, ageMs: 0, ...over })
+
+const desk = (over: Partial<Decor> = {}): Decor => ({ uid: 'd1', type: 'reception', x: 1, y: 1, rotation: 0, ...over })
 
 const gym = (over: Partial<GameState> = {}): GameState => ({ ...initialState(7, 0), ...over })
 
@@ -63,6 +65,23 @@ describe('assignStaff', () => {
       staff: [staff({ uid: 'e1' }), staff({ uid: 'e2' })],
       stains: [stain()],
     }))
+    expect(s.staff[1]!.targetUid).toBeNull()
+  })
+
+  it('sends a receptionist to the desk', () => {
+    const s = assignStaff(gym({
+      staff: [staff({ role: 'reception' })],
+      decor: [desk()],
+    }))
+    expect(s.staff[0]!.targetUid).toBe('d1')
+  })
+
+  it('does not send two receptionists to the same desk', () => {
+    const s = assignStaff(gym({
+      staff: [staff({ uid: 'e1', role: 'reception' }), staff({ uid: 'e2', role: 'reception' })],
+      decor: [desk()],
+    }))
+    expect(s.staff[0]!.targetUid).toBe('d1')
     expect(s.staff[1]!.targetUid).toBeNull()
   })
 })

@@ -104,7 +104,7 @@ function pickJob(state: GameState, s: Staff, claimed: Set<string>): string | nul
     return broken ? broken.uid : null
   }
 
-  const desk = state.decor.find(d => d.type === 'reception')
+  const desk = state.decor.find(d => d.type === 'reception' && !claimed.has(d.uid))
   return desk ? desk.uid : null
 }
 
