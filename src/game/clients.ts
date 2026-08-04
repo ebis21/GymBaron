@@ -8,9 +8,13 @@ import { DAY_MS, MAX_QUEUE, PATIENCE_MS } from './constants'
 import { DOOR_X, DOOR_QUEUE_ANCHOR } from './layout'
 import { spawnStain, STAIN_CHANCE } from './stains'
 
-/** Chance per second that a client walks in, at zero and at full reputation. */
-const SPAWN_BASE = 0.18
-const SPAWN_PER_REP = 0.30
+/**
+ * Chance per second that a client walks in, at zero and at full reputation.
+ * Cut by a fifth against the original rates: the gym is meant to be tight
+ * enough that losing somebody at the door actually stings.
+ */
+const SPAWN_BASE = 0.144
+const SPAWN_PER_REP = 0.24
 
 /** Times an average member turns up over a full 8:00–20:00 day. */
 const MEMBER_VISITS_PER_DAY = 1.6
