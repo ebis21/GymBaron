@@ -36,7 +36,7 @@ export function stepAlongPath(
   let rest = path
 
   if (budget <= 0) {
-    return { pos, path: rest, arrived: rest.length === 0 && reached(pos, end) }
+    return { pos: from, path: rest, arrived: rest.length === 0 && reached(from, end) }
   }
 
   while (budget > 0) {
