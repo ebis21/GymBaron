@@ -269,7 +269,7 @@ export const useGameStore = create<GameStore>((set, get) => {
 
     restart: () => {
       const now = Date.now()
-      const fresh = initialState(now, now)
+      const fresh = ensurePool(initialState(now, now))
       sinceSaveMs = 0
       set({ state: fresh, welcomeBack: null, ready: true })
       persist(fresh)

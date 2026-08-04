@@ -23,9 +23,9 @@ export default function RecruitScreen({ state, onHire, onReroll, onBack }: Props
   return (
     <div className="screen recruit">
       <header className="screen-head">
-        <button className="back" onClick={onBack}>‹</button>
+        <button className="btn ghost tiny" onClick={onBack}>‹</button>
         <h2>Rekrutacja</h2>
-        <button onClick={onReroll} disabled={state.cash < REFRESH_PRICE}>
+        <button className="btn ghost tiny" onClick={onReroll} disabled={state.cash < REFRESH_PRICE}>
           Odśwież {money(REFRESH_PRICE)}
         </button>
       </header>
@@ -47,7 +47,7 @@ export default function RecruitScreen({ state, onHire, onReroll, onBack }: Props
               </div>
 
               <button
-                className="primary"
+                className="btn primary block"
                 onClick={() => onHire(c.uid)}
                 disabled={full || needsDesk}
               >

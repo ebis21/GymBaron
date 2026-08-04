@@ -21,6 +21,7 @@ function Row({ label, value, tone }: { label: string; value: string; tone?: 'in'
  */
 export default function DayReportModal({ report, onNextDay }: Props) {
   const income = report.entryFees + report.subscriptions
+  const totalDue = report.bill + report.wages
   const profit = report.net >= 0
 
   return (
@@ -49,7 +50,7 @@ export default function DayReportModal({ report, onNextDay }: Props) {
           <Row label="Wypłaty" value={`−${money(report.wages)}`} tone="out" />
           <div className="receipt-row total">
             <span>Rachunek</span>
-            <span className="receipt-out">−{money(report.bill)}</span>
+            <span className="receipt-out">−{money(totalDue)}</span>
           </div>
         </section>
 

@@ -53,13 +53,14 @@ export default function StaffPanel({ state, onFire, onSettle, onOpenRecruit }: P
               <div className="staff-actions">
                 {striking ? (
                   <button
+                    className="btn ghost"
                     onClick={() => onSettle(s.uid)}
                     disabled={state.cash < s.owed}
                   >
                     Zapłać {money(s.owed)}
                   </button>
                 ) : (
-                  <button className="danger" onClick={() => onFire(s.uid)}>Zwolnij</button>
+                  <button className="btn danger" onClick={() => onFire(s.uid)}>Zwolnij</button>
                 )}
               </div>
             </li>
@@ -68,7 +69,7 @@ export default function StaffPanel({ state, onFire, onSettle, onOpenRecruit }: P
       </ul>
 
       <button
-        className="primary"
+        className="btn primary block"
         onClick={onOpenRecruit}
         disabled={state.staff.length >= STAFF_LIMIT}
       >

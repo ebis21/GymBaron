@@ -17,7 +17,9 @@
   --leaf-dark: #46943b;
   --gold: #f6b73c;
   --plum: #8a6bd1;
+  --plum-dark: #764e8f;
   --danger: #d9403a;
+  --danger-dark: #a72e29;
 
   --radius: 18px;
   --shadow: 0 6px 0 rgba(125, 74, 38, 0.35);
@@ -622,6 +624,12 @@ body {
   box-shadow: 0 4px 0 var(--wood);
 }
 
+.btn.danger {
+  background: var(--danger);
+  border-color: var(--danger-dark);
+  box-shadow: 0 4px 0 var(--danger-dark);
+}
+
 .btn.block {
   display: block;
   width: 100%;
@@ -1008,51 +1016,6 @@ body {
   font-size: 18px;
 }
 
-.screen-head > button:not(.back) {
-  font: inherit;
-  font-size: 12.5px;
-  color: var(--wood-dark);
-  background: var(--cream);
-  border: 3px solid var(--wood);
-  border-radius: 14px;
-  padding: 7px 12px;
-  box-shadow: 0 3px 0 var(--wood);
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.screen-head > button:not(.back):active:not(:disabled) {
-  transform: translateY(3px);
-  box-shadow: none;
-}
-
-.screen-head > button:not(.back):disabled {
-  background: #c7bcae;
-  border-color: #a89c8e;
-  box-shadow: 0 3px 0 #a89c8e;
-  cursor: not-allowed;
-}
-
-.back {
-  font: inherit;
-  font-size: 18px;
-  line-height: 1;
-  flex: none;
-  width: 38px;
-  height: 38px;
-  color: var(--wood-dark);
-  background: var(--cream);
-  border: 3px solid var(--wood);
-  border-radius: 50%;
-  box-shadow: 0 3px 0 var(--wood);
-  cursor: pointer;
-}
-
-.back:active {
-  transform: translateY(3px);
-  box-shadow: none;
-}
-
 .muted {
   color: var(--ink-soft);
   font-size: 12.5px;
@@ -1079,49 +1042,6 @@ p.warn {
   border-radius: 12px;
 }
 
-.primary {
-  font: inherit;
-  font-size: 14px;
-  color: #fff;
-  background: var(--coral);
-  border: 3px solid var(--coral-dark);
-  border-radius: 14px;
-  padding: 10px 16px;
-  box-shadow: 0 4px 0 var(--coral-dark);
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.primary:active:not(:disabled) {
-  transform: translateY(3px);
-  box-shadow: none;
-}
-
-.primary:disabled {
-  background: #c7bcae;
-  border-color: #a89c8e;
-  box-shadow: 0 4px 0 #a89c8e;
-  cursor: not-allowed;
-}
-
-.danger {
-  font: inherit;
-  font-size: 13px;
-  color: #fff;
-  background: var(--danger);
-  border: 3px solid #a72e29;
-  border-radius: 14px;
-  padding: 8px 14px;
-  box-shadow: 0 4px 0 #a72e29;
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.danger:active:not(:disabled) {
-  transform: translateY(3px);
-  box-shadow: none;
-}
-
 /* --- rank pills ------------------------------------------------------------ */
 
 .rank {
@@ -1136,12 +1056,18 @@ p.warn {
   border-radius: 999px;
 }
 
+/* --sky at 4.5:1 with white text fails WCAG AA (~2.0:1), so rare pills use
+   dark ink text instead, which clears AA comfortably (~5.6:1). */
 .rank-rare {
   background: var(--sky);
+  color: var(--ink);
 }
 
+/* --plum with white text also falls short of AA (~4.1:1), and ink text on
+   the un-darkened plum falls short too (~2.8:1) — so epic pills darken the
+   background instead, which clears AA with the base white text (~6.4:1). */
 .rank-epic {
-  background: var(--plum);
+  background: var(--plum-dark);
 }
 
 .rank-legend {
@@ -1203,37 +1129,6 @@ p.warn {
   justify-content: flex-end;
 }
 
-.staff-actions > button:not(.danger) {
-  font: inherit;
-  font-size: 13px;
-  color: var(--wood-dark);
-  background: var(--cream);
-  border: 3px solid var(--wood);
-  border-radius: 14px;
-  padding: 8px 14px;
-  box-shadow: 0 4px 0 var(--wood);
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.staff-actions > button:not(.danger):active:not(:disabled) {
-  transform: translateY(3px);
-  box-shadow: none;
-}
-
-.staff-actions > button:not(.danger):disabled {
-  background: #c7bcae;
-  border-color: #a89c8e;
-  box-shadow: 0 4px 0 #a89c8e;
-  cursor: not-allowed;
-}
-
-.staff-panel > .primary {
-  display: block;
-  width: 100%;
-  margin-top: 4px;
-}
-
 /* --- recruitment ------------------------------------------------------------ */
 
 .recruit .screen-head h2 {
@@ -1273,11 +1168,6 @@ p.warn {
   font-size: 12.5px;
   font-weight: 700;
   color: var(--ink-soft);
-}
-
-.candidate > .primary {
-  display: block;
-  width: 100%;
 }
 
 /* --- desktop ------------------------------------------------------------- */
