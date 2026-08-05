@@ -1,5 +1,6 @@
 import type { GameState } from '../game/types'
 import { formatClock } from '../game/clock'
+import { STAFF_UNLOCK_LEVEL } from '../game/constants'
 import { money } from './format'
 
 /** Everything reachable from the phone. `staff` is a placeholder for now. */
@@ -20,6 +21,8 @@ interface Tile {
   tint: string
   /** Listed, but not built yet. Shows a badge and cannot be opened. */
   soon?: boolean
+  /** Grayed out and unopenable until the player reaches this level. */
+  minLevel?: number
 }
 
 const APPS: Tile[] = [
@@ -27,7 +30,7 @@ const APPS: Tile[] = [
   { id: 'build', label: 'Buduj', glyph: '🔨', tint: 'gold' },
   { id: 'shop', label: 'Sklep', glyph: '🛒', tint: 'leaf' },
   { id: 'stats', label: 'Statystyki', glyph: '📊', tint: 'sky' },
-  { id: 'staff', label: 'Personel', glyph: '👔', tint: 'plum' },
+  { id: 'staff', label: 'Personel', glyph: '👔', tint: 'plum', minLevel: STAFF_UNLOCK_LEVEL },
 ]
 
 /**
@@ -57,18 +60,22 @@ export default function Phone({ state, open, active, onToggle, onOpen }: Props) 
         </div>
 
         <div className="phone-apps">
-          {APPS.map(app => (
-            <button
-              key={app.id}
-              className={`phone-app${active === app.id ? ' active' : ''}${app.soon ? ' soon' : ''}`}
-              disabled={app.soon}
-              onClick={() => onOpen(app.id)}
-            >
-              <span className={`phone-icon ${app.tint}`}>{app.glyph}</span>
-              <span className="phone-label">{app.label}</span>
-              {app.soon && <span className="phone-soon">SOON</span>}
-            </button>
-          ))}
+          {APPS.map(app => {
+            const locked = app.minLevel !== undefined && state.level < app.minLevel
+            return (
+              <button
+                key={app.id}
+                className={`phone-app${active === app.id ? ' active' : ''}${app.soon ? ' soon' : ''}${locked ? ' locked' : ''}`}
+                disabled={app.soon || locked}
+                onClick={() => onOpen(app.id)}
+              >
+                <span className={`phone-icon ${app.tint}`}>{app.glyph}</span>
+                <span className="phone-label">{app.label}</span>
+                {app.soon && <span className="phone-soon">SOON</span>}
+                {locked && <span className="phone-lock">🔒 Lv {app.minLevel}</span>}
+              </button>
+            )
+          })}
         </div>
 
         <div className="phone-home" />

@@ -1,8 +1,9 @@
 import { describe, it, expect } from 'vitest'
-import { assignStaff, workStaff, fire, payArrears, onDuty, restTileFor } from './staff'
+import { assignStaff, workStaff, fire, hire, payArrears, onDuty, restTileFor } from './staff'
 import { initialState } from './economy'
 import { tileToWorld } from './layout'
-import type { Decor, GameState, Machine, Staff, Stain } from './types'
+import { STAFF_UNLOCK_LEVEL } from './constants'
+import type { Candidate, Decor, GameState, Machine, Staff, Stain } from './types'
 
 const at = (x: number, y: number) => tileToWorld(x, y)
 
@@ -14,14 +15,22 @@ const staff = (over: Partial<Staff> = {}): Staff => ({
 
 const machine = (over: Partial<Machine> = {}): Machine => ({
   uid: 'm1', type: 'dumbbells', x: 4, y: 2, rotation: 0,
-  durability: 100, occupiedBy: null, ...over,
+  durability: 100, occupiedBy: null, brokenMs: 0, ...over,
 })
 
 const stain = (over: Partial<Stain> = {}): Stain => ({ uid: 's1', x: 2, y: 2, ageMs: 0, ...over })
 
 const desk = (over: Partial<Decor> = {}): Decor => ({ uid: 'd1', type: 'reception', x: 1, y: 1, rotation: 0, ...over })
 
-const gym = (over: Partial<GameState> = {}): GameState => ({ ...initialState(7, 0), ...over })
+const candidate = (over: Partial<Candidate> = {}): Candidate => ({
+  uid: 'k1', name: 'Marta K.', role: 'cleaner', rank: 'rare', price: 1200, ...over,
+})
+
+const gym = (over: Partial<GameState> = {}): GameState => ({
+  ...initialState(7, 0),
+  level: STAFF_UNLOCK_LEVEL,
+  ...over,
+})
 
 describe('onDuty', () => {
   it('counts a paid employee as working', () => {
@@ -125,6 +134,33 @@ describe('workStaff', () => {
     expect(s.machines[0]!.durability).toBe(100)
     expect(s.cash).toBe(500)
   })
+
+  /**
+   * A repaired machine still exists, so `targetTile` used to keep returning
+   * its tile and `assignStaff` read the finished job as still live — the
+   * repairer stayed pinned to the first machine they fixed and never took a
+   * second one.
+   */
+  it('releases a repairer onto the next wreck once the first is fixed', () => {
+    let s = gym({
+      staff: [staff({ role: 'repair', targetUid: 'm1', x: at(4, 2).x, z: at(4, 2).z })],
+      machines: [machine({ durability: 0 }), machine({ uid: 'm2', x: 5, y: 2, durability: 0 })],
+    })
+
+    s = workStaff(s, 12_000)
+    expect(s.machines[0]!.durability).toBe(100)
+
+    s = assignStaff(s)
+    expect(s.staff[0]!.targetUid).toBe('m2')
+  })
+
+  it('keeps a repairer on a machine that is still broken', () => {
+    const s = assignStaff(gym({
+      staff: [staff({ role: 'repair', targetUid: 'm1', x: at(4, 2).x, z: at(4, 2).z })],
+      machines: [machine({ durability: 0 }), machine({ uid: 'm2', x: 5, y: 2, durability: 0 })],
+    }))
+    expect(s.staff[0]!.targetUid).toBe('m1')
+  })
 })
 
 describe('fire', () => {
@@ -150,6 +186,47 @@ describe('payArrears', () => {
   it('does nothing when the player cannot cover it', () => {
     const before = gym({ staff: [staff({ owed: 1500 })], cash: 100 })
     expect(payArrears(before, 'e1')).toBe(before)
+  })
+})
+
+describe('hire', () => {
+  it('takes the price off cash and puts the candidate on the payroll', () => {
+    const before = gym({ candidates: [candidate({ price: 900 })], cash: 2000 })
+    const s = hire(before, 'k1')
+    expect(s.cash).toBe(1100)
+    expect(s.staff).toHaveLength(1)
+    expect(s.staff[0]!.name).toBe('Marta K.')
+    expect(s.candidates).toHaveLength(0)
+    expect(s.stats.totalSpent).toBe(before.stats.totalSpent + 900)
+  })
+
+  it('refuses when the player cannot afford the hire', () => {
+    const before = gym({ candidates: [candidate({ price: 900 })], cash: 100 })
+    expect(hire(before, 'k1')).toBe(before)
+  })
+
+  it('refuses below the staff unlock level', () => {
+    const before = gym({ level: STAFF_UNLOCK_LEVEL - 1, candidates: [candidate()], cash: 100_000 })
+    expect(hire(before, 'k1')).toBe(before)
+  })
+
+  it('refuses an unknown candidate', () => {
+    const before = gym({ candidates: [candidate()], cash: 100_000 })
+    expect(hire(before, 'nope')).toBe(before)
+  })
+
+  it('refuses once the payroll is full', () => {
+    const full = Array.from({ length: 5 }, (_, i) => ({
+      uid: `e${i}`, name: 'X', role: 'cleaner' as const, rank: 'rare' as const,
+      x: 0, z: 0, path: [], goal: null, targetUid: null, workMs: 0, owed: 0,
+    }))
+    const before = gym({ staff: full, candidates: [candidate()], cash: 100_000 })
+    expect(hire(before, 'k1')).toBe(before)
+  })
+
+  it('refuses a receptionist when there is no desk', () => {
+    const before = gym({ candidates: [candidate({ role: 'reception' })], cash: 100_000, decor: [] })
+    expect(hire(before, 'k1')).toBe(before)
   })
 })
 

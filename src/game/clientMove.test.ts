@@ -8,7 +8,7 @@ import type { Client, GameState, Machine } from './types'
 
 const machine = (over: Partial<Machine> = {}): Machine => ({
   uid: 'm1', type: 'dumbbells', x: 4, y: 2, rotation: 0,
-  durability: 100, occupiedBy: null, ...over,
+  durability: 100, occupiedBy: null, brokenMs: 0, ...over,
 })
 
 const client = (over: Partial<Client> = {}): Client => ({

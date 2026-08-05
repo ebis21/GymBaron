@@ -36,7 +36,9 @@ describe('migration to version 4', () => {
 
     expect(loaded.cash).toBe(4321)
     expect(loaded.day).toBe(9)
-    expect(loaded.version).toBe(4)
+    // Migrations chain, so a v3 save arrives at the current version rather
+    // than stopping at the one that first understood it.
+    expect(loaded.version).toBe(SAVE_VERSION)
   })
 
   it('gives a migrated save empty staff, stains and candidates', () => {
@@ -47,6 +49,19 @@ describe('migration to version 4', () => {
     expect(loaded.stains).toEqual([])
     expect(loaded.candidates).toEqual([])
     expect(loaded.candidatesDay).toBe(0)
+  })
+
+  it('gives migrated machines a broken-for clock', () => {
+    const v3 = JSON.stringify({
+      ...initialState(7, 0),
+      version: 3,
+      machines: [{
+        uid: 'm1', type: 'dumbbells', x: 4, y: 2,
+        rotation: 0, durability: 0, occupiedBy: null,
+      }],
+    })
+
+    expect(deserialize(v3, 0).machines[0]!.brokenMs).toBe(0)
   })
 
   it('parks migrated clients at the door with no path', () => {

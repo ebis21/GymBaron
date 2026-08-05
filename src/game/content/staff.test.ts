@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
-  STAFF_RANKS, STAFF_ROLES, wageFor, workMsFor, speedFor, STAFF_LIMIT,
+  STAFF_RANKS, STAFF_ROLES, wageFor, workMsFor, speedFor, hirePriceFor, STAFF_LIMIT,
 } from './staff'
 
 describe('wageFor', () => {
@@ -32,6 +32,13 @@ describe('workMsFor', () => {
     expect(workMsFor('reception', 'rare')).toBe(4000)
     expect(workMsFor('cleaner', 'legend')).toBe(2500)
     expect(workMsFor('repair', 'rare')).toBe(12_000)
+  })
+})
+
+describe('hirePriceFor', () => {
+  it('costs strictly more for a higher rank', () => {
+    expect(hirePriceFor('epic')).toBeGreaterThan(hirePriceFor('rare'))
+    expect(hirePriceFor('legend')).toBeGreaterThan(hirePriceFor('epic'))
   })
 })
 

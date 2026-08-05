@@ -56,6 +56,8 @@ interface GameStore {
   restart: () => void
   start: () => void
   stop: () => void
+  /** Dev-only shortcut for testing: overwrites arbitrary state fields. */
+  cheat: (patch: Partial<GameState>) => void
 }
 
 // The store is the only place in the app that touches the wall clock.
@@ -283,5 +285,7 @@ export const useGameStore = create<GameStore>((set, get) => {
       persist(fresh)
       startLoop()
     },
+
+    cheat: patch => commit({ ...get().state, ...patch }),
   }
 })

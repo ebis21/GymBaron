@@ -33,6 +33,12 @@ export interface Machine {
   rotation: Rotation
   durability: number        // 0-100; 0 means out of service
   occupiedBy: string | null // client uid
+  /**
+   * How long it has stood out of service. Buys the player a grace window
+   * before the wreck starts costing reputation, and resets itself the moment
+   * the machine works again — no caller has to remember to clear it.
+   */
+  brokenMs: number
 }
 
 export type DecorTypeId = 'plant' | 'reception' | 'locker' | 'watercooler'
@@ -219,4 +225,6 @@ export interface Candidate {
   name: string
   role: StaffRole
   rank: StaffRank
+  /** One-time cost to bring them onto the payroll. */
+  price: number
 }

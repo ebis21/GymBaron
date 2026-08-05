@@ -4,7 +4,8 @@ import { moveClients } from './clientMove'
 import { closeDay } from './dayClose'
 import { msLeftInDay } from './clock'
 import { DAY_MS, MAX_STEP_MS } from './constants'
-import { ageStains } from './stains'
+import { ageStains, spawnAmbientDirt } from './stains'
+import { ageBrokenMachines } from './wear'
 import { assignStaff, workStaff } from './staff'
 import { moveStaff } from './staffMove'
 
@@ -24,7 +25,9 @@ const SYSTEMS: System[] = [
   spawnMembers,
   moveClients,
   advanceClients,
+  spawnAmbientDirt,
   ageStains,
+  ageBrokenMachines,
   assign,
   moveStaff,
   workStaff,

@@ -265,11 +265,76 @@ body {
   opacity: 0.9;
 }
 
+/* Repair and clean no longer resolve on tap — the player has to hold the
+   button down while this bar fills, same visual language as `.meter`. */
+.action-btn.holdable {
+  padding-bottom: 20px;
+  touch-action: none;
+  user-select: none;
+}
+
+.action-hold-track {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 7px;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.28);
+  overflow: hidden;
+}
+
+.action-hold-fill {
+  height: 100%;
+  background: #fff;
+  transition: width 60ms linear;
+}
+
 @keyframes pop {
   from {
     transform: scale(0.86);
     opacity: 0;
   }
+}
+
+/* Dev-only cheat panel (npm run dev builds only) — deliberately off-palette
+   so it never reads as part of the game's own UI. */
+.dev-panel {
+  position: absolute;
+  left: 10px;
+  top: 10px;
+  z-index: 20;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  max-width: 220px;
+  padding: 8px;
+  background: rgba(20, 20, 24, 0.82);
+  border: 2px dashed #ff5fa2;
+  border-radius: 10px;
+  font: 11px/1.2 monospace;
+}
+
+.dev-panel-tag {
+  width: 100%;
+  color: #ff5fa2;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.dev-panel button {
+  padding: 5px 8px;
+  color: #fff;
+  background: #33333c;
+  border: 1px solid #55555f;
+  border-radius: 6px;
+  font: inherit;
+  cursor: pointer;
+}
+
+.dev-panel button:hover {
+  background: #45454f;
 }
 
 /* --- client card ---------------------------------------------------------- */
@@ -468,6 +533,27 @@ body {
   gap: 10px;
   opacity: 0.7;
   cursor: default;
+}
+
+/* Built and listed, just out of reach — stays in its normal grid slot,
+   dimmed, with a small level badge rather than the full-width "soon" strip. */
+.phone-app.locked {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.phone-app.locked:active {
+  transform: none;
+}
+
+.phone-lock {
+  margin-top: -2px;
+  padding: 1px 7px;
+  font-size: 8.5px;
+  letter-spacing: 0.03em;
+  color: #3a2a12;
+  background: var(--gold);
+  border-radius: 999px;
 }
 
 .phone-icon {

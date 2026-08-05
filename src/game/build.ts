@@ -112,6 +112,7 @@ export function placeFromInventory(
       rotation,
       durability: item.durability,
       occupiedBy: null,
+      brokenMs: 0,
     }
     return { ...base, machines: [...base.machines, machine] }
   }

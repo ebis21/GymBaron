@@ -57,6 +57,19 @@ export const ROLE_WAGE_MULT: Record<StaffRole, number> = {
 export const wageFor = (role: StaffRole, rank: StaffRank): number =>
   RANK_WAGE[rank] * ROLE_WAGE_MULT[role]
 
+/**
+ * One-time hiring cost, by rank only — the wage already prices the role in.
+ * A rare sits around the priciest machine in the shop; a legend is a real
+ * commitment, in line with what `RANK_WAGE` already asks of the player daily.
+ */
+export const RANK_HIRE_PRICE: Record<StaffRank, number> = {
+  rare: 1200,
+  epic: 4000,
+  legend: 9000,
+}
+
+export const hirePriceFor = (rank: StaffRank): number => RANK_HIRE_PRICE[rank]
+
 export const workMsFor = (role: StaffRole, rank: StaffRank): number => WORK_MS[role][rank]
 
 export const speedFor = (rank: StaffRank): number => WALK_SPEED[rank]

@@ -1,9 +1,33 @@
 import type { GameState, Staff } from './types'
-import { tileToWorld, worldToTile } from './layout'
+import type { Point, Tile } from './layout'
+import { receptionStand, tileToWorld, worldToTile } from './layout'
 import { findPath } from './pathfind'
 import { stepAlongPath } from './walk'
 import { speedFor } from './content/staff'
 import { onDuty, restTileFor, targetTile } from './staff'
+
+/**
+ * Roles whose job sits on a tile that is itself occupied — a repairer works
+ * on the broken machine's own tile, a cleaner wipes a stain that spawns on
+ * whatever tile left it (almost always a machine tile). Both need
+ * `allowBlockedGoal`, or `findPath` treats the job as unreachable and drops
+ * it the instant it's assigned.
+ */
+const BLOCKED_GOAL_ROLES = new Set<Staff['role']>(['repair', 'cleaner'])
+
+/**
+ * Where in the goal tile somebody actually comes to rest. Everyone stops dead
+ * centre except a receptionist on duty, who steps up to the counter instead of
+ * standing a full tile off it. The offset stays inside the goal tile, so
+ * pathing is unaffected — only the last stride changes.
+ */
+function standPoint(state: GameState, s: Staff, goal: Tile, working: boolean): Point {
+  if (s.role === 'reception' && working) {
+    const desk = state.decor.find(d => d.type === 'reception')
+    if (desk) return receptionStand(desk.x, desk.y, desk.rotation)
+  }
+  return tileToWorld(goal.x, goal.y)
+}
 
 /**
  * Walks the payroll one step. A job that turns out to be unreachable is
@@ -21,7 +45,7 @@ export function moveStaff(state: GameState, dtMs: number): GameState {
 
     const job = targetTile(state, s)
     const goal = job ?? restTileFor(state, s)
-    const end = tileToWorld(goal.x, goal.y)
+    const end = standPoint(state, s, goal, job !== null)
 
     // Standing on the spot already: nothing to do, and no needless re-planning.
     if (Math.hypot(s.x - end.x, s.z - end.z) < 1e-6) {
@@ -32,10 +56,11 @@ export function moveStaff(state: GameState, dtMs: number): GameState {
 
     let path = s.path
     if (!s.goal || s.goal.x !== goal.x || s.goal.y !== goal.y) {
-      // A repairer stands on the machine's own tile, so its goal is blocked
-      // for everyone walking past but legal for them.
+      // A repairer stands on the machine's own tile, and a cleaner's stain
+      // sits on whatever tile left it — both goals are blocked for everyone
+      // walking past but legal for the one doing the job.
       const found = findPath(state, worldToTile(s.x, s.z), goal, {
-        allowBlockedGoal: s.role === 'repair' && job !== null,
+        allowBlockedGoal: BLOCKED_GOAL_ROLES.has(s.role) && job !== null,
       })
 
       if (!found) {

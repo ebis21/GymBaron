@@ -4,7 +4,7 @@ import { initialState } from './economy'
 import type { GameState, Machine, Wall } from './types'
 
 const machine = (uid: string, x: number, y: number): Machine => ({
-  uid, type: 'dumbbells', x, y, rotation: 0, durability: 100, occupiedBy: null,
+  uid, type: 'dumbbells', x, y, rotation: 0, durability: 100, occupiedBy: null, brokenMs: 0,
 })
 
 /** Pusta hala: bez dekoracji, żeby startowa recepcja nie zasłaniała kafelków. */

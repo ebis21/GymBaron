@@ -19,7 +19,7 @@ export const DEBT_LIMIT = -20_000
  */
 export const PATIENCE_MS = 26_000
 export const OFFLINE_CAP_MS = 8 * 60 * 60 * 1000
-export const SAVE_VERSION = 4
+export const SAVE_VERSION = 5
 export const SAVE_KEY = 'iron-empire-save'
 export const XP_PER_LEVEL = 100
 export const MAX_STEP_MS = 1_000
@@ -27,6 +27,21 @@ export const AUTOSAVE_MS = 5_000
 
 /** Longest queue the gym will grow before newcomers stop showing up. */
 export const MAX_QUEUE = 10
+
+// --- Ambient dirt ------------------------------------------------------------
+
+/**
+ * How often the floor gets a chance to pick up ambient dirt, regardless of
+ * machine use — footfall tracked in from across the whole gym.
+ */
+export const AMBIENT_DIRT_INTERVAL_MS = 1_000
+/** Odds, each interval, that a random clean tile gets a stain. */
+export const AMBIENT_DIRT_CHANCE = 0.04
+/**
+ * Ambient spawning stops once the floor is this dirty — a busy machine can
+ * still leave a stain on top, but wandering grime alone won't spiral past it.
+ */
+export const AMBIENT_DIRT_MAX_STAINS = 6
 
 // --- Economy ---------------------------------------------------------------
 
@@ -40,3 +55,10 @@ export const MEMBER_FEE = 200
 export const MEMBER_UPKEEP = 14
 export const BILLING_PERIOD_DAYS = 7
 export const DAILY_RENT = 60
+
+/**
+ * Staff is a late-game system: the player needs a room, a routine and a cash
+ * cushion before payroll makes sense. Locked below this level, same idea as
+ * `MachineType.minLevel` but for the whole hiring flow rather than one item.
+ */
+export const STAFF_UNLOCK_LEVEL = 10

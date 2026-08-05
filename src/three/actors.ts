@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import type { Client, GameState, Staff } from '../game/types'
-import { buildNpc, animate, type Rig } from './models/character'
+import { buildNpc, buildStaffNpc, animate, poseScan, type Rig } from './models/character'
 import { stanceFor } from './models/stance'
 import { buildStain } from './models/stain'
 import { tileToWorld } from '../game/layout'
@@ -102,10 +102,10 @@ export class ActorLayer {
       const view = this.viewFor(staff.uid, () => {
         const seed = Number(staff.uid.replace(/\D/g, '')) || 1
         const { group: bar, fill: barFill } = buildPatienceBar()
-        return { rig: buildNpc('walkin', staff.rank, seed), seed, bar, barFill }
+        return { rig: buildStaffNpc(staff.role, staff.rank, seed), seed, bar, barFill }
       })
 
-      this.placeStaff(view, staff, elapsed)
+      this.placeStaff(view, staff, state, elapsed)
     }
 
     for (const [uid, view] of this.views) {
@@ -235,20 +235,33 @@ export class ActorLayer {
     }
   }
 
-  private placeStaff(view: ActorView, staff: Staff, elapsed: number): void {
+  private placeStaff(view: ActorView, staff: Staff, state: GameState, elapsed: number): void {
     view.bar.visible = false
 
     const target = new THREE.Vector3(staff.x, 0, staff.z)
     if (view.rig.root.position.lengthSq() === 0) view.rig.root.position.copy(target)
     else view.rig.root.position.lerp(target, 0.25)
 
-    const dx = staff.x - view.rig.root.position.x
-    const dz = staff.z - view.rig.root.position.z
-    if (dx * dx + dz * dz > 1e-4) {
-      view.rig.root.rotation.y = Math.atan2(dx, dz)
+    const walking = staff.path.length > 0
+    const atDesk = staff.role === 'reception' && staff.targetUid !== null && !walking
+
+    // Face the way you are going; a receptionist who has arrived faces across
+    // the desk into the queue instead, not whichever way the last step of the
+    // walk-up happened to leave them.
+    if (atDesk) {
+      view.rig.root.rotation.y = queueAnchorFor(state).angle
+    } else {
+      const dx = staff.x - view.rig.root.position.x
+      const dz = staff.z - view.rig.root.position.z
+      if (dx * dx + dz * dz > 1e-4) {
+        view.rig.root.rotation.y = Math.atan2(dx, dz)
+      }
     }
 
-    const walking = staff.path.length > 0
-    animate(view.rig, elapsed + view.seed, walking)
+    if (atDesk && staff.workMs > 0) {
+      poseScan(view.rig, elapsed + view.seed)
+    } else {
+      animate(view.rig, elapsed + view.seed, walking)
+    }
   }
 }

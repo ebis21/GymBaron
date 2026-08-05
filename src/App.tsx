@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useGameStore } from './store/gameStore'
 import type { PlacedKind } from './game/build'
 import type { ClientRarity } from './game/types'
 import { machineType } from './game/content/machines'
 import { decorType } from './game/content/decor'
+import { STAFF_UNLOCK_LEVEL } from './game/constants'
 import GymScene3D from './three/GymScene3D'
 import type { Focus, PickResult } from './three/scene'
 import TopBar from './ui/TopBar'
@@ -17,6 +18,7 @@ import DayReportModal from './ui/DayReportModal'
 import InventoryPanel from './ui/InventoryPanel'
 import ClientCard from './ui/ClientCard'
 import WelcomeBack from './ui/WelcomeBack'
+import DevPanel from './ui/DevPanel'
 import { money } from './ui/format'
 
 /** Which full-screen panel is over the room, if any. */
@@ -42,11 +44,21 @@ interface Selection {
  */
 const EDGE_GRAB = 0.45
 
+/** Cleaning is quick; repairing kit takes noticeably longer. */
+const CLEAN_HOLD_MS = 3000
+const REPAIR_HOLD_MS = 5000
+
 interface Action {
   label: string
   hint: string
   run: () => void
   enabled: boolean
+  /**
+   * Present when this action resolves by holding the button down rather than
+   * tapping it. `uid` identifies the target the hold is currently bound to,
+   * so a hold in progress can be told apart from a fresh one on a new target.
+   */
+  hold: { ms: number; uid: string } | null
 }
 
 export default function App() {
@@ -100,6 +112,58 @@ export default function App() {
 
   const onFocus = useCallback((next: Focus) => setFocus(next), [])
 
+  // --- clean / repair hold ----------------------------------------------
+  // Fraction (0..1) the action button is currently filled while held down.
+  // Purely a UI timer: `wipe`/`repair` in the store still own the actual
+  // mutation and its own validation, this only gates *when* they get called.
+  const [holdPct, setHoldPct] = useState(0)
+  const holdRef = useRef<{ uid: string; ms: number; run: () => void; start: number; raf: number } | null>(null)
+  /** Refreshed every render so the rAF loop always sees the latest action. */
+  const actionRef = useRef<Action | null>(null)
+
+  const cancelHold = useCallback(() => {
+    const active = holdRef.current
+    if (active) cancelAnimationFrame(active.raf)
+    holdRef.current = null
+    setHoldPct(0)
+  }, [])
+
+  const tickHold = useCallback((now: number) => {
+    const active = holdRef.current
+    if (!active) return
+
+    // The target moved on, vanished, or became unaffordable mid-hold — no
+    // partial credit, the player has to start over.
+    const current = actionRef.current
+    if (!current?.hold || current.hold.uid !== active.uid || !current.enabled) {
+      cancelHold()
+      return
+    }
+
+    const pct = Math.min(1, (now - active.start) / active.ms)
+    setHoldPct(pct)
+
+    if (pct >= 1) {
+      holdRef.current = null
+      active.run()
+      setHoldPct(0)
+      return
+    }
+
+    active.raf = requestAnimationFrame(tickHold)
+  }, [cancelHold])
+
+  const beginHold = useCallback(
+    (act: Action) => {
+      if (!act.hold || !act.enabled) return
+      const entry = { uid: act.hold.uid, ms: act.hold.ms, run: act.run, start: performance.now(), raf: 0 }
+      holdRef.current = entry
+      setHoldPct(0)
+      entry.raf = requestAnimationFrame(tickHold)
+    },
+    [tickHold],
+  )
+
   useEffect(() => {
     start()
     return stop
@@ -117,6 +181,19 @@ export default function App() {
   useEffect(() => {
     if (tab !== 'staff') setRecruiting(false)
   }, [tab])
+
+  // A hold in progress is only ever valid for the exact target it started on.
+  // `focus` only changes reference when the game decides the target itself
+  // changed (moved, fixed, wiped, or the player walked out of reach) — see
+  // `sameFocus` in three/scene.ts — so it is the right signal to reset on.
+  // Leaving the gym tab, entering build mode, or stepping up to a client all
+  // hide the button outright and should clear any hold the same way.
+  useEffect(() => {
+    cancelHold()
+  }, [focus, buildMode, talking, tab, state.dayEnded, cancelHold])
+
+  // Belt-and-braces: drop any in-flight rAF if the component ever unmounts.
+  useEffect(() => () => cancelHold(), [cancelHold])
 
   const clearBuildState = () => {
     setSelected(null)
@@ -248,6 +325,7 @@ export default function App() {
         hint: spec.name,
         enabled: state.cash >= spec.repairCost,
         run: () => repair(focus.machineUid),
+        hold: { ms: REPAIR_HOLD_MS, uid: focus.machineUid },
       }
     }
 
@@ -257,6 +335,7 @@ export default function App() {
         hint: '',
         enabled: true,
         run: () => wipe(focus.stainUid),
+        hold: { ms: CLEAN_HOLD_MS, uid: focus.stainUid },
       }
     }
 
@@ -264,14 +343,18 @@ export default function App() {
     if (!client) return null
 
     // Scanning is now a face-to-face: this button only walks up to them, and
-    // the card that follows is where the pass is actually charged.
+    // the card that follows is where the pass is actually charged. A single
+    // tap is enough — there is nothing here to hold for.
     return {
       label: 'Obsłuż klienta',
       hint: `${client.kind === 'member' ? 'Członek' : 'Przechodzień'} · ${RARITY_NAME[client.rarity]}`,
       enabled: true,
       run: () => setTalking(focus.clientUid),
+      hold: null,
     }
   })()
+
+  actionRef.current = action
 
   return (
     <div className={`app${tab === 'gym' ? '' : ' panelled'}`}>
@@ -286,6 +369,7 @@ export default function App() {
       />
 
       <TopBar state={state} />
+      {import.meta.env.DEV && <DevPanel />}
 
       {buildMode && tab === 'gym' && (
         <div className="build-bar">
@@ -390,7 +474,17 @@ export default function App() {
               onBuyWall={buyWall}
             />
           ) : tab === 'staff' ? (
-            recruiting ? (
+            state.level < STAFF_UNLOCK_LEVEL ? (
+              <div className="screen">
+                <header className="screen-head">
+                  <h2>Personel</h2>
+                </header>
+                <p className="hint">
+                  Zatrudnianie odblokowuje się na poziomie {STAFF_UNLOCK_LEVEL}. Obecny
+                  poziom: {state.level}.
+                </p>
+              </div>
+            ) : recruiting ? (
               <RecruitScreen
                 state={state}
                 onHire={uid => {
@@ -415,9 +509,32 @@ export default function App() {
       )}
 
       {tab === 'gym' && action && (
-        <button className="action-btn" disabled={!action.enabled} onClick={action.run}>
+        <button
+          className={`action-btn${action.hold ? ' holdable' : ''}`}
+          disabled={!action.enabled}
+          onClick={action.hold ? undefined : action.run}
+          onPointerDown={action.hold ? () => beginHold(action) : undefined}
+          onPointerUp={action.hold ? cancelHold : undefined}
+          onPointerCancel={action.hold ? cancelHold : undefined}
+          onPointerLeave={action.hold ? cancelHold : undefined}
+          onContextMenu={action.hold ? e => e.preventDefault() : undefined}
+        >
+          {action.hold && (
+            <span className="action-hold-track">
+              <span
+                className="action-hold-fill"
+                style={{ width: `${(1 - holdPct) * 100}%` }}
+              />
+            </span>
+          )}
           <span className="action-label">{action.label}</span>
-          {action.hint && <span className="action-hint">{action.hint}</span>}
+          {action.hold && holdPct > 0 ? (
+            <span className="action-hint">
+              jeszcze {Math.max(0, ((1 - holdPct) * action.hold.ms) / 1000).toFixed(1)}s
+            </span>
+          ) : (
+            action.hint && <span className="action-hint">{action.hint}</span>
+          )}
         </button>
       )}
 

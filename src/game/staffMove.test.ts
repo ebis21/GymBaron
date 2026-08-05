@@ -66,12 +66,31 @@ describe('moveStaff', () => {
       staff: [staff({ role: 'repair', targetUid: 'm1' })],
       machines: [{
         uid: 'm1', type: 'dumbbells', x: 3, y: 2, rotation: 0,
-        durability: 0, occupiedBy: null,
+        durability: 0, occupiedBy: null, brokenMs: 0,
       }],
     })
     for (let i = 0; i < 60; i++) s = moveStaff(s, 500)
 
     const target = at(3, 2)
     expect(Math.hypot(s.staff[0]!.x - target.x, s.staff[0]!.z - target.z)).toBeLessThan(0.2)
+  })
+
+  it('walks a cleaner onto a stain sitting on a blocked machine tile', () => {
+    // Stains spawn on the machine's own tile in real play, so the tile is
+    // occupied and blocked — exactly the case that used to make findPath
+    // return null and drop the job every tick.
+    let s = gym({
+      staff: [staff({ role: 'cleaner', targetUid: 's1' })],
+      stains: [{ uid: 's1', x: 3, y: 2, ageMs: 0 }],
+      machines: [{
+        uid: 'm1', type: 'dumbbells', x: 3, y: 2, rotation: 0,
+        durability: 100, occupiedBy: null, brokenMs: 0,
+      }],
+    })
+    for (let i = 0; i < 60; i++) s = moveStaff(s, 500)
+
+    const target = at(3, 2)
+    expect(Math.hypot(s.staff[0]!.x - target.x, s.staff[0]!.z - target.z)).toBeLessThan(0.2)
+    expect(s.staff[0]!.targetUid).toBe('s1')
   })
 })
