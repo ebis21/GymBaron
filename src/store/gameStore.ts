@@ -15,10 +15,13 @@ import {
   type PlacedKind,
 } from '../game/build'
 import { scanClient } from '../game/clients'
+import { wipeStain } from '../game/stains'
 import { nextDay } from '../game/dayClose'
 import { advance } from '../game/tick'
 import { serialize, deserialize } from '../game/save'
 import { settleOffline } from '../game/offline'
+import { hire, fire, payArrears } from '../game/staff'
+import { refreshPool, ensurePool } from '../game/recruit'
 import { loadRaw, saveRaw } from './storage'
 import { AUTOSAVE_MS, SAVE_KEY } from '../game/constants'
 
@@ -43,6 +46,11 @@ interface GameStore {
   demolishWall: (uid: string) => void
   scan: (clientUid: string) => void
   repair: (machineUid: string) => void
+  wipe: (stainUid: string) => void
+  hireCandidate: (candidateUid: string) => void
+  fireStaff: (staffUid: string) => void
+  settleArrears: (staffUid: string) => void
+  rerollCandidates: () => void
   advanceDay: () => void
   dismissWelcome: () => void
   restart: () => void
@@ -135,7 +143,9 @@ export const useGameStore = create<GameStore>((set, get) => {
         const now = Date.now()
         const raw = await loadRaw(SAVE_KEY)
         const loaded = raw ? deserialize(raw, now) : initialState(now, now)
-        const { state, earned, awayMs } = settleOffline(loaded, now)
+        const settled = settleOffline(loaded, now)
+        const { earned, awayMs } = settled
+        const state = ensurePool(settled.state)
 
         set({
           state,
@@ -224,6 +234,36 @@ export const useGameStore = create<GameStore>((set, get) => {
       persist(next)
     },
 
+    wipe: uid => {
+      const state = get().state
+      if (state.gameOver) return
+      commit(wipeStain(state, uid))
+    },
+
+    hireCandidate: uid => {
+      const state = get().state
+      if (state.gameOver) return
+      commit(hire(state, uid))
+    },
+
+    fireStaff: uid => {
+      const state = get().state
+      if (state.gameOver) return
+      commit(fire(state, uid))
+    },
+
+    settleArrears: uid => {
+      const state = get().state
+      if (state.gameOver) return
+      commit(payArrears(state, uid))
+    },
+
+    rerollCandidates: () => {
+      const state = get().state
+      if (state.gameOver) return
+      commit(refreshPool(state))
+    },
+
     advanceDay: () => {
       const next = nextDay(get().state)
       if (next === get().state) return
@@ -237,7 +277,7 @@ export const useGameStore = create<GameStore>((set, get) => {
 
     restart: () => {
       const now = Date.now()
-      const fresh = initialState(now, now)
+      const fresh = ensurePool(initialState(now, now))
       sinceSaveMs = 0
       set({ state: fresh, welcomeBack: null, ready: true })
       persist(fresh)

@@ -1,7 +1,43 @@
-import type { DayReport, GameState } from './types'
+import type { DayReport, GameState, Staff } from './types'
 import { DAY_MS, DEBT_LIMIT } from './constants'
 import { dailyCosts, emptyLedger } from './economy'
 import { applyChurn, chargeRenewals } from './members'
+import { wageFor } from './content/staff'
+import { onDuty } from './staff'
+import { ensurePool } from './recruit'
+
+/**
+ * Settles the payroll out of whatever is left after the bill, in hiring order,
+ * each wage in full or not at all — no part payments.
+ *
+ * Whoever misses out is not sacked; they simply stop turning up until the
+ * player clears the arrears from the staff panel. A strike costs the automation
+ * without destroying a legendary hire it took a week of play to land. Nobody on
+ * strike is billed again, so the debt can never run away.
+ */
+export function payWages(state: GameState, budget: number): {
+  staff: Staff[]
+  paid: number
+} {
+  if (state.staff.length === 0) return { staff: state.staff, paid: 0 }
+
+  let left = budget
+  let paid = 0
+
+  const staff = state.staff.map(s => {
+    if (!onDuty(s)) return s // already on strike; not billed twice
+
+    const wage = wageFor(s.role, s.rank)
+    if (wage <= left) {
+      left -= wage
+      paid += wage
+      return s
+    }
+    return { ...s, owed: wage, targetUid: null, workMs: 0 }
+  })
+
+  return { staff, paid }
+}
 
 /**
  * Settles 20:00 and freezes the game. Order matters: renewals and the bill are
@@ -20,6 +56,8 @@ export function closeDay(state: GameState): GameState {
   const { state: churnedState, churn } = applyChurn(renewed)
 
   const cash = churnedState.cash - costs.total
+  const payroll = payWages(churnedState, cash)
+  const cashAfterWages = cash - payroll.paid
   const ledger = churnedState.today
 
   const report: DayReport = {
@@ -31,24 +69,26 @@ export function closeDay(state: GameState): GameState {
     rent: costs.rent,
     power: costs.power,
     memberUpkeep: costs.memberUpkeep,
+    wages: payroll.paid,
     bill: costs.total,
-    net: ledger.entryFees + ledger.subscriptions - costs.total,
+    net: ledger.entryFees + ledger.subscriptions - costs.total - payroll.paid,
     cashBefore,
-    cashAfter: cash,
+    cashAfter: cashAfterWages,
     clientsServed: ledger.clientsServed,
     clientsLost: ledger.clientsLost,
   }
 
   return {
     ...churnedState,
-    cash,
+    cash: cashAfterWages,
+    staff: payroll.staff,
     dayMs: DAY_MS,
     dayEnded: true,
     dayReport: report,
-    gameOver: state.gameOver || cash < DEBT_LIMIT,
+    gameOver: state.gameOver || cashAfterWages < DEBT_LIMIT,
     stats: {
       ...churnedState.stats,
-      totalSpent: churnedState.stats.totalSpent + costs.total,
+      totalSpent: churnedState.stats.totalSpent + costs.total + payroll.paid,
     },
   }
 }
@@ -60,7 +100,7 @@ export function closeDay(state: GameState): GameState {
 export function nextDay(state: GameState): GameState {
   if (!state.dayEnded || state.gameOver) return state
 
-  return {
+  return ensurePool({
     ...state,
     day: state.day + 1,
     dayMs: 0,
@@ -69,5 +109,5 @@ export function nextDay(state: GameState): GameState {
     // Everyone left at closing time; the floor is clear in the morning.
     clients: [],
     machines: state.machines.map(m => (m.occupiedBy === null ? m : { ...m, occupiedBy: null })),
-  }
+  })
 }

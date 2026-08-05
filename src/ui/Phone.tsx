@@ -27,7 +27,7 @@ const APPS: Tile[] = [
   { id: 'build', label: 'Buduj', glyph: '🔨', tint: 'gold' },
   { id: 'shop', label: 'Sklep', glyph: '🛒', tint: 'leaf' },
   { id: 'stats', label: 'Statystyki', glyph: '📊', tint: 'sky' },
-  { id: 'staff', label: 'Manager pracowników', glyph: '👔', tint: 'plum', soon: true },
+  { id: 'staff', label: 'Personel', glyph: '👔', tint: 'plum' },
 ]
 
 /**

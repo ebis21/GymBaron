@@ -125,6 +125,7 @@ export interface DayReport {
   rent: number
   power: number
   memberUpkeep: number
+  wages: number
   bill: number
   net: number
   cashBefore: number

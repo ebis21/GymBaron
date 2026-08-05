@@ -1,9 +1,11 @@
 import * as THREE from 'three'
-import type { Client, GameState } from '../game/types'
+import type { Client, GameState, Staff } from '../game/types'
 import { buildNpc, animate, type Rig } from './models/character'
 import { stanceFor } from './models/stance'
+import { buildStain } from './models/stain'
 import { tileToWorld } from '../game/layout'
 import { PATIENCE_MS } from '../game/constants'
+import { STAIN_OLD_MS } from '../game/stains'
 import { queueAnchorFor } from '../game/clientMove'
 import { PALETTE } from './style'
 
@@ -75,6 +77,7 @@ function disposeSubtree(root: THREE.Object3D, ownMaterial: boolean): void {
  */
 export class ActorLayer {
   private readonly views = new Map<string, ActorView>()
+  private readonly stains = new Map<string, THREE.Mesh>()
 
   constructor(private readonly scene: THREE.Scene) {}
 
@@ -92,6 +95,19 @@ export class ActorLayer {
       this.place(view, client, state, elapsed)
     }
 
+    for (const staff of state.staff) {
+      if (staff.owed > 0) continue // on strike: not in the building, don't even create a view
+
+      seen.add(staff.uid)
+      const view = this.viewFor(staff.uid, () => {
+        const seed = Number(staff.uid.replace(/\D/g, '')) || 1
+        const { group: bar, fill: barFill } = buildPatienceBar()
+        return { rig: buildNpc('walkin', staff.rank, seed), seed, bar, barFill }
+      })
+
+      this.placeStaff(view, staff, elapsed)
+    }
+
     for (const [uid, view] of this.views) {
       if (seen.has(uid)) continue
       this.scene.remove(view.rig.root)
@@ -99,6 +115,33 @@ export class ActorLayer {
       disposeSubtree(view.rig.root, false)
       disposeSubtree(view.bar, true)
       this.views.delete(uid)
+    }
+
+    const seenStains = new Set<string>()
+    for (const stain of state.stains) {
+      seenStains.add(stain.uid)
+      let mesh = this.stains.get(stain.uid)
+      if (!mesh) {
+        mesh = buildStain()
+        this.stains.set(stain.uid, mesh)
+        this.scene.add(mesh)
+      }
+
+      const at = tileToWorld(stain.x, stain.y)
+      mesh.position.x = at.x
+      mesh.position.z = at.z
+
+      const stale = stain.ageMs > STAIN_OLD_MS
+      ;(mesh.material as THREE.MeshStandardMaterial).opacity = stale ? 1.0 : 0.82
+      mesh.scale.setScalar(stale ? 1.25 : 1)
+    }
+
+    for (const [uid, mesh] of this.stains) {
+      if (seenStains.has(uid)) continue
+      this.scene.remove(mesh)
+      mesh.geometry.dispose()
+      ;(mesh.material as THREE.Material).dispose()
+      this.stains.delete(uid)
     }
   }
 
@@ -116,6 +159,13 @@ export class ActorLayer {
       disposeSubtree(view.bar, true)
     }
     this.views.clear()
+
+    for (const [, mesh] of this.stains) {
+      this.scene.remove(mesh)
+      mesh.geometry.dispose()
+      ;(mesh.material as THREE.Material).dispose()
+    }
+    this.stains.clear()
   }
 
   private viewFor(uid: string, make: () => ActorView): ActorView {
@@ -183,5 +233,22 @@ export class ActorLayer {
         remaining,
       )
     }
+  }
+
+  private placeStaff(view: ActorView, staff: Staff, elapsed: number): void {
+    view.bar.visible = false
+
+    const target = new THREE.Vector3(staff.x, 0, staff.z)
+    if (view.rig.root.position.lengthSq() === 0) view.rig.root.position.copy(target)
+    else view.rig.root.position.lerp(target, 0.25)
+
+    const dx = staff.x - view.rig.root.position.x
+    const dz = staff.z - view.rig.root.position.z
+    if (dx * dx + dz * dz > 1e-4) {
+      view.rig.root.rotation.y = Math.atan2(dx, dz)
+    }
+
+    const walking = staff.path.length > 0
+    animate(view.rig, elapsed + view.seed, walking)
   }
 }

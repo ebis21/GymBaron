@@ -4,14 +4,31 @@ import { moveClients } from './clientMove'
 import { closeDay } from './dayClose'
 import { msLeftInDay } from './clock'
 import { DAY_MS, MAX_STEP_MS } from './constants'
+import { ageStains } from './stains'
+import { assignStaff, workStaff } from './staff'
+import { moveStaff } from './staffMove'
 
 type System = (state: GameState, dtMs: number) => GameState
+
+const assign: System = state => assignStaff(state)
 
 /**
  * The whole simulation, in order. Costs are deliberately absent — money only
  * leaves the till at closing time, never by the millisecond.
+ *
+ * Movement runs before the phase timers so somebody who arrives during this
+ * tick starts working in it, rather than idling for a frame.
  */
-const SYSTEMS: System[] = [spawnWalkins, spawnMembers, moveClients, advanceClients]
+const SYSTEMS: System[] = [
+  spawnWalkins,
+  spawnMembers,
+  moveClients,
+  advanceClients,
+  ageStains,
+  assign,
+  moveStaff,
+  workStaff,
+]
 
 function step(state: GameState, dtMs: number): GameState {
   let next = state

@@ -1,7 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import { settleOffline } from './offline'
 import { initialState } from './economy'
+import { tileToWorld } from './layout'
 import { OFFLINE_CAP_MS, DEBT_LIMIT, DAY_MS, DAILY_RENT } from './constants'
+import type { GameState } from './types'
 
 describe('settleOffline', () => {
   it('reports no time away when the player just left', () => {
@@ -28,5 +30,23 @@ describe('settleOffline', () => {
 
   it('stamps lastSeenAt to now', () => {
     expect(settleOffline(initialState(5, 0), 50_000).state.lastSeenAt).toBe(50_000)
+  })
+
+  it('has staff clean up while the player is away', () => {
+    const away: GameState = {
+      ...initialState(7, 0),
+      decor: [],
+      lastSeenAt: 0,
+      staff: [{
+        uid: 'e1', name: 'Piotr W.', role: 'cleaner', rank: 'legend',
+        x: tileToWorld(-1, 0).x, z: tileToWorld(-1, 0).z, path: [], goal: null,
+        targetUid: null, workMs: 0, owed: 0,
+      }],
+      stains: [{ uid: 's1', x: 5, y: 4, ageMs: 0 }],
+    }
+
+    // A minute away is far more than a legendary cleaner needs to cross the hall.
+    const { state } = settleOffline(away, 60_000)
+    expect(state.stains).toHaveLength(0)
   })
 })

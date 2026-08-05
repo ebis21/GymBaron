@@ -30,8 +30,8 @@ const RARITY_WEIGHT: Record<ClientRarity, number> = {
   common: 50,
   rare: 40,
   epic: 20,
-  legend: 10,
-  influencer: 3,
+  legend: 6,
+  influencer: 2,
 }
 
 const TOTAL_WEIGHT = CLIENT_RARITIES.reduce((sum, r) => sum + RARITY_WEIGHT[r], 0)
