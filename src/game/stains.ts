@@ -2,6 +2,7 @@ import type { GameState, Stain } from './types'
 import type { Tile } from './layout'
 import { walkable } from './pathfind'
 import { nextRandom } from './rng'
+import { NEGLECT_GRACE_MS } from './neglect'
 import {
   AMBIENT_DIRT_CHANCE,
   AMBIENT_DIRT_INTERVAL_MS,
@@ -75,18 +76,23 @@ export function spawnAmbientDirt(state: GameState, dtMs: number): GameState {
 }
 
 /**
- * Ages the mess and charges reputation for it. A stale stain costs double, so
- * ignoring the floor compounds rather than settling into a flat penalty.
+ * Ages the mess and charges reputation for it. A fresh spill is free for
+ * `NEGLECT_GRACE_MS` — nobody judges a gym for a stain that appeared seconds
+ * ago — and only starts costing once it has plainly been left. A stale one
+ * costs double, so ignoring the floor compounds rather than settling into a
+ * flat penalty.
  */
 export function ageStains(state: GameState, dtMs: number): GameState {
   if (state.stains.length === 0) return state
 
-  const seconds = dtMs / 1000
   let drain = 0
 
   const stains = state.stains.map(s => {
     const ageMs = s.ageMs + dtMs
-    drain += (ageMs > STAIN_OLD_MS ? REP_DRAIN_OLD : REP_DRAIN_FRESH) * seconds
+    // Only the slice of this tick past the grace window is billable, so a
+    // stain that appears mid-tick is not charged for the whole tick.
+    const billableMs = Math.max(0, Math.min(dtMs, ageMs - NEGLECT_GRACE_MS))
+    drain += (ageMs > STAIN_OLD_MS ? REP_DRAIN_OLD : REP_DRAIN_FRESH) * (billableMs / 1000)
     return { ...s, ageMs }
   })
 

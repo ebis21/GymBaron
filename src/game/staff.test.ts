@@ -15,7 +15,7 @@ const staff = (over: Partial<Staff> = {}): Staff => ({
 
 const machine = (over: Partial<Machine> = {}): Machine => ({
   uid: 'm1', type: 'dumbbells', x: 4, y: 2, rotation: 0,
-  durability: 100, occupiedBy: null, ...over,
+  durability: 100, occupiedBy: null, brokenMs: 0, ...over,
 })
 
 const stain = (over: Partial<Stain> = {}): Stain => ({ uid: 's1', x: 2, y: 2, ageMs: 0, ...over })
@@ -133,6 +133,33 @@ describe('workStaff', () => {
     const s = workStaff(before, 12_000)
     expect(s.machines[0]!.durability).toBe(100)
     expect(s.cash).toBe(500)
+  })
+
+  /**
+   * A repaired machine still exists, so `targetTile` used to keep returning
+   * its tile and `assignStaff` read the finished job as still live — the
+   * repairer stayed pinned to the first machine they fixed and never took a
+   * second one.
+   */
+  it('releases a repairer onto the next wreck once the first is fixed', () => {
+    let s = gym({
+      staff: [staff({ role: 'repair', targetUid: 'm1', x: at(4, 2).x, z: at(4, 2).z })],
+      machines: [machine({ durability: 0 }), machine({ uid: 'm2', x: 5, y: 2, durability: 0 })],
+    })
+
+    s = workStaff(s, 12_000)
+    expect(s.machines[0]!.durability).toBe(100)
+
+    s = assignStaff(s)
+    expect(s.staff[0]!.targetUid).toBe('m2')
+  })
+
+  it('keeps a repairer on a machine that is still broken', () => {
+    const s = assignStaff(gym({
+      staff: [staff({ role: 'repair', targetUid: 'm1', x: at(4, 2).x, z: at(4, 2).z })],
+      machines: [machine({ durability: 0 }), machine({ uid: 'm2', x: 5, y: 2, durability: 0 })],
+    }))
+    expect(s.staff[0]!.targetUid).toBe('m1')
   })
 })
 

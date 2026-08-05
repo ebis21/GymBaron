@@ -1,4 +1,4 @@
-import type { Client, GameState } from './types'
+import type { Client, GameState, Machine } from './types'
 import { initialState } from './economy'
 import { SAVE_VERSION } from './constants'
 import { DOOR_X, DOOR_QUEUE_ANCHOR } from './layout'
@@ -42,8 +42,8 @@ function looksLikeSave(v: unknown): v is Record<string, unknown> {
 }
 
 /**
- * Fields introduced in v4, checked only once a save claims to already be v4 —
- * a save at this version missing them is not an old save waiting to migrate,
+ * Fields introduced in v4, checked only once a save claims to be at least v4 —
+ * a save at that version missing them is not an old save waiting to migrate,
  * it is corrupt (hand-edited storage, a future write bug, truncated data) and
  * must be rejected rather than handed to the app with `staff` etc. undefined.
  */
@@ -65,7 +65,7 @@ function looksLikeV4(s: Record<string, unknown>): boolean {
  * Migrated clients are parked at the door with an empty path. The next tick
  * re-routes them; a frame of standing still beats losing the save.
  */
-function migrate(raw: Record<string, unknown>): GameState {
+function migrateV3(raw: Record<string, unknown>): Record<string, unknown> {
   const clients = (raw.clients as Client[]).map(c => ({
     ...c,
     x: DOOR_X,
@@ -75,14 +75,25 @@ function migrate(raw: Record<string, unknown>): GameState {
   }))
 
   return {
-    ...(raw as unknown as GameState),
-    version: SAVE_VERSION,
+    ...raw,
+    version: 4,
     clients,
     staff: [],
     stains: [],
     candidates: [],
     candidatesDay: 0,
   }
+}
+
+/**
+ * Brings a version 4 save up to 5: machines gained a broken-for clock that
+ * decides when neglect starts costing reputation. Existing kit starts the
+ * clock at zero, which hands the player back the full grace window on
+ * whatever was already broken — the generous side of the rounding.
+ */
+function migrateV4(raw: Record<string, unknown>): Record<string, unknown> {
+  const machines = (raw.machines as Machine[]).map(m => ({ ...m, brokenMs: 0 }))
+  return { ...raw, version: 5, machines }
 }
 
 /**
@@ -95,12 +106,18 @@ export function deserialize(raw: string, now: number): GameState {
     if (!looksLikeSave(parsed)) return initialState(now, now)
 
     const version = parsed.version as number
-    if (version === SAVE_VERSION) {
-      return looksLikeV4(parsed) ? (parsed as unknown as GameState) : initialState(now, now)
-    }
-    if (version === 3) return migrate(parsed)
+    if (version > SAVE_VERSION || version < 3) return initialState(now, now)
 
-    return initialState(now, now)
+    // Migrations chain, so a v3 save walks up through every step rather than
+    // needing its own path to the current version.
+    let state = parsed
+    if (state.version === 3) state = migrateV3(state)
+    // Only meaningful once the save is at v4's shape, which is also the point
+    // the v4 fields become required rather than pending migration.
+    if (!looksLikeV4(state)) return initialState(now, now)
+    if (state.version === 4) state = migrateV4(state)
+
+    return state as unknown as GameState
   } catch {
     return initialState(now, now)
   }

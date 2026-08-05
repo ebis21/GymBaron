@@ -1,4 +1,4 @@
-import type { GameState, Staff } from './types'
+import type { GameState, Machine, Staff } from './types'
 import type { Tile } from './layout'
 import { tileBehind, tileToWorld, worldToTile } from './layout'
 import { wipeStain } from './stains'
@@ -9,6 +9,9 @@ import { STAFF_UNLOCK_LEVEL } from './constants'
 
 /** How close somebody must be standing to actually do the job. */
 const WORK_REACH = 1.6
+
+/** Out of service, and so worth a repairer walking over to. */
+export const needsRepair = (m: Machine): boolean => m.durability <= 0
 
 /** An employee with unpaid wages stays on the books but stops turning up. */
 export const onDuty = (s: Staff): boolean => s.owed <= 0
@@ -46,8 +49,13 @@ export function targetTile(state: GameState, s: Staff): Tile | null {
   }
 
   if (s.role === 'repair') {
+    // Only while it is *still* broken. A repaired machine still exists, so
+    // returning its tile here read as "job still real" to `assignStaff` and
+    // pinned the repairer to the first machine they ever fixed — they never
+    // picked up a second one. A cleaner never hit this because wiping deletes
+    // the stain outright.
     const m = state.machines.find(x => x.uid === s.targetUid)
-    return m ? { x: m.x, y: m.y } : null
+    return m && needsRepair(m) ? { x: m.x, y: m.y } : null
   }
 
   // Stand on the attendant's side of the desk — opposite the queue — rather
@@ -104,7 +112,7 @@ function pickJob(state: GameState, s: Staff, claimed: Set<string>): string | nul
   }
 
   if (s.role === 'repair') {
-    const broken = state.machines.find(m => m.durability <= 0 && !claimed.has(m.uid))
+    const broken = state.machines.find(m => needsRepair(m) && !claimed.has(m.uid))
     return broken ? broken.uid : null
   }
 

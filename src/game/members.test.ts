@@ -14,6 +14,7 @@ const machine = (uid: string, type: Machine['type']): Machine => ({
   rotation: 0,
   durability: 100,
   occupiedBy: null,
+  brokenMs: 0,
 })
 
 const member = (uid: string, joinedDay: number): Member => ({ uid, joinedDay })

@@ -94,3 +94,25 @@ export function tileBehind(x: number, y: number, rotation: number): Tile {
     y: y + Math.round(-Math.cos(angle)),
   }
 }
+
+/**
+ * How far behind the desk's centre the attendant actually stands. A full tile
+ * step (TILE = 2) parked them a clear pace off the counter, looking like they
+ * had wandered away from it; just past the tile edge reads as standing at the
+ * desk while still leaving the desk's own tile free.
+ */
+export const DESK_STAND_DIST = 1.2
+
+/**
+ * Where the receptionist stands to work: on the attendant's side of the desk,
+ * pulled in close to the counter. Sits inside `tileBehind`'s tile, so the
+ * pathfinder still routes to a whole tile and only the final step is offset.
+ */
+export function receptionStand(x: number, y: number, rotation: number): Point {
+  const angle = (rotation * Math.PI) / 2
+  const at = tileToWorld(x, y)
+  return {
+    x: at.x - Math.sin(angle) * DESK_STAND_DIST,
+    z: at.z - Math.cos(angle) * DESK_STAND_DIST,
+  }
+}

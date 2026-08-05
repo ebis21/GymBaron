@@ -66,7 +66,7 @@ describe('moveStaff', () => {
       staff: [staff({ role: 'repair', targetUid: 'm1' })],
       machines: [{
         uid: 'm1', type: 'dumbbells', x: 3, y: 2, rotation: 0,
-        durability: 0, occupiedBy: null,
+        durability: 0, occupiedBy: null, brokenMs: 0,
       }],
     })
     for (let i = 0; i < 60; i++) s = moveStaff(s, 500)
@@ -84,7 +84,7 @@ describe('moveStaff', () => {
       stains: [{ uid: 's1', x: 3, y: 2, ageMs: 0 }],
       machines: [{
         uid: 'm1', type: 'dumbbells', x: 3, y: 2, rotation: 0,
-        durability: 100, occupiedBy: null,
+        durability: 100, occupiedBy: null, brokenMs: 0,
       }],
     })
     for (let i = 0; i < 60; i++) s = moveStaff(s, 500)
