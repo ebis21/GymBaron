@@ -15,12 +15,24 @@ describe('rollPool', () => {
     expect(s.candidatesDay).toBe(5)
   })
 
-  it('gives every candidate a name, role and rank', () => {
+  it('gives every candidate a name, role, rank and price', () => {
     for (const c of rollPool(gym()).candidates) {
       expect(c.name.length).toBeGreaterThan(0)
       expect(['reception', 'cleaner', 'repair']).toContain(c.role)
       expect(['rare', 'epic', 'legend']).toContain(c.rank)
+      expect(c.price).toBeGreaterThan(0)
     }
+  })
+
+  it('prices a legend above an epic above a rare', () => {
+    let s = gym()
+    const priceByRank: Record<string, number> = {}
+    for (let i = 0; i < 200; i++) {
+      s = rollPool(s)
+      for (const c of s.candidates) priceByRank[c.rank] = c.price
+    }
+    expect(priceByRank.epic).toBeGreaterThan(priceByRank.rare!)
+    expect(priceByRank.legend).toBeGreaterThan(priceByRank.epic!)
   })
 
   it('is reproducible from the seed', () => {

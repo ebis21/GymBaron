@@ -1,6 +1,6 @@
 import type { Candidate, GameState, StaffRank } from './types'
 import { nextRandom } from './rng'
-import { STAFF_RANKS, STAFF_ROLES } from './content/staff'
+import { STAFF_RANKS, STAFF_ROLES, hirePriceFor } from './content/staff'
 
 export const POOL_SIZE = 3
 export const REFRESH_PRICE = 500
@@ -56,7 +56,7 @@ export function rollPool(state: GameState): GameState {
     const [rank, s4] = rollRank(s3)
     seed = s4
 
-    candidates.push({ uid: `k${uid}`, name: `${first} ${initial}`, role, rank })
+    candidates.push({ uid: `k${uid}`, name: `${first} ${initial}`, role, rank, price: hirePriceFor(rank) })
     uid += 1
   }
 

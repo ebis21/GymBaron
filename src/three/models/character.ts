@@ -1,6 +1,7 @@
 import * as THREE from 'three'
-import type { ClientKind, ClientRarity } from '../../game/types'
+import type { ClientKind, ClientRarity, StaffRank, StaffRole } from '../../game/types'
 import { RARITY_LABEL } from '../../game/content/rarity'
+import { ROLE_LABEL } from '../../game/content/staff'
 import { PALETTE, blockAt, cylinder, sphere } from '../style'
 
 /**
@@ -164,6 +165,70 @@ export function buildNpc(kind: ClientKind, rarity: ClientRarity, variant: number
   return figure(look, kind === 'member' ? PALETTE.frameYellow : null, rarity)
 }
 
+const roleTagTextures = new Map<StaffRole, THREE.Texture>()
+
+/** Painted once per role and shared, same as `rarityTexture` below it. */
+function roleTexture(role: StaffRole): THREE.Texture {
+  const cached = roleTagTextures.get(role)
+  if (cached) return cached
+
+  const canvas = document.createElement('canvas')
+  canvas.width = TAG_WIDTH
+  canvas.height = TAG_HEIGHT
+  const ctx = canvas.getContext('2d')!
+
+  const inset = 8
+  const radius = (TAG_HEIGHT - inset * 2) / 2
+  ctx.beginPath()
+  ctx.roundRect(inset, inset, TAG_WIDTH - inset * 2, TAG_HEIGHT - inset * 2, radius)
+  ctx.fillStyle = PALETTE.frameCream
+  ctx.fill()
+  ctx.lineWidth = 7
+  ctx.strokeStyle = '#2b2438'
+  ctx.stroke()
+
+  ctx.fillStyle = '#2b2434'
+  ctx.font = '800 40px Nunito, "Baloo 2", system-ui, sans-serif'
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.fillText(ROLE_LABEL[role], TAG_WIDTH / 2, TAG_HEIGHT / 2 + 2)
+
+  const texture = new THREE.CanvasTexture(canvas)
+  texture.colorSpace = THREE.SRGBColorSpace
+  roleTagTextures.set(role, texture)
+  return texture
+}
+
+/**
+ * Employees carry two tags rather than clients' one: their job title, since
+ * that is what the player is scanning the floor for, and their rank tucked
+ * in smaller underneath — the same rarity tag clients wear, just secondary
+ * here rather than the headline.
+ */
+export function buildStaffNpc(role: StaffRole, rank: StaffRank, variant: number): Rig {
+  const look: Look = {
+    shirt: SHIRTS[variant % SHIRTS.length]!,
+    trousers: variant % 2 === 0 ? PALETTE.playerTrousers : PALETTE.rubber,
+    skin: SKINS[variant % SKINS.length]!,
+    hair: PALETTE.hair,
+  }
+  const rig = figure(look, null, null)
+
+  const title = new THREE.Sprite(
+    new THREE.SpriteMaterial({ map: roleTexture(role), transparent: true }),
+  )
+  title.scale.set(1.05, 1.05 * (TAG_HEIGHT / TAG_WIDTH), 1)
+  title.position.y = 2.32
+  rig.root.add(title)
+
+  const rank1 = rarityTag(rank)
+  rank1.scale.multiplyScalar(0.72)
+  rank1.position.y = 2.03
+  rig.root.add(rank1)
+
+  return rig
+}
+
 /** Puts the body back upright before a pose that assumes it. */
 function stand(rig: Rig): void {
   rig.hips.rotation.set(0, 0, 0)
@@ -287,4 +352,18 @@ export const poseCablePull: Pose = (rig, t) => {
   rig.legL.rotation.set(0.12, 0, 0.16)
   rig.legR.rotation.set(0.12, 0, -0.16)
   rig.hips.rotation.x = 0.14 + pump * 0.1
+}
+
+/**
+ * Receptionist at the desk: a steady lean over the counter with one hand
+ * dipping down to the scanner, distinct from idle breathing so "working"
+ * actually reads as doing something.
+ */
+export const poseScan: Pose = (rig, t) => {
+  stand(rig)
+  const dip = Math.sin(t * 2.2)
+
+  rig.hips.rotation.x = 0.18 + Math.abs(dip) * 0.05
+  rig.armR.rotation.set(-0.85 + dip * 0.2, 0, -0.12)
+  rig.armL.rotation.set(0.08, 0, 0.08)
 }

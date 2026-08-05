@@ -1,10 +1,11 @@
 import type { GameState, Staff } from './types'
 import type { Tile } from './layout'
-import { tileToWorld, worldToTile } from './layout'
+import { tileBehind, tileToWorld, worldToTile } from './layout'
 import { wipeStain } from './stains'
 import { scanClient } from './clients'
 import { workMsFor, STAFF_LIMIT } from './content/staff'
 import { WALK_MIN_X } from './pathfind'
+import { STAFF_UNLOCK_LEVEL } from './constants'
 
 /** How close somebody must be standing to actually do the job. */
 const WORK_REACH = 1.6
@@ -49,8 +50,11 @@ export function targetTile(state: GameState, s: Staff): Tile | null {
     return m ? { x: m.x, y: m.y } : null
   }
 
+  // Stand on the attendant's side of the desk — opposite the queue — rather
+  // than on the desk's own tile, which had the receptionist walking onto the
+  // counter itself.
   const desk = state.decor.find(d => d.type === 'reception')
-  return desk ? { x: desk.x, y: desk.y } : null
+  return desk ? tileBehind(desk.x, desk.y, desk.rotation) : null
 }
 
 /**
@@ -173,12 +177,18 @@ export function workStaff(state: GameState, dtMs: number): GameState {
   }
 }
 
-/** Takes a candidate off the board and onto the payroll. */
+/**
+ * Takes a candidate off the board and onto the payroll. Hiring itself costs
+ * `candidate.price` up front — separate from, and on top of, the daily wage
+ * `payWages` collects afterwards.
+ */
 export function hire(state: GameState, candidateUid: string): GameState {
   const candidate = state.candidates.find(c => c.uid === candidateUid)
   if (!candidate) return state
+  if (state.level < STAFF_UNLOCK_LEVEL) return state
   if (state.staff.length >= STAFF_LIMIT) return state
   if (candidate.role === 'reception' && !state.decor.some(d => d.type === 'reception')) return state
+  if (state.cash < candidate.price) return state
 
   const rest = { x: -1, y: 0 }
   const at = tileToWorld(rest.x, rest.y)
@@ -199,9 +209,11 @@ export function hire(state: GameState, candidateUid: string): GameState {
 
   return {
     ...state,
+    cash: state.cash - candidate.price,
     nextUid: state.nextUid + 1,
     staff: [...state.staff, employee],
     candidates: state.candidates.filter(c => c.uid !== candidateUid),
+    stats: { ...state.stats, totalSpent: state.stats.totalSpent + candidate.price },
   }
 }
 

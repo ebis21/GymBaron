@@ -1,4 +1,14 @@
 import type { GameState, Stain } from './types'
+import type { Tile } from './layout'
+import { walkable } from './pathfind'
+import { nextRandom } from './rng'
+import {
+  AMBIENT_DIRT_CHANCE,
+  AMBIENT_DIRT_INTERVAL_MS,
+  AMBIENT_DIRT_MAX_STAINS,
+  GRID_H,
+  GRID_W,
+} from './constants'
 
 /** Odds a finished workout leaves a mess behind. */
 export const STAIN_CHANCE = 0.18
@@ -21,6 +31,40 @@ export function spawnStain(state: GameState, x: number, y: number): GameState {
 
   const stain: Stain = { uid: `s${state.nextUid}`, x, y, ageMs: 0 }
   return { ...state, nextUid: state.nextUid + 1, stains: [...state.stains, stain] }
+}
+
+/**
+ * Dirt tracked in from footfall across the whole floor, independent of any
+ * machine. `AMBIENT_DIRT_CHANCE` is the odds over a full
+ * `AMBIENT_DIRT_INTERVAL_MS` window, scaled down by how much of that window
+ * this call actually covers — the same trick `spawnWalkins` uses — so a
+ * frame-by-frame caller sees "roughly once a second" odds rather than that
+ * chance re-rolled on every frame. Picks uniformly among walkable,
+ * unoccupied, currently clean tiles on the equipment grid, and stops once the
+ * floor already carries `AMBIENT_DIRT_MAX_STAINS` messes so a neglected gym
+ * can't spiral past a fair ceiling.
+ */
+export function spawnAmbientDirt(state: GameState, dtMs: number): GameState {
+  if (state.stains.length >= AMBIENT_DIRT_MAX_STAINS) return state
+
+  const chance = Math.min(1, AMBIENT_DIRT_CHANCE * (dtMs / AMBIENT_DIRT_INTERVAL_MS))
+  const [roll, seed] = nextRandom(state.seed)
+  const rolled = { ...state, seed }
+  if (roll >= chance) return rolled
+
+  const candidates: Tile[] = []
+  for (let x = 0; x < GRID_W; x += 1) {
+    for (let y = 0; y < GRID_H; y += 1) {
+      if (walkable(rolled, x, y) && !rolled.stains.some(s => s.x === x && s.y === y)) {
+        candidates.push({ x, y })
+      }
+    }
+  }
+  if (candidates.length === 0) return rolled
+
+  const [pick, seed2] = nextRandom(rolled.seed)
+  const tile = candidates[Math.min(candidates.length - 1, Math.floor(pick * candidates.length))]!
+  return spawnStain({ ...rolled, seed: seed2 }, tile.x, tile.y)
 }
 
 /**

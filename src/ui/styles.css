@@ -265,6 +265,31 @@ body {
   opacity: 0.9;
 }
 
+/* Repair and clean no longer resolve on tap — the player has to hold the
+   button down while this bar fills, same visual language as `.meter`. */
+.action-btn.holdable {
+  padding-bottom: 20px;
+  touch-action: none;
+  user-select: none;
+}
+
+.action-hold-track {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 7px;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.28);
+  overflow: hidden;
+}
+
+.action-hold-fill {
+  height: 100%;
+  background: #fff;
+  transition: width 60ms linear;
+}
+
 @keyframes pop {
   from {
     transform: scale(0.86);
@@ -468,6 +493,27 @@ body {
   gap: 10px;
   opacity: 0.7;
   cursor: default;
+}
+
+/* Built and listed, just out of reach — stays in its normal grid slot,
+   dimmed, with a small level badge rather than the full-width "soon" strip. */
+.phone-app.locked {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.phone-app.locked:active {
+  transform: none;
+}
+
+.phone-lock {
+  margin-top: -2px;
+  padding: 1px 7px;
+  font-size: 8.5px;
+  letter-spacing: 0.03em;
+  color: #3a2a12;
+  background: var(--gold);
+  border-radius: 999px;
 }
 
 .phone-icon {

@@ -6,6 +6,15 @@ import { speedFor } from './content/staff'
 import { onDuty, restTileFor, targetTile } from './staff'
 
 /**
+ * Roles whose job sits on a tile that is itself occupied — a repairer works
+ * on the broken machine's own tile, a cleaner wipes a stain that spawns on
+ * whatever tile left it (almost always a machine tile). Both need
+ * `allowBlockedGoal`, or `findPath` treats the job as unreachable and drops
+ * it the instant it's assigned.
+ */
+const BLOCKED_GOAL_ROLES = new Set<Staff['role']>(['repair', 'cleaner'])
+
+/**
  * Walks the payroll one step. A job that turns out to be unreachable is
  * dropped rather than retried forever — the player is free to wall a corner
  * off, and an employee frozen against a partition would look like a bug and
@@ -32,10 +41,11 @@ export function moveStaff(state: GameState, dtMs: number): GameState {
 
     let path = s.path
     if (!s.goal || s.goal.x !== goal.x || s.goal.y !== goal.y) {
-      // A repairer stands on the machine's own tile, so its goal is blocked
-      // for everyone walking past but legal for them.
+      // A repairer stands on the machine's own tile, and a cleaner's stain
+      // sits on whatever tile left it — both goals are blocked for everyone
+      // walking past but legal for the one doing the job.
       const found = findPath(state, worldToTile(s.x, s.z), goal, {
-        allowBlockedGoal: s.role === 'repair' && job !== null,
+        allowBlockedGoal: BLOCKED_GOAL_ROLES.has(s.role) && job !== null,
       })
 
       if (!found) {

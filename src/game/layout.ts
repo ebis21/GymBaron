@@ -77,3 +77,20 @@ export function queueSpot(index: number, anchor: QueueAnchor): Point {
 
 /** Fallback formation used when no reception desk is placed. */
 export const DOOR_QUEUE_ANCHOR: QueueAnchor = { x: DOOR_X, z: -2.4, angle: 0 }
+
+/**
+ * The tile immediately behind a rotatable fixture — the side opposite
+ * wherever it faces. `rotation` follows the same quarter-turn convention as
+ * `Decor.rotation` (and `QueueAnchor.angle = rotation * PI/2`): at rotation 0
+ * the fixture's front faces local +Z, so "behind" is one tile toward -Z, and
+ * the offset rotates the same way as everything else built on that angle.
+ * Used to stand the receptionist on the attendant's side of the desk, facing
+ * back across it into the queue.
+ */
+export function tileBehind(x: number, y: number, rotation: number): Tile {
+  const angle = (rotation * Math.PI) / 2
+  return {
+    x: x + Math.round(-Math.sin(angle)),
+    y: y + Math.round(-Math.cos(angle)),
+  }
+}

@@ -219,4 +219,6 @@ export interface Candidate {
   name: string
   role: StaffRole
   rank: StaffRank
+  /** One-time cost to bring them onto the payroll. */
+  price: number
 }

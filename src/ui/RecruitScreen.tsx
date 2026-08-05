@@ -33,6 +33,7 @@ export default function RecruitScreen({ state, onHire, onReroll, onBack }: Props
       <ul className="candidate-list">
         {state.candidates.map(c => {
           const needsDesk = c.role === 'reception' && !hasDesk
+          const afford = state.cash >= c.price
           return (
             <li key={c.uid} className="candidate">
               <div className="candidate-id">
@@ -46,12 +47,16 @@ export default function RecruitScreen({ state, onHire, onReroll, onBack }: Props
                 <span>{money(wageFor(c.role, c.rank))} / dzień</span>
               </div>
 
+              {!afford && !full && !needsDesk && (
+                <div className="shop-reason">Za mało gotówki — brakuje {money(c.price - state.cash)}</div>
+              )}
+
               <button
                 className="btn primary block"
                 onClick={() => onHire(c.uid)}
-                disabled={full || needsDesk}
+                disabled={full || needsDesk || !afford}
               >
-                {needsDesk ? 'Brak biurka' : full ? 'Komplet' : 'Zatrudnij'}
+                {needsDesk ? 'Brak biurka' : full ? 'Komplet' : `Zatrudnij za ${money(c.price)}`}
               </button>
             </li>
           )
