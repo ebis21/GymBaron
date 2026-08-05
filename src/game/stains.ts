@@ -16,8 +16,15 @@ export const STAIN_CHANCE = 0.18
 /** Past this age a stain reads as neglect and costs double. */
 export const STAIN_OLD_MS = 30_000
 
-export const REP_DRAIN_FRESH = 0.4
-export const REP_DRAIN_OLD = 0.8
+/**
+ * A single fresh stain used to cost more reputation in ~4s than an entire
+ * finished workout earns (REP_GAIN_ON_WORKOUT = 1.5) — one mess would tank
+ * the gym's draw before a player could even notice it. These rates keep a
+ * lone stain a minor, catch-it-when-you-can nuisance; neglecting the floor
+ * (several stains, or one gone stale) is what actually adds up.
+ */
+export const REP_DRAIN_FRESH = 0.05
+export const REP_DRAIN_OLD = 0.1
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v))
 

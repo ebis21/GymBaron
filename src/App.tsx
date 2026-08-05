@@ -18,6 +18,7 @@ import DayReportModal from './ui/DayReportModal'
 import InventoryPanel from './ui/InventoryPanel'
 import ClientCard from './ui/ClientCard'
 import WelcomeBack from './ui/WelcomeBack'
+import DevPanel from './ui/DevPanel'
 import { money } from './ui/format'
 
 /** Which full-screen panel is over the room, if any. */
@@ -368,6 +369,7 @@ export default function App() {
       />
 
       <TopBar state={state} />
+      {import.meta.env.DEV && <DevPanel />}
 
       {buildMode && tab === 'gym' && (
         <div className="build-bar">
@@ -519,11 +521,20 @@ export default function App() {
         >
           {action.hold && (
             <span className="action-hold-track">
-              <span className="action-hold-fill" style={{ width: `${holdPct * 100}%` }} />
+              <span
+                className="action-hold-fill"
+                style={{ width: `${(1 - holdPct) * 100}%` }}
+              />
             </span>
           )}
           <span className="action-label">{action.label}</span>
-          {action.hint && <span className="action-hint">{action.hint}</span>}
+          {action.hold && holdPct > 0 ? (
+            <span className="action-hint">
+              jeszcze {Math.max(0, ((1 - holdPct) * action.hold.ms) / 1000).toFixed(1)}s
+            </span>
+          ) : (
+            action.hint && <span className="action-hint">{action.hint}</span>
+          )}
         </button>
       )}
 

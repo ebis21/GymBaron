@@ -297,6 +297,46 @@ body {
   }
 }
 
+/* Dev-only cheat panel (npm run dev builds only) — deliberately off-palette
+   so it never reads as part of the game's own UI. */
+.dev-panel {
+  position: absolute;
+  left: 10px;
+  top: 10px;
+  z-index: 20;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  max-width: 220px;
+  padding: 8px;
+  background: rgba(20, 20, 24, 0.82);
+  border: 2px dashed #ff5fa2;
+  border-radius: 10px;
+  font: 11px/1.2 monospace;
+}
+
+.dev-panel-tag {
+  width: 100%;
+  color: #ff5fa2;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.dev-panel button {
+  padding: 5px 8px;
+  color: #fff;
+  background: #33333c;
+  border: 1px solid #55555f;
+  border-radius: 6px;
+  font: inherit;
+  cursor: pointer;
+}
+
+.dev-panel button:hover {
+  background: #45454f;
+}
+
 /* --- client card ---------------------------------------------------------- */
 
 /*
