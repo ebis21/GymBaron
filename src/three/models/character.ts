@@ -121,9 +121,6 @@ function figure(
   root.add(hips)
 
   hips.add(blockAt(torsoW, 0.6, torsoD, look.shirt, 0, 0.3, 0, { radius: 0.14 }))
-
-  // The female variant has narrower shoulders and a slightly wider hip line;
-  // both variants remain the same gameplay footprint and machine stance.
   hips.add(blockAt(gender === 'female' ? 0.52 : 0.46, 0.14, 0.34, look.trousers, 0, 0.04, 0, {
     radius: 0.06,
   }))
@@ -149,8 +146,7 @@ function figure(
       patch.position.set(side * 0.2, 1.03, -0.02)
       hips.add(patch)
     }
-    const back = blockAt(0.32, 0.12, 0.16, look.hair, 0, 1.05, -0.2, { radius: 0.07 })
-    hips.add(back)
+    hips.add(blockAt(0.32, 0.12, 0.16, look.hair, 0, 1.05, -0.2, { radius: 0.07 }))
   } else {
     hips.add(blockAt(0.5, hairStyle === 'long' ? 0.3 : 0.22, 0.5, look.hair, 0, 1.08, -0.02, {
       radius: 0.14,
@@ -181,7 +177,6 @@ function figure(
   const arm = (x: number): THREE.Group => {
     const pivot = new THREE.Group()
     pivot.position.set(x, 0.56, 0)
-
     if (details.baggySleeves) {
       pivot.add(blockAt(armW * 1.15, 0.28, armW * 1.15, look.shirt, 0, -0.14, 0, {
         radius: armW * 0.48,
@@ -192,14 +187,12 @@ function figure(
     } else {
       pivot.add(blockAt(armW, 0.46, armW, look.skin, 0, -0.23, 0, { radius: armW * 0.4 }))
     }
-
     if (details.biceps) {
       const muscle = sphere(armW * 0.72, look.skin, 12)
       muscle.scale.set(1, 1.25, 1)
       muscle.position.y = -0.18
       pivot.add(muscle)
     }
-
     hips.add(pivot)
     return pivot
   }
@@ -211,7 +204,6 @@ function figure(
     hips.add(pivot)
     return pivot
   }
-
   const shoulderX = torsoW / 2 + armW * 0.5
   const armL = arm(-shoulderX)
   const armR = arm(shoulderX)
