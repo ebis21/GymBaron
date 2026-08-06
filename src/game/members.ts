@@ -2,8 +2,16 @@ import type { GameState, Member } from './types'
 import { BILLING_PERIOD_DAYS } from './constants'
 import { passPrice } from './economy'
 
-const SIGNUP_BASE = 0.05
-const SIGNUP_PER_SATISFACTION = 0.35
+/**
+ * Conversion was tuned against a gym that served a handful of people a day by
+ * hand. With the desk working, a 40% top rate meant a dozen-plus passes sold
+ * every day on top of the renewals they had already generated, and the
+ * membership — and with it the subscription income — compounded away from the
+ * rest of the economy. Topping out near a fifth keeps a full house something
+ * the player builds over a week rather than stumbles into on day three.
+ */
+const SIGNUP_BASE = 0.03
+const SIGNUP_PER_SATISFACTION = 0.15
 const CHURN_BASE = 0.02
 const CHURN_PER_UNHAPPY = 0.08
 

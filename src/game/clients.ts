@@ -29,9 +29,20 @@ const SPAWN_PER_REP = 0.24
 const MEMBER_VISITS_PER_DAY = 1.6
 
 /** Shared with clientMove.ts: a walled-off entrance costs exactly what an impatient walkout does. */
-export const REP_LOSS_ON_WALKOUT = 3
+export const REP_LOSS_ON_WALKOUT = 1.5
 export const SAT_LOSS_ON_WALKOUT = 2
-const REP_GAIN_ON_WORKOUT = 1.5
+/**
+ * Reputation per finished workout, at zero reputation. These numbers were set
+ * when a broken receptionist meant the player served a handful of people by
+ * hand; a working desk serves sixty a day, and at the old +1.5 the gym went
+ * from unknown to famous in an afternoon.
+ *
+ * The gain is also scaled by how much reputation is left to win, so the first
+ * points come quickly and the last ones have to be earned over days. A walkout
+ * costs a flat `REP_LOSS_ON_WALKOUT`, so the better the gym's name, the more
+ * a turned-away client actually costs it.
+ */
+const REP_GAIN_ON_WORKOUT = 0.4
 const XP_ON_SCAN = 2
 
 export const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v))
@@ -220,7 +231,11 @@ export function advanceClients(state: GameState, dtMs: number): GameState {
       0,
       100,
     )
-    reputation = clamp(reputation + REP_GAIN_ON_WORKOUT, 0, 100)
+    reputation = clamp(
+      reputation + REP_GAIN_ON_WORKOUT * (1 - clamp(reputation, 0, 100) / 100),
+      0,
+      100,
+    )
     machine.durability = client.special === 'lil-d'
       ? 0
       : clamp(machine.durability - type.wearPerUse, 0, 100)

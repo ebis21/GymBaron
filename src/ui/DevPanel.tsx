@@ -13,7 +13,12 @@ const SHOWCASE_RARITIES: ClientRarity[] = ['common', 'rare', 'epic', 'legend', '
  * into `npm run dev` — Vite strips this whole module from `npm run build`,
  * so it never ships in the mobile app.
  */
-export default function DevPanel() {
+interface Props {
+  /** Drops the player at the front counter; the scene owns their position. */
+  onTeleportToReception: () => void
+}
+
+export default function DevPanel({ onTeleportToReception }: Props) {
   const state = useGameStore(s => s.state)
   const cheat = useGameStore(s => s.cheat)
   const restart = useGameStore(s => s.restart)
@@ -54,6 +59,7 @@ export default function DevPanel() {
       <button onClick={() => cheat({ level: STAFF_UNLOCK_LEVEL, xp: 0 })}>
         Poziom {STAFF_UNLOCK_LEVEL} (personel)
       </button>
+      <button onClick={onTeleportToReception}>Teleport do recepcji</button>
       <button onClick={() => cheat({ dayMs: DAY_MS })}>Przewiń na 20:00</button>
       <button onClick={() => cheat(summonLilD(state))}>Przywołaj LIL D.</button>
       <button onClick={summonShowcase}>Parada rang ♀/♂</button>

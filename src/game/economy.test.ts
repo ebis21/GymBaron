@@ -40,7 +40,7 @@ describe('entryFee', () => {
     )
   })
 
-  it('charges a member a tenth of the door price', () => {
+  it('charges a member the discounted share of the door price', () => {
     expect(entryFee('dumbbells', 'member', 'common')).toBeCloseTo(
       entryFee('dumbbells', 'walkin', 'common') * MEMBER_DISCOUNT,
       5,
@@ -94,14 +94,46 @@ describe('gymClass', () => {
     expect(gymClass(base())).toBe(1)
   })
 
-  it('is the multiplier itself for a single machine', () => {
+  it('gives a single machine almost all of its own bonus', () => {
+    // The curve is barely bent this early, so one machine is worth nearly the
+    // straight ×1.9 it advertises.
     const s = { ...base(), machines: [machine('m1', 'cable')] }
-    expect(gymClass(s)).toBeCloseTo(1.9, 5)
+    expect(gymClass(s)).toBeCloseTo(1.80899, 4)
   })
 
-  it('adds each machine bonus on top of the floor', () => {
+  it('adds each machine bonus on top of the floor, on a curve', () => {
     const s = { ...base(), machines: [machine('m1', 'dumbbells'), machine('m2', 'cable')] }
-    expect(gymClass(s)).toBeCloseTo(1 + 0.1 + 0.9, 5)
+    // A straight sum would be 2.0; the bend costs a little even here.
+    expect(gymClass(s)).toBeCloseTo(1.88889, 4)
+    expect(gymClass(s)).toBeLessThan(1 + 0.1 + 0.9)
+  })
+
+  // The point of the curve: a floor that is already excellent gains little
+  // from one more bench, so passes stop compounding with the machine count.
+  it('pays less for the same machine the better the gym already is', () => {
+    const small = { ...base(), machines: [machine('m1', 'bench')] }
+    const big = {
+      ...base(),
+      machines: Array.from({ length: 12 }, (_, i) => machine(`m${i}`, 'cable')),
+    }
+
+    const gainSmall = gymClass({ ...small, machines: [...small.machines, machine('x', 'cable')] })
+      - gymClass(small)
+    const gainBig = gymClass({ ...big, machines: [...big.machines, machine('x', 'cable')] })
+      - gymClass(big)
+
+    expect(gainBig).toBeLessThan(gainSmall)
+    expect(gainBig).toBeGreaterThan(0)
+  })
+
+  it('never runs away, however much kit is crammed in', () => {
+    const huge = {
+      ...base(),
+      machines: Array.from({ length: 200 }, (_, i) => machine(`m${i}`, 'cable')),
+    }
+    // The old straight sum put this gym at ×181, and every pass in the
+    // building was priced off it.
+    expect(gymClass(huge)).toBeLessThan(9)
   })
 
   it('rises when any machine joins, even a weak one', () => {
@@ -110,13 +142,13 @@ describe('gymClass', () => {
     expect(gymClass(bigger)).toBeGreaterThan(gymClass(strong))
   })
 
-  it('turns a 1.4 gym into a 1.65 gym when a 1.25 machine arrives', () => {
-    // The player's own worked example: a new machine contributes its bonus,
-    // it does not replace the figure the gym already had.
+  it('lets a new machine contribute rather than replace what was there', () => {
+    // The player's own worked example, on the curve: a new machine adds to the
+    // figure the gym already had, it does not overwrite it.
     const before = { ...base(), machines: [machine('m1', 'bike')] }
     const after = { ...before, machines: [...before.machines, machine('m2', 'bench')] }
-    expect(gymClass(before)).toBeCloseTo(1.4, 5)
-    expect(gymClass(after)).toBeCloseTo(1.65, 5)
+    expect(gymClass(before)).toBeCloseTo(1.38095, 4)
+    expect(gymClass(after)).toBeCloseTo(1.60116, 4)
   })
 
   it('never drops below 1.0', () => {
@@ -131,7 +163,8 @@ describe('passPrice', () => {
 
   it('rises with the gym class', () => {
     const s = { ...base(), machines: [machine('m1', 'cable')] }
-    expect(passPrice(s)).toBeCloseTo(MEMBER_FEE * 1.9, 5)
+    expect(passPrice(s)).toBeCloseTo(MEMBER_FEE * gymClass(s), 5)
+    expect(passPrice(s)).toBeGreaterThan(MEMBER_FEE)
   })
 })
 

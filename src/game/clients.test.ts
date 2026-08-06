@@ -382,3 +382,37 @@ describe('personal trainers', () => {
     expect(isTrainerFree(done, 'e1')).toBe(true)
   })
 })
+
+describe('reputation from workouts', () => {
+  const finished = (rep: number): GameState => ({
+    ...gym(),
+    reputation: rep,
+    machines: [machine({ occupiedBy: 'c1' })],
+    clients: [client({ phase: 'workout', machineUid: 'm1' })],
+  })
+
+  const gained = (rep: number) => advanceClients(finished(rep), 99_000).reputation - rep
+
+  it('pays reputation for a finished workout', () => {
+    expect(gained(0)).toBeGreaterThan(0)
+  })
+
+  // A working desk serves sixty people a day. At a flat rate the gym went from
+  // unknown to famous in an afternoon, so the last points have to be earned.
+  it('pays less the better known the gym already is', () => {
+    expect(gained(90)).toBeLessThan(gained(50))
+    expect(gained(50)).toBeLessThan(gained(0))
+  })
+
+  it('cannot be pushed past a perfect reputation', () => {
+    expect(advanceClients(finished(100), 99_000).reputation).toBeLessThanOrEqual(100)
+  })
+
+  it('still costs more to lose somebody than to serve one', () => {
+    const walkout = advanceClients(
+      { ...gym(), reputation: 50, clients: [client()] },
+      PATIENCE_MS + 1,
+    )
+    expect(50 - walkout.reputation).toBeGreaterThan(gained(50))
+  })
+})

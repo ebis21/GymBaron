@@ -76,16 +76,33 @@ export function initialState(seed: number, now: number): GameState {
 }
 
 /**
- * Every machine contributes what it is worth above bare floor, so the class is
- * 1.0 plus the sum of those bonuses: a 1.4 gym that buys a 1.2 machine becomes
- * 1.6. Adding kit can never make the gym worse, which is what a player expects
+ * How far the class can ever climb above bare floor. The old class was a plain
+ * sum of every machine's bonus, with nothing stopping it: a fifty-machine gym
+ * scored ×20, every pass in the building was priced off that, and since passes
+ * paid for more machines the whole economy compounded on itself. Membership
+ * income outran rent, power and wages by an order of magnitude within a week.
+ *
+ * Eight puts the ceiling at ×9 and, more to the point, makes the curve flat
+ * where it used to be steepest.
+ */
+const GYM_CLASS_CEILING = 8
+
+/**
+ * Every machine contributes what it is worth above bare floor, on a curve with
+ * diminishing returns: a 1.4 gym that buys a 1.2 machine still gets better,
+ * but a floor that is already excellent gains little from one more bench.
+ * Adding kit can never make the gym worse, which is what a player expects
  * from a purchase.
  */
 export function gymClass(state: GameState): number {
-  return state.machines.reduce(
+  const raw = state.machines.reduce(
     (acc, m) => acc + (machineType(m.type).revenueMultiplier - 1),
-    1,
+    0,
   )
+  // Saturating rather than a straight sum. Still monotonic — a purchase can
+  // never lower the class — but the twentieth machine adds a fraction of what
+  // the second did, so the class settles instead of climbing forever.
+  return 1 + (raw * GYM_CLASS_CEILING) / (raw + GYM_CLASS_CEILING)
 }
 
 /**

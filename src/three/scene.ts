@@ -19,10 +19,12 @@ import {
   insideGrid,
   isInStaffRoom,
   overheadFraming,
+  queueSpot,
   syncRoomSize,
   tileToWorld,
   worldToTile,
 } from './layout'
+import { queueAnchorFor } from '../game/clientMove'
 import { blockingSight } from './sight'
 import { PALETTE, ownMaterials, toon } from './style'
 import { ActorLayer } from './actors'
@@ -802,6 +804,27 @@ export class GymScene {
   }
 
   /** Pulls the player back within the walls after the room changed shape. */
+  /**
+   * Drops the player at the front counter. A testing shortcut: the desk is
+   * where almost everything worth checking happens, and walking there across
+   * a hall that may have just doubled in size is not the thing being tested.
+   *
+   * Lands them beside the head of the queue rather than on the desk itself, so
+   * whoever is waiting is immediately within reach of the action prompt.
+   */
+  teleportToReception(state: GameState): void {
+    const anchor = queueAnchorFor(state)
+    const spot = queueSpot(0, anchor)
+
+    // One pace to the attendant's left of the first person in line, so the
+    // player is not standing inside them.
+    this.playerPos.set(spot.x - Math.cos(anchor.angle) * 1.1, 0, spot.z + Math.sin(anchor.angle) * 1.1)
+    this.clampPlayerInside()
+    this.playerFacing = anchor.angle + Math.PI
+    // Cut rather than swoop across the room.
+    this.cameraPlaced = false
+  }
+
   private clampPlayerInside(): void {
     const limit = this.wallLimits()
     this.playerPos.x = Math.max(-limit.x, Math.min(limit.x, this.playerPos.x))

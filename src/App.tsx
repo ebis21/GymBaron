@@ -50,11 +50,6 @@ const EDGE_GRAB = 0.45
 const CLEAN_HOLD_MS = 3000
 const REPAIR_HOLD_MS = 5000
 /**
- * Serving somebody is a tap on the on-screen button, but a keyboard has no
- * "tap" that reads as deliberate while the player is running around with the
- * same hand — so on E it is a hold like everything else, just a short one.
- */
-/**
  * Stepping up to a client is instant on E. It opens a card and charges
  * nothing on its own — the decision is still one tap away inside it — so
  * making the player hold the key for it was friction with nothing behind it.
@@ -138,6 +133,8 @@ export default function App() {
   const [recruiting, setRecruiting] = useState(false)
 
   const [buildMode, setBuildMode] = useState(false)
+  /** Bumped by the dev panel to drop the player at the front counter. */
+  const [teleport, setTeleport] = useState(0)
   /** Client the player has stepped up to, face to face. */
   const [talking, setTalking] = useState<string | null>(null)
   const [selected, setSelected] = useState<Selection | null>(null)
@@ -473,12 +470,22 @@ export default function App() {
         selected={selected}
         preview={null}
         facing={talking}
+        teleport={teleport}
         onFocus={onFocus}
         onPick={onPick}
       />
 
       <TopBar state={state} />
-      {import.meta.env.DEV && <DevPanel />}
+      {import.meta.env.DEV && (
+        <DevPanel
+          onTeleportToReception={() => {
+            setTab('gym')
+            leaveBuildMode()
+            setTalking(null)
+            setTeleport(n => n + 1)
+          }}
+        />
+      )}
 
       {buildMode && tab === 'gym' && (
         <div className="build-bar">

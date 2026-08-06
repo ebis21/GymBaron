@@ -10,6 +10,11 @@ interface Props {
   preview: MachineTypeId | null
   /** Client the player is face to face with, or null for the usual camera. */
   facing: string | null
+  /**
+   * Bumped to drop the player at the front counter. A counter rather than a
+   * boolean so that asking for it twice in a row still moves them twice.
+   */
+  teleport: number
   onFocus: (focus: Focus) => void
   /** Fires only in build mode, when the player clicks the floor. */
   onPick: (pick: PickResult) => void
@@ -28,6 +33,7 @@ export default function GymScene3D({
   selected,
   preview,
   facing,
+  teleport,
   onFocus,
   onPick,
 }: Props) {
@@ -64,6 +70,12 @@ export default function GymScene3D({
   useEffect(() => {
     sceneRef.current?.setFacing(facing)
   }, [facing])
+
+  // Zero is the initial value, not a request — teleporting on mount would drop
+  // the player at the desk every time the app opened.
+  useEffect(() => {
+    if (teleport > 0) sceneRef.current?.teleportToReception(latest.current.state)
+  }, [teleport])
 
   useEffect(() => {
     const canvas = canvasRef.current
