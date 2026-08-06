@@ -109,6 +109,16 @@ export function staffRoomTiles(): Tile[] {
   return tiles
 }
 
+/**
+ * Whether a world position is inside the staff room. The room is walled off,
+ * so anybody standing in there is behind the partition as far as the player is
+ * concerned — which is what the renderer uses this for.
+ */
+export function isInStaffRoom(x: number, z: number): boolean {
+  const t = worldToTile(x, z)
+  return staffRoomTiles().some(r => r.x === t.x && r.y === t.y)
+}
+
 /** Centre of the staff room in world units, for drawing its floor and door. */
 export function staffRoomCentre(): Point {
   const tiles = staffRoomTiles()

@@ -17,6 +17,7 @@ import {
   hallD,
   hallW,
   insideGrid,
+  isInStaffRoom,
   overheadFraming,
   syncRoomSize,
   tileToWorld,
@@ -786,7 +787,11 @@ export class GymScene {
   /** Inside the four walls. This one is never suspended. */
   private insideBounds(x: number, z: number): boolean {
     const limit = this.wallLimits()
-    return Math.abs(x) <= limit.x && Math.abs(z) <= limit.z
+    if (Math.abs(x) > limit.x || Math.abs(z) > limit.z) return false
+    // The staff room is walled off from the gym floor. Nobody standing in it
+    // is drawn, so letting the player walk in would put them in an empty box
+    // behind a partition they can see over.
+    return !isInStaffRoom(x, z)
   }
 
   private wallLimits(): { x: number; z: number } {

@@ -20,6 +20,7 @@ export {
   STAFF_ROOM_DEPTH,
   staffRoomTiles,
   staffRoomCentre,
+  isInStaffRoom,
 } from '../game/layout'
 export type { Point, Tile, QueueAnchor } from '../game/layout'
 

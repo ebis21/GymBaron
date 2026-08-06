@@ -4,7 +4,7 @@ import {
   deskPost, freeTrainers, isTrainerFree, nextToServe,
 } from './staff'
 import { initialState } from './economy'
-import { gridH, staffRoomTiles, tileToWorld } from './layout'
+import { gridH, isInStaffRoom, staffRoomTiles, tileToWorld } from './layout'
 import { workMsFor } from './content/staff'
 import { PATIENCE_MS, STAFF_UNLOCK_LEVEL, TRAINER_UNLOCK_LEVEL } from './constants'
 import type { Candidate, Client, Decor, GameState, Machine, Staff, Stain } from './types'
@@ -621,5 +621,17 @@ describe('restTileFor', () => {
 
   it('starts the room at the back wall of whatever room the player has bought', () => {
     expect(staffRoomTiles()[0]!.y).toBe(gridH() - 1)
+  })
+
+  // Gates both what the renderer draws and where the player may walk, so it
+  // has to agree with the tile list exactly on both sides of the partition.
+  it('recognises the room it walls off', () => {
+    const back = staffRoomTiles()[0]!
+    expect(isInStaffRoom(at(back.x, back.y).x, at(back.x, back.y).z)).toBe(true)
+  })
+
+  it('leaves the gym floor and the front of the aisle outside it', () => {
+    expect(isInStaffRoom(at(-1, 0).x, at(-1, 0).z)).toBe(false)
+    expect(isInStaffRoom(at(4, 2).x, at(4, 2).z)).toBe(false)
   })
 })

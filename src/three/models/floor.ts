@@ -131,6 +131,35 @@ function buildStaffRoom(gw: number, gh: number): THREE.Group {
   })
   group.add(lip)
 
+  // The partition that makes it a room rather than a corner. Deliberately
+  // shorter than the outer walls: nobody is drawn behind it — see
+  // `placeStaff` — so it only has to read as a boundary, and a full-height
+  // slab this close to the camera swallowed a third of the gym floor.
+  const partitionH = WALL_H * 0.62
+  const partition = blockAt(
+    width + 0.4, partitionH, 0.42, PALETTE.wall,
+    centre.x, partitionH / 2, centre.z - depth / 2,
+    { radius: 0.12, outline: 0.02 },
+  )
+  group.add(partition)
+
+  // Skirting along its floor edge, matching the outer walls.
+  group.add(
+    blockAt(width + 0.4, 0.35, 0.12, PALETTE.skirting, centre.x, 0.17, centre.z - depth / 2 + 0.27, {
+      radius: 0.05,
+      outline: 0,
+    }),
+  )
+
+  // A sign on the gym side, so the wall reads as "staff only" rather than as
+  // a dead end the player is meant to find a way around.
+  group.add(
+    blockAt(0.9, 0.55, 0.08, PALETTE.skirting, centre.x, partitionH * 0.68, centre.z - depth / 2 - 0.25, {
+      radius: 0.06,
+      outline: 0.02,
+    }),
+  )
+
   // The door itself, set into the left wall beside the room.
   const doorZ = centre.z
   const frame = blockAt(0.22, 2.5, 1.9, PALETTE.wallTrim, -w / 2 - 0.18, 1.25, doorZ, {
