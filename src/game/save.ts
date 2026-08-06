@@ -96,6 +96,38 @@ function migrateV4(raw: Record<string, unknown>): Record<string, unknown> {
   return { ...raw, version: 5, machines }
 }
 
+/** Adds neutral bookkeeping for the secret visitor and counterfeit cash. */
+function migrateV5(raw: Record<string, unknown>): Record<string, unknown> {
+  const today = raw.today as Record<string, unknown>
+  const previousReport = raw.dayReport
+  const dayReport = typeof previousReport === 'object' && previousReport !== null
+    ? { ...previousReport, counterfeitLoss: 0 }
+    : previousReport
+
+  return {
+    ...raw,
+    version: 6,
+    lilDSeenDay: 0,
+    today: { ...today, counterfeitLoss: 0 },
+    dayReport,
+  }
+}
+
+function looksLikeV6(s: Record<string, unknown>): boolean {
+  const today = s.today as Record<string, unknown>
+  const report = s.dayReport
+  const reportOkay = report === null || (
+    typeof report === 'object' &&
+    typeof (report as Record<string, unknown>).counterfeitLoss === 'number'
+  )
+
+  return (
+    typeof s.lilDSeenDay === 'number' &&
+    typeof today.counterfeitLoss === 'number' &&
+    reportOkay
+  )
+}
+
 /**
  * Returns a fresh state on unparseable, malformed, or future-version input
  * rather than throwing — a corrupt save must never brick the app.
@@ -116,6 +148,8 @@ export function deserialize(raw: string, now: number): GameState {
     // the v4 fields become required rather than pending migration.
     if (!looksLikeV4(state)) return initialState(now, now)
     if (state.version === 4) state = migrateV4(state)
+    if (state.version === 5) state = migrateV5(state)
+    if (!looksLikeV6(state)) return initialState(now, now)
 
     return state as unknown as GameState
   } catch {

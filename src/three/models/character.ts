@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import type { ClientKind, ClientRarity, StaffRank, StaffRole } from '../../game/types'
 import { RARITY_LABEL } from '../../game/content/rarity'
 import { ROLE_LABEL } from '../../game/content/staff'
-import { PALETTE, blockAt, cylinder, sphere } from '../style'
+import { PALETTE, blockAt, cylinder, sphere, toon } from '../style'
 
 /**
  * Stubby big-headed characters, the way Hay Day draws people: a head about a
@@ -17,6 +17,8 @@ export interface Rig {
   armR: THREE.Group
   legL: THREE.Group
   legR: THREE.Group
+  /** Permanent forward lean used by characters such as the elderly LIL D. */
+  restTilt?: number
 }
 
 /** Resting height of the hips inside the root. */
@@ -29,12 +31,30 @@ interface Look {
   hair: string
 }
 
+type Gender = 'female' | 'male'
+
+interface BodyDetails {
+  gender?: Gender
+  torsoW?: number
+  torsoD?: number
+  armW?: number
+  legW?: number
+  headRadius?: number
+  biceps?: boolean
+  baggySleeves?: boolean
+  hairStyle?: 'short' | 'long' | 'fluffy' | 'receding' | 'old'
+  chain?: boolean
+  syringe?: boolean
+  cane?: boolean
+}
+
 const RARITY_TINT: Record<ClientRarity, string> = {
   common: '#8a7f6f',
   rare: PALETTE.frameBlue,
   epic: PALETTE.shirtC,
   legend: '#e09a12',
   influencer: PALETTE.crestInfluencer,
+  secret: '#2b1838',
 }
 
 const TAG_WIDTH = 320
@@ -61,11 +81,11 @@ function rarityTexture(rarity: ClientRarity): THREE.Texture {
   ctx.strokeStyle = '#2b2438'
   ctx.stroke()
 
-  ctx.fillStyle = '#fffdf7'
-  ctx.font = '800 42px Nunito, "Baloo 2", system-ui, sans-serif'
+  ctx.fillStyle = rarity === 'secret' ? '#f6d36d' : '#fffdf7'
+  ctx.font = `${rarity === 'secret' ? '800 30px' : '800 42px'} Nunito, "Baloo 2", system-ui, sans-serif`
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
-  ctx.fillText(RARITY_LABEL[rarity], TAG_WIDTH / 2, TAG_HEIGHT / 2 + 2)
+  ctx.fillText(rarity === 'secret' ? 'LIL D. · SECRET' : RARITY_LABEL[rarity], TAG_WIDTH / 2, TAG_HEIGHT / 2 + 2)
 
   const texture = new THREE.CanvasTexture(canvas)
   texture.colorSpace = THREE.SRGBColorSpace
@@ -82,20 +102,61 @@ function rarityTag(rarity: ClientRarity): THREE.Sprite {
   return sprite
 }
 
-function figure(look: Look, badge: string | null, rarity: ClientRarity | null = null): Rig {
+function figure(
+  look: Look,
+  badge: string | null,
+  rarity: ClientRarity | null = null,
+  details: BodyDetails = {},
+): Rig {
   const root = new THREE.Group()
+  const gender = details.gender ?? 'male'
+  const torsoW = details.torsoW ?? (gender === 'female' ? 0.48 : 0.52)
+  const torsoD = details.torsoD ?? 0.34
+  const armW = details.armW ?? 0.17
+  const legW = details.legW ?? 0.19
+  const headRadius = details.headRadius ?? 0.29
 
   const hips = new THREE.Group()
   hips.position.y = HIP_Y
   root.add(hips)
 
-  hips.add(blockAt(0.52, 0.6, 0.34, look.shirt, 0, 0.3, 0, { radius: 0.14 }))
+  hips.add(blockAt(torsoW, 0.6, torsoD, look.shirt, 0, 0.3, 0, { radius: 0.14 }))
+  hips.add(blockAt(gender === 'female' ? 0.52 : 0.46, 0.14, 0.34, look.trousers, 0, 0.04, 0, {
+    radius: 0.06,
+  }))
 
-  const head = sphere(0.29, look.skin, 16)
+  const head = sphere(headRadius, look.skin, 16)
   head.position.set(0, 0.92, 0)
   hips.add(head)
 
-  hips.add(blockAt(0.5, 0.22, 0.5, look.hair, 0, 1.08, -0.02, { radius: 0.14 }))
+  const hairStyle = details.hairStyle ?? (gender === 'female' ? 'long' : 'short')
+  if (hairStyle === 'fluffy') {
+    for (const [x, y, z, scale] of [
+      [-0.19, 1.08, 0, 1], [0, 1.15, 0, 1.15], [0.19, 1.08, 0, 1],
+      [-0.1, 1.07, -0.14, 0.9], [0.1, 1.07, -0.14, 0.9],
+    ] as const) {
+      const tuft = sphere(0.14 * scale, look.hair, 12)
+      tuft.position.set(x, y, z)
+      hips.add(tuft)
+    }
+  } else if (hairStyle === 'receding' || hairStyle === 'old') {
+    for (const side of [-1, 1]) {
+      const patch = sphere(hairStyle === 'old' ? 0.12 : 0.1, look.hair, 10)
+      patch.scale.set(0.9, 1.15, 1)
+      patch.position.set(side * 0.2, 1.03, -0.02)
+      hips.add(patch)
+    }
+    hips.add(blockAt(0.32, 0.12, 0.16, look.hair, 0, 1.05, -0.2, { radius: 0.07 }))
+  } else {
+    hips.add(blockAt(0.5, hairStyle === 'long' ? 0.3 : 0.22, 0.5, look.hair, 0, 1.08, -0.02, {
+      radius: 0.14,
+    }))
+    if (hairStyle === 'long') {
+      const ponytail = sphere(0.15, look.hair, 12)
+      ponytail.position.set(0, 0.89, -0.27)
+      hips.add(ponytail)
+    }
+  }
 
   // A name tag over the head, so how much someone is worth reads from across
   // the room. It hangs off the root rather than the hips: a client lying on a
@@ -113,19 +174,80 @@ function figure(look: Look, badge: string | null, rarity: ClientRarity | null = 
     hips.add(blockAt(0.16, 0.2, 0.05, badge, 0, 0.4, 0.2, { radius: 0.04 }))
   }
 
-  const limb = (x: number, y: number, w: number, h: number, color: string): THREE.Group => {
+  const arm = (x: number): THREE.Group => {
     const pivot = new THREE.Group()
-    pivot.position.set(x, y, 0)
-    // Offset the mesh so the pivot sits at the shoulder or hip, not the middle.
-    pivot.add(blockAt(w, h, w, color, 0, -h / 2, 0, { radius: w * 0.4 }))
+    pivot.position.set(x, 0.56, 0)
+    if (details.baggySleeves) {
+      pivot.add(blockAt(armW * 1.15, 0.28, armW * 1.15, look.shirt, 0, -0.14, 0, {
+        radius: armW * 0.48,
+      }))
+      pivot.add(blockAt(armW * 0.9, 0.27, armW * 0.9, look.skin, 0, -0.39, 0, {
+        radius: armW * 0.42,
+      }))
+    } else {
+      pivot.add(blockAt(armW, 0.46, armW, look.skin, 0, -0.23, 0, { radius: armW * 0.4 }))
+    }
+    if (details.biceps) {
+      const muscle = sphere(armW * 0.72, look.skin, 12)
+      muscle.scale.set(1, 1.25, 1)
+      muscle.position.y = -0.18
+      pivot.add(muscle)
+    }
     hips.add(pivot)
     return pivot
   }
 
-  const armL = limb(-0.34, 0.56, 0.17, 0.46, look.skin)
-  const armR = limb(0.34, 0.56, 0.17, 0.46, look.skin)
-  const legL = limb(-0.14, 0.02, 0.19, 0.5, look.trousers)
-  const legR = limb(0.14, 0.02, 0.19, 0.5, look.trousers)
+  const leg = (x: number): THREE.Group => {
+    const pivot = new THREE.Group()
+    pivot.position.set(x, 0.02, 0)
+    pivot.add(blockAt(legW, 0.5, legW, look.trousers, 0, -0.25, 0, { radius: legW * 0.4 }))
+    hips.add(pivot)
+    return pivot
+  }
+  const shoulderX = torsoW / 2 + armW * 0.5
+  const armL = arm(-shoulderX)
+  const armR = arm(shoulderX)
+  const legL = leg(-0.14)
+  const legR = leg(0.14)
+
+  if (details.chain) {
+    const chain = new THREE.Mesh(new THREE.TorusGeometry(0.18, 0.025, 7, 20), toon('#f6c64a'))
+    chain.scale.y = 0.78
+    chain.position.set(0, 0.58, torsoD / 2 + 0.018)
+    hips.add(chain)
+  }
+
+  if (details.syringe) {
+    const syringe = new THREE.Group()
+    const barrel = cylinder(0.026, 0.026, 0.25, '#d8f4ff', 10)
+    barrel.rotation.z = Math.PI / 2
+    syringe.add(barrel)
+    const dose = cylinder(0.018, 0.018, 0.15, '#ef5d99', 8)
+    dose.rotation.z = Math.PI / 2
+    dose.position.x = -0.02
+    syringe.add(dose)
+    const needle = cylinder(0.008, 0.008, 0.16, '#6c7785', 8)
+    needle.rotation.z = Math.PI / 2
+    needle.position.x = 0.2
+    syringe.add(needle)
+    syringe.position.set(0.25, 0.12, -torsoD / 2 - 0.09)
+    syringe.rotation.y = -0.28
+    hips.add(syringe)
+  }
+
+  if (details.cane) {
+    const shaft = cylinder(0.035, 0.035, 0.92, '#70452f', 10)
+    shaft.position.set(0.43, 0.46, 0.05)
+    root.add(shaft)
+    const hook = new THREE.Mesh(
+      new THREE.TorusGeometry(0.1, 0.035, 7, 14, Math.PI),
+      toon('#70452f'),
+    )
+    hook.rotation.z = Math.PI
+    hook.position.set(0.34, 0.92, 0.05)
+    root.add(hook)
+    root.add(blockAt(0.19, 0.035, 0.12, '#78a45e', -0.22, 0.67, 0.18, { radius: 0.015 }))
+  }
 
   // Soft contact patch so nobody looks like they are hovering.
   const blob = cylinder(0.34, 0.34, 0.02, '#c9a878', 14)
@@ -133,7 +255,7 @@ function figure(look: Look, badge: string | null, rarity: ClientRarity | null = 
   blob.castShadow = false
   root.add(blob)
 
-  return { root, hips, armL, armR, legL, legR }
+  return { root, hips, armL, armR, legL, legR, restTilt: details.cane ? 0.13 : 0 }
 }
 
 export function buildPlayer(): Rig {
@@ -156,13 +278,69 @@ const SKINS = [PALETTE.skin, PALETTE.skinDeep]
  * shirt for their whole visit instead of flickering between frames.
  */
 export function buildNpc(kind: ClientKind, rarity: ClientRarity, variant: number): Rig {
-  const look: Look = {
-    shirt: SHIRTS[variant % SHIRTS.length]!,
-    trousers: variant % 2 === 0 ? PALETTE.playerTrousers : PALETTE.rubber,
-    skin: SKINS[variant % SKINS.length]!,
-    hair: PALETTE.hair,
+  const gender: Gender = variant % 2 === 0 ? 'female' : 'male'
+  const skin = SKINS[variant % SKINS.length]!
+  const badge = kind === 'member' ? PALETTE.frameYellow : null
+
+  if (rarity === 'secret') {
+    return figure(
+      { shirt: '#6d5a7e', trousers: '#3f4350', skin: '#d5aa86', hair: '#d7d2c7' },
+      null,
+      rarity,
+      {
+        gender: 'male', torsoW: 0.44, torsoD: 0.32, armW: 0.12, legW: 0.14,
+        headRadius: 0.27, hairStyle: 'old', cane: true,
+      },
+    )
   }
-  return figure(look, kind === 'member' ? PALETTE.frameYellow : null, rarity)
+
+  const look: Look = {
+    shirt: gender === 'female' ? '#c77e91' : '#6f9ca0',
+    trousers: gender === 'female' ? '#423f5b' : '#57616b',
+    skin,
+    hair: gender === 'female' ? '#5a372d' : PALETTE.hair,
+  }
+  const details: BodyDetails = { gender }
+
+  if (rarity === 'common') {
+    details.torsoW = gender === 'female' ? 0.5 : 0.56
+    details.torsoD = 0.4
+    details.armW = 0.14
+    details.legW = 0.18
+    details.baggySleeves = true
+  } else if (rarity === 'rare') {
+    look.shirt = gender === 'female' ? '#f3dce7' : '#f3eee3'
+    look.trousers = gender === 'female' ? '#7b4d74' : '#38495a'
+    details.torsoW = gender === 'female' ? 0.49 : 0.56
+    details.armW = 0.18
+  } else if (rarity === 'epic') {
+    look.shirt = gender === 'female' ? '#744fc4' : '#3656a5'
+    details.torsoW = gender === 'female' ? 0.52 : 0.6
+    details.armW = gender === 'female' ? 0.21 : 0.24
+    details.biceps = true
+  } else if (rarity === 'legend') {
+    look.shirt = '#f4ead5'
+    look.trousers = gender === 'female' ? '#9a621f' : '#56452e'
+    details.torsoW = gender === 'female' ? 0.54 : 0.62
+    details.armW = gender === 'female' ? 0.23 : 0.26
+    details.biceps = true
+    details.hairStyle = 'receding'
+  } else {
+    look.shirt = gender === 'female' ? '#dc65a0' : '#54447d'
+    look.trousers = gender === 'female' ? '#76658c' : '#343542'
+    look.hair = gender === 'female' ? '#7e4d38' : '#4e332d'
+    details.torsoW = gender === 'female' ? 0.62 : 0.68
+    details.torsoD = 0.42
+    details.armW = gender === 'female' ? 0.28 : 0.32
+    details.legW = 0.24
+    details.biceps = true
+    details.baggySleeves = true
+    details.hairStyle = 'fluffy'
+    details.chain = true
+    details.syringe = true
+  }
+
+  return figure(look, badge, rarity, details)
 }
 
 const roleTagTextures = new Map<StaffRole, THREE.Texture>()
@@ -212,7 +390,7 @@ export function buildStaffNpc(role: StaffRole, rank: StaffRank, variant: number)
     skin: SKINS[variant % SKINS.length]!,
     hair: PALETTE.hair,
   }
-  const rig = figure(look, null, null)
+  const rig = figure(look, null, null, { gender: variant % 2 === 0 ? 'female' : 'male' })
 
   const title = new THREE.Sprite(
     new THREE.SpriteMaterial({ map: roleTexture(role), transparent: true }),
@@ -231,7 +409,7 @@ export function buildStaffNpc(role: StaffRole, rank: StaffRank, variant: number)
 
 /** Puts the body back upright before a pose that assumes it. */
 function stand(rig: Rig): void {
-  rig.hips.rotation.set(0, 0, 0)
+  rig.hips.rotation.set(rig.restTilt ?? 0, 0, 0)
   rig.hips.position.set(0, HIP_Y, 0)
   rig.armL.rotation.set(0, 0, 0)
   rig.armR.rotation.set(0, 0, 0)

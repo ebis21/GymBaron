@@ -4,7 +4,14 @@ import { rollRarity } from './content/rarity'
 import { nextRandom } from './rng'
 import { addXp, entryFee } from './economy'
 import { addMember, signupChance } from './members'
-import { DAY_MS, MAX_QUEUE, PATIENCE_MS } from './constants'
+import {
+  DAY_MS,
+  LIL_D_EXTRA_WORKOUT_MS,
+  LIL_D_FAKE_PAYMENT,
+  LIL_D_SPAWN_CHANCE,
+  MAX_QUEUE,
+  PATIENCE_MS,
+} from './constants'
 import { DOOR_X, DOOR_QUEUE_ANCHOR } from './layout'
 import { spawnStain, STAIN_CHANCE } from './stains'
 
@@ -52,6 +59,43 @@ function enqueue(state: GameState, kind: ClientKind, memberUid: string | null): 
     goal: null,
   }
   return { ...state, seed, nextUid: state.nextUid + 1, clients: [...state.clients, client] }
+}
+
+/** Adds the named secret visitor without consuming the normal rarity roll. */
+export function summonLilD(state: GameState): GameState {
+  if (state.clients.some(c => c.special === 'lil-d')) return state
+
+  const client: Client = {
+    uid: `c${state.nextUid}`,
+    kind: 'walkin',
+    rarity: 'secret',
+    special: 'lil-d',
+    phase: 'arriving',
+    phaseMs: 0,
+    machineUid: null,
+    memberUid: null,
+    x: DOOR_X,
+    z: DOOR_QUEUE_ANCHOR.z,
+    path: [],
+    goal: null,
+  }
+
+  return {
+    ...state,
+    lilDSeenDay: state.day,
+    nextUid: state.nextUid + 1,
+    clients: [...state.clients, client],
+  }
+}
+
+/** Rare easter egg, but never more than once during the same business day. */
+export function spawnLilD(state: GameState, dtMs: number): GameState {
+  if (state.lilDSeenDay === state.day || !acceptingArrivals(state)) return state
+
+  const [roll, seed] = nextRandom(state.seed)
+  const rolled = { ...state, seed }
+  const chance = Math.min(1, LIL_D_SPAWN_CHANCE * (dtMs / 1000))
+  return roll < chance ? summonLilD(rolled) : rolled
 }
 
 /**
@@ -137,7 +181,8 @@ export function advanceClients(state: GameState, dtMs: number): GameState {
     if (!machine) continue // machine vanished; drop the orphaned client
 
     const type = machineType(machine.type)
-    if (phaseMs < type.workoutMs) {
+    const workoutMs = type.workoutMs + (client.special === 'lil-d' ? LIL_D_EXTRA_WORKOUT_MS : 0)
+    if (phaseMs < workoutMs) {
       survivors.push({ ...client, phaseMs })
       continue
     }
@@ -145,7 +190,9 @@ export function advanceClients(state: GameState, dtMs: number): GameState {
     served += 1
     satisfaction = clamp(satisfaction + type.satisfaction, 0, 100)
     reputation = clamp(reputation + REP_GAIN_ON_WORKOUT, 0, 100)
-    machine.durability = clamp(machine.durability - type.wearPerUse, 0, 100)
+    machine.durability = client.special === 'lil-d'
+      ? 0
+      : clamp(machine.durability - type.wearPerUse, 0, 100)
     machine.occupiedBy = null
     const [dirtRoll, dirtSeed] = nextRandom(seed)
     seed = dirtSeed
@@ -162,7 +209,7 @@ export function advanceClients(state: GameState, dtMs: number): GameState {
       goal: null,
     })
 
-    if (client.kind === 'walkin') {
+    if (client.kind === 'walkin' && client.special !== 'lil-d') {
       const [roll, nextSeed] = nextRandom(seed)
       seed = nextSeed
       if (roll < signupChance(satisfaction)) signups += 1
@@ -208,11 +255,13 @@ export function scanClient(state: GameState, clientUid: string): GameState {
   const machine = state.machines.find(isUsable)
   if (!machine) return state
 
-  const fee = entryFee(machine.type, client.kind, client.rarity)
+  const isLilD = client.special === 'lil-d'
+  const fee = isLilD ? LIL_D_FAKE_PAYMENT : entryFee(machine.type, client.kind, client.rarity)
+  const cashDelta = isLilD ? -fee : fee
 
   const next: GameState = {
     ...state,
-    cash: state.cash + fee,
+    cash: state.cash + cashDelta,
     machines: state.machines.map(m =>
       m.uid === machine.uid ? { ...m, occupiedBy: client.uid } : m,
     ),
@@ -228,8 +277,14 @@ export function scanClient(state: GameState, clientUid: string): GameState {
           }
         : c,
     ),
-    today: { ...state.today, entryFees: state.today.entryFees + fee },
-    stats: { ...state.stats, totalEarned: state.stats.totalEarned + fee },
+    today: {
+      ...state.today,
+      entryFees: state.today.entryFees + (isLilD ? 0 : fee),
+      counterfeitLoss: state.today.counterfeitLoss + (isLilD ? fee : 0),
+    },
+    stats: isLilD
+      ? { ...state.stats, totalSpent: state.stats.totalSpent + fee }
+      : { ...state.stats, totalEarned: state.stats.totalEarned + fee },
   }
   return addXp(next, XP_ON_SCAN)
 }

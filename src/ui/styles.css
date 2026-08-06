@@ -396,6 +396,24 @@ body {
 .client-rarity.influencer {
   background: #ff5fae;
 }
+.client-rarity.secret {
+  background: linear-gradient(135deg, #17131f, #5a386d);
+  border-color: #f6d36d;
+  color: #f6d36d;
+  box-shadow: 0 0 14px rgba(246, 211, 109, 0.45);
+}
+
+.client-secret-name {
+  margin: 7px 0 -4px;
+  color: #3b2344;
+  font-size: 24px;
+  letter-spacing: 0.04em;
+}
+
+.client-row.secret-cash strong {
+  color: var(--gold);
+  text-shadow: 0 1px 0 var(--wood-dark);
+}
 
 .client-kind {
   margin: 8px 0 10px;
@@ -907,6 +925,21 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--ink-soft);
+}
+
+.receipt-counterfeit {
+  padding: 10px 12px;
+  background: rgba(217, 64, 58, 0.11);
+  border: 2px dashed rgba(217, 64, 58, 0.45);
+  border-radius: 12px;
+}
+
+.receipt-counterfeit p {
+  margin: 5px 0 0;
+  color: var(--danger-dark);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.35;
 }
 
 .receipt-row {

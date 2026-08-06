@@ -19,7 +19,7 @@ export const DEBT_LIMIT = -20_000
  */
 export const PATIENCE_MS = 26_000
 export const OFFLINE_CAP_MS = 8 * 60 * 60 * 1000
-export const SAVE_VERSION = 5
+export const SAVE_VERSION = 6
 export const SAVE_KEY = 'iron-empire-save'
 export const XP_PER_LEVEL = 100
 export const MAX_STEP_MS = 1_000
@@ -27,6 +27,15 @@ export const AUTOSAVE_MS = 5_000
 
 /** Longest queue the gym will grow before newcomers stop showing up. */
 export const MAX_QUEUE = 10
+
+// --- Secret visitors -------------------------------------------------------
+
+/** The stack LIL D. flashes at reception before the notes fail inspection. */
+export const LIL_D_FAKE_PAYMENT = 300
+/** He deliberately ties up every station three seconds longer than anyone else. */
+export const LIL_D_EXTRA_WORKOUT_MS = 3_000
+/** Per-second chance while the gym can accept him; capped to one visit per day. */
+export const LIL_D_SPAWN_CHANCE = 0.004
 
 // --- Ambient dirt ------------------------------------------------------------
 

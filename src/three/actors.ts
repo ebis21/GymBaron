@@ -122,7 +122,8 @@ export class ActorLayer {
       seenStains.add(stain.uid)
       let mesh = this.stains.get(stain.uid)
       if (!mesh) {
-        mesh = buildStain()
+        const variant = Number(stain.uid.replace(/\D/g, '')) || 0
+        mesh = buildStain(variant)
         this.stains.set(stain.uid, mesh)
         this.scene.add(mesh)
       }
@@ -132,7 +133,7 @@ export class ActorLayer {
       mesh.position.z = at.z
 
       const stale = stain.ageMs > STAIN_OLD_MS
-      ;(mesh.material as THREE.MeshStandardMaterial).opacity = stale ? 1.0 : 0.82
+      ;(mesh.material as THREE.MeshBasicMaterial).opacity = stale ? 1.0 : 0.92
       mesh.scale.setScalar(stale ? 1.25 : 1)
     }
 
