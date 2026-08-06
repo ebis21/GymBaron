@@ -1,5 +1,14 @@
 import * as THREE from 'three'
-import { AISLE, TILE, WALL_H, tileToWorld } from '../layout'
+import {
+  AISLE,
+  AISLE_COLUMNS,
+  STAFF_ROOM_DEPTH,
+  TILE,
+  WALL_H,
+  staffRoomCentre,
+  staffRoomTiles,
+  tileToWorld,
+} from '../layout'
 import { PALETTE, blockAt, toon } from '../style'
 
 /**
@@ -88,6 +97,60 @@ function buildWalls(gw: number, gh: number): THREE.Group {
 }
 
 /**
+ * The staff room: a marked-off corner at the back of the entrance aisle with
+ * its own door in the side wall. Nobody uses that door — it is there to say
+ * "this bit is not the gym floor", so an employee standing off shift reads as
+ * being somewhere, rather than as a client who wandered out of the queue.
+ *
+ * Drawn as part of the shell because it is fixed to the room, not to state:
+ * the player cannot move it, build on it, or sell it.
+ */
+function buildStaffRoom(gw: number, gh: number): THREE.Group {
+  const group = new THREE.Group()
+  const { w } = hallSize(gw, gh)
+  const tiles = staffRoomTiles()
+  if (tiles.length === 0) return group
+
+  const centre = staffRoomCentre()
+  const depth = Math.min(STAFF_ROOM_DEPTH, gh) * TILE
+  const width = AISLE_COLUMNS * TILE
+
+  // Its own floor colour, laid over the slab, so the boundary is legible from
+  // the overhead build camera as well as from the chase camera.
+  const mat = blockAt(width, 0.14, depth, PALETTE.staffFloor, centre.x, -0.08, centre.z, {
+    radius: 0.06,
+    outline: 0,
+  })
+  group.add(mat)
+
+  // A threshold strip where the room meets the aisle — the visual "you are
+  // leaving the floor now" line.
+  const lip = blockAt(width, 0.16, 0.12, PALETTE.skirting, centre.x, -0.02, centre.z - depth / 2, {
+    radius: 0.05,
+    outline: 0,
+  })
+  group.add(lip)
+
+  // The door itself, set into the left wall beside the room.
+  const doorZ = centre.z
+  const frame = blockAt(0.22, 2.5, 1.9, PALETTE.wallTrim, -w / 2 - 0.18, 1.25, doorZ, {
+    radius: 0.08,
+    outline: 0.02,
+  })
+  const leaf = blockAt(0.14, 2.2, 1.55, PALETTE.skirting, -w / 2 - 0.26, 1.1, doorZ, {
+    radius: 0.06,
+    outline: 0,
+  })
+  const handle = blockAt(0.12, 0.12, 0.12, PALETTE.wall, -w / 2 - 0.34, 1.1, doorZ + 0.55, {
+    radius: 0.05,
+    outline: 0,
+  })
+  group.add(frame, leaf, handle)
+
+  return group
+}
+
+/**
  * The shell of the room: floor, outer walls, windows. Nothing in here reacts to
  * game state and nothing here can be edited. The reception desk and the plants
  * used to live in this file, but the player can now move them, so they became
@@ -99,7 +162,7 @@ function buildWalls(gw: number, gh: number): THREE.Group {
  */
 export function buildHall(gw: number, gh: number): THREE.Group {
   const hall = new THREE.Group()
-  hall.add(buildFloor(gw, gh), buildWalls(gw, gh))
+  hall.add(buildFloor(gw, gh), buildWalls(gw, gh), buildStaffRoom(gw, gh))
   return hall
 }
 

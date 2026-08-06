@@ -77,6 +77,47 @@ export const hallD = (): number => roomH * TILE
 export const doorX = (): number => -hallW() / 2 + 1.3
 
 /**
+ * Tile columns of aisle left of the equipment grid. Derived rather than
+ * written down twice — `pathfind.WALK_MIN_X` is the same number negated.
+ */
+export const AISLE_COLUMNS = AISLE / TILE
+
+/**
+ * How deep the staff room runs into the back of the aisle. Six tiles at two
+ * columns wide, against a payroll capped at five, so everybody off shift has
+ * their own spot and nobody is left loitering in the queue.
+ */
+export const STAFF_ROOM_DEPTH = 3
+
+/**
+ * Where off-shift staff wait: the back of the entrance aisle, behind its own
+ * door, as far from the front counter as the room allows. They used to rest
+ * at the head of the aisle — which is exactly where the queue forms — so an
+ * idle cleaner was indistinguishable from a client waiting to be served.
+ *
+ * Ordered back-to-front, so the first person off shift takes the deepest spot
+ * and the room fills away from the floor rather than toward it.
+ */
+export function staffRoomTiles(): Tile[] {
+  const tiles: Tile[] = []
+  const backmost = gridH() - 1
+  const frontmost = Math.max(0, gridH() - STAFF_ROOM_DEPTH)
+
+  for (let y = backmost; y >= frontmost; y -= 1) {
+    for (let x = -1; x >= -AISLE_COLUMNS; x -= 1) tiles.push({ x, y })
+  }
+  return tiles
+}
+
+/** Centre of the staff room in world units, for drawing its floor and door. */
+export function staffRoomCentre(): Point {
+  const tiles = staffRoomTiles()
+  const first = tileToWorld(tiles[0]!.x, tiles[0]!.y)
+  const last = tileToWorld(tiles[tiles.length - 1]!.x, tiles[tiles.length - 1]!.y)
+  return { x: (first.x + last.x) / 2, z: (first.z + last.z) / 2 }
+}
+
+/**
  * Grid coordinates count from the top-left of the floor plan. The world is
  * centred on the origin, so the camera never has to compensate for an offset —
  * and when the room grows, everything already placed keeps its tile and the

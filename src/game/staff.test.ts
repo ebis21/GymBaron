@@ -4,7 +4,7 @@ import {
   deskPost, freeTrainers, isTrainerFree, nextToServe,
 } from './staff'
 import { initialState } from './economy'
-import { tileToWorld } from './layout'
+import { gridH, staffRoomTiles, tileToWorld } from './layout'
 import { workMsFor } from './content/staff'
 import { PATIENCE_MS, STAFF_UNLOCK_LEVEL, TRAINER_UNLOCK_LEVEL } from './constants'
 import type { Candidate, Client, Decor, GameState, Machine, Staff, Stain } from './types'
@@ -329,6 +329,49 @@ describe('workStaff', () => {
     expect(s.staff[0]!.workMs).toBe(SCAN_MS)
   })
 
+  // The receptionist runs the desk exactly as the player would, upsell and
+  // all — otherwise hiring one quietly cost you every trainer booking.
+  it('books a free trainer for whoever it admits', () => {
+    let s = gym({
+      staff: [receptionist(), staff({ uid: 'e2', role: 'trainer' })],
+      decor: [desk()],
+      machines: [machine()],
+      clients: [client()],
+    })
+    s = workStaff(s, SCAN_MS)
+    expect(s.clients[0]!.phase).toBe('toMachine')
+    expect(s.clients[0]!.trainerUid).toBe('e2')
+  })
+
+  it('charges the trainer rate for a booking it made itself', () => {
+    const base = gym({
+      staff: [receptionist()],
+      decor: [desk()],
+      machines: [machine()],
+      clients: [client()],
+    })
+    const withCoach = { ...base, staff: [...base.staff, staff({ uid: 'e2', role: 'trainer' })] }
+
+    const plain = workStaff(base, SCAN_MS).cash - base.cash
+    const coached = workStaff(withCoach, SCAN_MS).cash - withCoach.cash
+    expect(coached).toBeCloseTo(plain * 1.5, 5)
+  })
+
+  it('admits people without a coach once every trainer is busy', () => {
+    let s = gym({
+      staff: [receptionist(), staff({ uid: 'e2', role: 'trainer' })],
+      decor: [desk()],
+      machines: [machine(), machine({ uid: 'm2' })],
+      clients: [client({ uid: 'c1' }), client({ uid: 'c2' })],
+    })
+    s = workStaff(s, SCAN_MS)
+    s = workStaff(s, SCAN_MS)
+
+    const booked = s.clients.filter(c => c.trainerUid === 'e2')
+    expect(booked).toHaveLength(1)
+    expect(s.clients.every(c => c.phase === 'toMachine')).toBe(true)
+  })
+
   it('serves whoever is closest to walking out', () => {
     let s = gym({
       staff: [receptionist()],
@@ -551,7 +594,32 @@ describe('hire', () => {
 })
 
 describe('restTileFor', () => {
+  const inRoom = (t: { x: number; y: number }) =>
+    staffRoomTiles().some(r => r.x === t.x && r.y === t.y)
+
   it('parks idle staff in the aisle, out of the way', () => {
     expect(restTileFor(gym({ staff: [staff()] }), staff()).x).toBeLessThan(0)
+  })
+
+  // The point of the room: an off-shift employee standing at the head of the
+  // aisle is standing in the queue, and reads as a client waiting to be served.
+  it('sends them to the staff room at the back, not to the head of the queue', () => {
+    const spot = restTileFor(gym({ staff: [staff()] }), staff())
+    expect(inRoom(spot)).toBe(true)
+    expect(spot.y).toBeGreaterThan(0)
+  })
+
+  it('gives everybody on a full payroll their own spot in the room', () => {
+    const crew = ['e1', 'e2', 'e3', 'e4', 'e5'].map(uid => staff({ uid }))
+    const spots = crew.map(self => {
+      const others = crew.filter(s => s.uid !== self.uid)
+      return restTileFor(gym({ staff: [self, ...others] }), self)
+    })
+
+    expect(spots.every(inRoom)).toBe(true)
+  })
+
+  it('starts the room at the back wall of whatever room the player has bought', () => {
+    expect(staffRoomTiles()[0]!.y).toBe(gridH() - 1)
   })
 })

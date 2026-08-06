@@ -73,7 +73,10 @@ describe('moveStaff', () => {
 
   it('leaves a striker who has already stood down alone', () => {
     let s = gym({ staff: [staff({ owed: 1500 })] })
-    s = moveStaff(s, 500)
+    // The staff room is at the back of the aisle, so standing down is a walk
+    // rather than a step. Once it is done, nothing more may happen to them.
+    for (let i = 0; i < 80; i++) s = moveStaff(s, 500)
+    expect(s.staff[0]!.path).toHaveLength(0)
     expect(moveStaff(s, 500)).toBe(s)
   })
 

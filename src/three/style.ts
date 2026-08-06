@@ -17,6 +17,12 @@ export const PALETTE = {
   wall: '#fdf3e0',
   wallTrim: '#f0d9b5',
   skirting: '#d9a441',
+  /**
+   * The staff room floor. Deliberately the one cool tone down there: the
+   * whole hall is warm sand, so a employee standing on this reads instantly
+   * as "off the floor" rather than as a client who stopped walking.
+   */
+  staffFloor: '#bcd6c8',
   window: '#cdeeff',
 
   frameRed: '#e8624a',

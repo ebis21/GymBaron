@@ -1,8 +1,8 @@
 import type { Client, Decor, GameState, Machine, Staff } from './types'
 import type { Tile } from './layout'
-import { gridH, tileBehind, tileToWorld, worldToTile } from './layout'
+import { gridH, staffRoomTiles, tileBehind, tileToWorld, worldToTile } from './layout'
 import { wipeStain } from './stains'
-import { scanClient } from './clients'
+import { freeTrainers, scanClient } from './clients'
 import { workMsFor, STAFF_LIMIT, roleUnlockLevel } from './content/staff'
 import { WALK_MIN_X, walkable } from './pathfind'
 
@@ -16,9 +16,12 @@ export const needsRepair = (m: Machine): boolean => m.durability <= 0
 export const onDuty = (s: Staff): boolean => s.owed <= 0
 
 /**
- * Idle staff wait in the entrance aisle rather than in a doorway. Nothing can
- * be built at negative x, so these tiles are guaranteed clear — and there are
- * twelve of them against a payroll capped at five.
+ * Off-shift staff wait in the staff room at the back of the aisle, not on the
+ * floor. Nothing can be built at negative x, so those tiles are guaranteed
+ * clear, and the room holds six against a payroll capped at five.
+ *
+ * The rest of the aisle is the overflow, filled from the back forwards, so
+ * even a full house never puts an idle employee in among the queue.
  */
 export function restTileFor(state: GameState, self: Staff): Tile {
   const taken = new Set(
@@ -30,14 +33,19 @@ export function restTileFor(state: GameState, self: Staff): Tile {
       }),
   )
 
-  // The aisle runs the full depth of whatever room the player has bought, so
-  // the bound is the live grid height, not the size the gym shipped with.
-  for (let x = -1; x >= WALK_MIN_X; x -= 1) {
-    for (let y = 0; y < gridH(); y += 1) {
-      if (!taken.has(`${x},${y}`)) return { x, y }
+  const free = (t: Tile) => !taken.has(`${t.x},${t.y}`)
+
+  const room = staffRoomTiles()
+  const spot = room.find(free)
+  if (spot) return spot
+
+  // Overflow: the rest of the aisle, deepest row first for the same reason.
+  for (let y = gridH() - 1; y >= 0; y -= 1) {
+    for (let x = -1; x >= WALK_MIN_X; x -= 1) {
+      if (free({ x, y })) return { x, y }
     }
   }
-  return { x: -1, y: 0 }
+  return room[0] ?? { x: -1, y: gridH() - 1 }
 }
 
 /** The four tiles sharing an edge, in a fixed order — ties break the same way twice. */
@@ -275,8 +283,14 @@ export function workStaff(state: GameState, dtMs: number): GameState {
       continue
     }
 
+    // The receptionist sells the upsell too: anybody they admit gets a coach
+    // if one is standing free, exactly as the player would do it by hand at
+    // the card. What stops this being free money is the payroll — a trainer
+    // costs a wage every evening and can only see one visit at a time, so
+    // hiring a sixth one earns nothing.
     const waiting = nextToServe(next)
-    const served = waiting ? scanClient(next, waiting.uid) : next
+    const coach = waiting ? freeTrainers(next)[0] ?? null : null
+    const served = waiting ? scanClient(next, waiting.uid, coach?.uid ?? null) : next
 
     // Nobody to serve, or no machine free to send them to: the cycle is held
     // at the finish line rather than spent on nothing, so somebody arriving a
@@ -320,7 +334,14 @@ export function hire(state: GameState, candidateUid: string): GameState {
   if (candidate.role === 'reception' && !state.decor.some(d => d.type === 'reception')) return state
   if (state.cash < candidate.price) return state
 
-  const rest = { x: -1, y: 0 }
+  // New hires report to the staff room rather than materialising at the head
+  // of the queue, and every one of them gets their own spot there.
+  const rest = staffRoomTiles().find(
+    t => !state.staff.some(s => {
+      const at = worldToTile(s.x, s.z)
+      return at.x === t.x && at.y === t.y
+    }),
+  ) ?? { x: -1, y: gridH() - 1 }
   const at = tileToWorld(rest.x, rest.y)
 
   const employee: Staff = {

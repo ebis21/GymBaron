@@ -54,7 +54,16 @@ const REPAIR_HOLD_MS = 5000
  * "tap" that reads as deliberate while the player is running around with the
  * same hand — so on E it is a hold like everything else, just a short one.
  */
-const CLIENT_KEY_HOLD_MS = 2000
+/**
+ * Stepping up to a client is instant on E. It opens a card and charges
+ * nothing on its own — the decision is still one tap away inside it — so
+ * making the player hold the key for it was friction with nothing behind it.
+ * Cleaning and repairing still hold: those commit the moment they finish.
+ */
+const CLIENT_KEY_HOLD_MS = 0
+
+/** Rotates the selected fixture in build mode. */
+const ROTATE_KEY = 'r'
 
 /** The key bound to the proximity action. */
 const ACTION_KEY = 'e'
@@ -232,9 +241,9 @@ export default function App() {
   // Belt-and-braces: drop any in-flight rAF if the component ever unmounts.
   useEffect(() => () => cancelHold(), [cancelHold])
 
-  // Holding E does whatever the on-screen action button would do. Serving a
-  // client is a single tap on that button but a two-second hold here: the same
-  // hand is on the movement keys, and a stray press must not spend a client.
+  // E does whatever the on-screen action button would do. Actions that commit
+  // something the moment they land — cleaning, repairing — are held; stepping
+  // up to a client, which only opens a card, fires on the press.
   useEffect(() => {
     const isTyping = (target: EventTarget | null) =>
       target instanceof HTMLElement &&
@@ -249,7 +258,8 @@ export default function App() {
       if (!act || !act.enabled) return
 
       e.preventDefault()
-      beginHold({ ms: act.key.ms, uid: act.key.uid, run: act.run })
+      if (act.key.ms <= 0) act.run()
+      else beginHold({ ms: act.key.ms, uid: act.key.uid, run: act.run })
     }
 
     const onUp = (e: KeyboardEvent) => {
@@ -269,6 +279,22 @@ export default function App() {
       window.removeEventListener('blur', onBlur)
     }
   }, [beginHold, cancelHold])
+
+  // R turns whatever is selected in build mode — the same thing the "Obróć"
+  // button does, without making the player reach for it between every piece.
+  useEffect(() => {
+    if (!buildMode || !selected) return
+
+    const onRotate = (e: KeyboardEvent) => {
+      if (e.key.toLowerCase() !== ROTATE_KEY) return
+      if (e.altKey || e.ctrlKey || e.metaKey) return
+      e.preventDefault()
+      rotateObject(selected.kind, selected.uid)
+    }
+
+    window.addEventListener('keydown', onRotate)
+    return () => window.removeEventListener('keydown', onRotate)
+  }, [buildMode, selected, rotateObject])
 
   const clearBuildState = () => {
     setSelected(null)
@@ -502,7 +528,7 @@ export default function App() {
                 className="btn tiny"
                 onClick={() => rotateObject(selected.kind, selected.uid)}
               >
-                Obróć
+                Obróć{HAS_KEYBOARD && <kbd className="btn-key">R</kbd>}
               </button>
               <button
                 className="btn tiny"
@@ -627,7 +653,7 @@ export default function App() {
               {action.hint}
               {HAS_KEYBOARD && (
                 <span className="action-key">
-                  <kbd>E</kbd> {action.hold ? 'przytrzymaj' : `przytrzymaj ${action.key.ms / 1000}s`}
+                  <kbd>E</kbd> {action.key.ms > 0 ? 'przytrzymaj' : ''}
                 </span>
               )}
             </span>
