@@ -4,7 +4,8 @@ import type { PlacedKind } from './game/build'
 import type { ClientRarity } from './game/types'
 import { machineType } from './game/content/machines'
 import { decorType } from './game/content/decor'
-import { STAFF_UNLOCK_LEVEL } from './game/constants'
+import { HIRING_UNLOCK_LEVEL, STAFF_UNLOCK_LEVEL } from './game/constants'
+import { isClosingTime } from './game/clock'
 import GymScene3D from './three/GymScene3D'
 import type { Focus, PickResult } from './three/scene'
 import TopBar from './ui/TopBar'
@@ -48,6 +49,33 @@ const EDGE_GRAB = 0.45
 /** Cleaning is quick; repairing kit takes noticeably longer. */
 const CLEAN_HOLD_MS = 3000
 const REPAIR_HOLD_MS = 5000
+/**
+ * Stepping up to a client is instant on E. It opens a card and charges
+ * nothing on its own — the decision is still one tap away inside it — so
+ * making the player hold the key for it was friction with nothing behind it.
+ * Cleaning and repairing still hold: those commit the moment they finish.
+ */
+const CLIENT_KEY_HOLD_MS = 0
+
+/** Rotates the selected fixture in build mode. */
+const ROTATE_KEY = 'r'
+
+/** The key bound to the proximity action. */
+const ACTION_KEY = 'e'
+
+/**
+ * Whether to advertise the keyboard shortcut. A touch device has no E to hold,
+ * and a hint about one is just noise on a small screen.
+ */
+const HAS_KEYBOARD =
+  typeof window !== 'undefined' && window.matchMedia?.('(hover: hover)').matches === true
+
+/** One in-progress hold, whichever input started it. */
+interface Hold {
+  ms: number
+  uid: string
+  run: () => void
+}
 
 interface Action {
   label: string
@@ -55,11 +83,16 @@ interface Action {
   run: () => void
   enabled: boolean
   /**
-   * Present when this action resolves by holding the button down rather than
-   * tapping it. `uid` identifies the target the hold is currently bound to,
-   * so a hold in progress can be told apart from a fresh one on a new target.
+   * Present when the on-screen button resolves by being held down rather than
+   * tapped. Null for actions a tap is enough for.
    */
   hold: { ms: number; uid: string } | null
+  /**
+   * What holding E does. Always present — every action is holdable from the
+   * keyboard. `uid` identifies the target the hold is bound to, so a hold in
+   * progress can be told apart from a fresh one on a new target.
+   */
+  key: { ms: number; uid: string }
 }
 
 export default function App() {
@@ -86,6 +119,9 @@ export default function App() {
   const moveWallEdge = useGameStore(s => s.moveWallEdge)
   const demolishWall = useGameStore(s => s.demolishWall)
 
+  const buyExpansion = useGameStore(s => s.buyExpansion)
+  const endDay = useGameStore(s => s.endDay)
+
   const hireCandidate = useGameStore(s => s.hireCandidate)
   const fireStaff = useGameStore(s => s.fireStaff)
   const settleArrears = useGameStore(s => s.settleArrears)
@@ -97,6 +133,8 @@ export default function App() {
   const [recruiting, setRecruiting] = useState(false)
 
   const [buildMode, setBuildMode] = useState(false)
+  /** Bumped by the dev panel to drop the player at the front counter. */
+  const [teleport, setTeleport] = useState(0)
   /** Client the player has stepped up to, face to face. */
   const [talking, setTalking] = useState<string | null>(null)
   const [selected, setSelected] = useState<Selection | null>(null)
@@ -113,12 +151,13 @@ export default function App() {
 
   const onFocus = useCallback((next: Focus) => setFocus(next), [])
 
-  // --- clean / repair hold ----------------------------------------------
-  // Fraction (0..1) the action button is currently filled while held down.
-  // Purely a UI timer: `wipe`/`repair` in the store still own the actual
-  // mutation and its own validation, this only gates *when* they get called.
+  // --- serve / clean / repair hold ---------------------------------------
+  // Fraction (0..1) the action button is currently filled while held down,
+  // whether the hold came from a finger on the button or from E on the
+  // keyboard. Purely a UI timer: `scan`/`wipe`/`repair` in the store still own
+  // the actual mutation and its validation, this only gates *when* they run.
   const [holdPct, setHoldPct] = useState(0)
-  const holdRef = useRef<{ uid: string; ms: number; run: () => void; start: number; raf: number } | null>(null)
+  const holdRef = useRef<(Hold & { start: number; raf: number }) | null>(null)
   /** Refreshed every render so the rAF loop always sees the latest action. */
   const actionRef = useRef<Action | null>(null)
 
@@ -134,9 +173,10 @@ export default function App() {
     if (!active) return
 
     // The target moved on, vanished, or became unaffordable mid-hold — no
-    // partial credit, the player has to start over.
+    // partial credit, the player has to start over. `key.uid` is the target
+    // identity for both input routes, so one check covers them both.
     const current = actionRef.current
-    if (!current?.hold || current.hold.uid !== active.uid || !current.enabled) {
+    if (!current || current.key.uid !== active.uid || !current.enabled) {
       cancelHold()
       return
     }
@@ -155,9 +195,11 @@ export default function App() {
   }, [cancelHold])
 
   const beginHold = useCallback(
-    (act: Action) => {
-      if (!act.hold || !act.enabled) return
-      const entry = { uid: act.hold.uid, ms: act.hold.ms, run: act.run, start: performance.now(), raf: 0 }
+    (hold: Hold) => {
+      // Re-entry guard: a second keydown while a hold is running (or a finger
+      // landing on the button mid-keyboard-hold) must not orphan the first rAF.
+      if (holdRef.current) return
+      const entry = { ...hold, start: performance.now(), raf: 0 }
       holdRef.current = entry
       setHoldPct(0)
       entry.raf = requestAnimationFrame(tickHold)
@@ -195,6 +237,61 @@ export default function App() {
 
   // Belt-and-braces: drop any in-flight rAF if the component ever unmounts.
   useEffect(() => () => cancelHold(), [cancelHold])
+
+  // E does whatever the on-screen action button would do. Actions that commit
+  // something the moment they land — cleaning, repairing — are held; stepping
+  // up to a client, which only opens a card, fires on the press.
+  useEffect(() => {
+    const isTyping = (target: EventTarget | null) =>
+      target instanceof HTMLElement &&
+      (target.isContentEditable || /^(input|textarea|select)$/i.test(target.tagName))
+
+    const onDown = (e: KeyboardEvent) => {
+      if (e.key.toLowerCase() !== ACTION_KEY) return
+      // `repeat` is the OS auto-firing the key; the hold is already running.
+      if (e.repeat || e.altKey || e.ctrlKey || e.metaKey || isTyping(e.target)) return
+
+      const act = actionRef.current
+      if (!act || !act.enabled) return
+
+      e.preventDefault()
+      if (act.key.ms <= 0) act.run()
+      else beginHold({ ms: act.key.ms, uid: act.key.uid, run: act.run })
+    }
+
+    const onUp = (e: KeyboardEvent) => {
+      if (e.key.toLowerCase() === ACTION_KEY) cancelHold()
+    }
+
+    // Alt-tabbing mid-hold never delivers the keyup, which would otherwise
+    // leave the bar frozen part-filled until the next press.
+    const onBlur = () => cancelHold()
+
+    window.addEventListener('keydown', onDown)
+    window.addEventListener('keyup', onUp)
+    window.addEventListener('blur', onBlur)
+    return () => {
+      window.removeEventListener('keydown', onDown)
+      window.removeEventListener('keyup', onUp)
+      window.removeEventListener('blur', onBlur)
+    }
+  }, [beginHold, cancelHold])
+
+  // R turns whatever is selected in build mode — the same thing the "Obróć"
+  // button does, without making the player reach for it between every piece.
+  useEffect(() => {
+    if (!buildMode || !selected) return
+
+    const onRotate = (e: KeyboardEvent) => {
+      if (e.key.toLowerCase() !== ROTATE_KEY) return
+      if (e.altKey || e.ctrlKey || e.metaKey) return
+      e.preventDefault()
+      rotateObject(selected.kind, selected.uid)
+    }
+
+    window.addEventListener('keydown', onRotate)
+    return () => window.removeEventListener('keydown', onRotate)
+  }, [buildMode, selected, rotateObject])
 
   const clearBuildState = () => {
     setSelected(null)
@@ -313,6 +410,11 @@ export default function App() {
   const activeApp: PhoneApp = tab !== 'gym' ? tab : buildMode ? 'build' : 'gym'
   const partner = talking ? state.clients.find(c => c.uid === talking) : undefined
 
+  // 20:00 shuts the door but does not end the day: the gym stays live so the
+  // player can rebuild, and closing up is a button rather than an ambush.
+  const afterHours = isClosingTime(state.dayMs) && !state.dayEnded && !state.gameOver
+  const stillInside = state.clients.length
+
   /** The proximity button, shown only outside build mode. */
   const action = ((): Action | null => {
     if (!focus || state.dayEnded || buildMode || talking) return null
@@ -327,6 +429,7 @@ export default function App() {
         enabled: state.cash >= spec.repairCost,
         run: () => repair(focus.machineUid),
         hold: { ms: REPAIR_HOLD_MS, uid: focus.machineUid },
+        key: { ms: REPAIR_HOLD_MS, uid: focus.machineUid },
       }
     }
 
@@ -337,21 +440,23 @@ export default function App() {
         enabled: true,
         run: () => wipe(focus.stainUid),
         hold: { ms: CLEAN_HOLD_MS, uid: focus.stainUid },
+        key: { ms: CLEAN_HOLD_MS, uid: focus.stainUid },
       }
     }
 
     const client = state.clients.find(c => c.uid === focus.clientUid)
     if (!client) return null
 
-    // Scanning is now a face-to-face: this button only walks up to them, and
-    // the card that follows is where the pass is actually charged. A single
-    // tap is enough — there is nothing here to hold for.
+    // Scanning is a face-to-face: this only walks up to them, and the card
+    // that follows is where the pass is actually charged. A tap on the button
+    // is enough; E holds for two seconds, because that hand is also driving.
     return {
       label: 'Obsłuż klienta',
       hint: `${client.kind === 'member' ? 'Członek' : 'Przechodzień'} · ${RARITY_NAME[client.rarity]}`,
       enabled: true,
       run: () => setTalking(focus.clientUid),
       hold: null,
+      key: { ms: CLIENT_KEY_HOLD_MS, uid: focus.clientUid },
     }
   })()
 
@@ -365,12 +470,22 @@ export default function App() {
         selected={selected}
         preview={null}
         facing={talking}
+        teleport={teleport}
         onFocus={onFocus}
         onPick={onPick}
       />
 
       <TopBar state={state} />
-      {import.meta.env.DEV && <DevPanel />}
+      {import.meta.env.DEV && (
+        <DevPanel
+          onTeleportToReception={() => {
+            setTab('gym')
+            leaveBuildMode()
+            setTalking(null)
+            setTeleport(n => n + 1)
+          }}
+        />
+      )}
 
       {buildMode && tab === 'gym' && (
         <div className="build-bar">
@@ -420,7 +535,7 @@ export default function App() {
                 className="btn tiny"
                 onClick={() => rotateObject(selected.kind, selected.uid)}
               >
-                Obróć
+                Obróć{HAS_KEYBOARD && <kbd className="btn-key">R</kbd>}
               </button>
               <button
                 className="btn tiny"
@@ -473,15 +588,17 @@ export default function App() {
               onBuyMachine={buyMachine}
               onBuyDecor={buyDecor}
               onBuyWall={buyWall}
+              onBuyExpansion={buyExpansion}
             />
           ) : tab === 'staff' ? (
-            state.level < STAFF_UNLOCK_LEVEL ? (
+            state.level < HIRING_UNLOCK_LEVEL ? (
               <div className="screen">
                 <header className="screen-head">
                   <h2>Personel</h2>
                 </header>
                 <p className="hint">
-                  Zatrudnianie odblokowuje się na poziomie {STAFF_UNLOCK_LEVEL}. Obecny
+                  Zatrudnianie odblokowuje się na poziomie {HIRING_UNLOCK_LEVEL} (trenerzy
+                  personalni), a pozostałe role na poziomie {STAFF_UNLOCK_LEVEL}. Obecny
                   poziom: {state.level}.
                 </p>
               </div>
@@ -511,16 +628,21 @@ export default function App() {
 
       {tab === 'gym' && action && (
         <button
-          className={`action-btn${action.hold ? ' holdable' : ''}`}
+          className={`action-btn${action.hold ? ' holdable' : ''}${holdPct > 0 ? ' holding' : ''}`}
           disabled={!action.enabled}
           onClick={action.hold ? undefined : action.run}
-          onPointerDown={action.hold ? () => beginHold(action) : undefined}
+          onPointerDown={
+            action.hold
+              ? () => beginHold({ ...action.hold!, run: action.run })
+              : undefined
+          }
           onPointerUp={action.hold ? cancelHold : undefined}
           onPointerCancel={action.hold ? cancelHold : undefined}
           onPointerLeave={action.hold ? cancelHold : undefined}
           onContextMenu={action.hold ? e => e.preventDefault() : undefined}
         >
-          {action.hold && (
+          {/* A keyboard hold fills the same bar even on a tap-only action. */}
+          {(action.hold || holdPct > 0) && (
             <span className="action-hold-track">
               <span
                 className="action-hold-fill"
@@ -529,14 +651,37 @@ export default function App() {
             </span>
           )}
           <span className="action-label">{action.label}</span>
-          {action.hold && holdPct > 0 ? (
+          {holdPct > 0 ? (
             <span className="action-hint">
-              jeszcze {Math.max(0, ((1 - holdPct) * action.hold.ms) / 1000).toFixed(1)}s
+              jeszcze {Math.max(0, ((1 - holdPct) * action.key.ms) / 1000).toFixed(1)}s
             </span>
           ) : (
-            action.hint && <span className="action-hint">{action.hint}</span>
+            <span className="action-hint">
+              {action.hint}
+              {HAS_KEYBOARD && (
+                <span className="action-key">
+                  <kbd>E</kbd> {action.key.ms > 0 ? 'przytrzymaj' : ''}
+                </span>
+              )}
+            </span>
           )}
         </button>
+      )}
+
+      {tab === 'gym' && afterHours && (
+        <div className="closing-bar">
+          <div className="closing-text">
+            <strong>Po godzinach</strong>
+            <small>
+              {stillInside > 0
+                ? `Nikt już nie wejdzie — ${stillInside} ${stillInside === 1 ? 'osoba kończy' : 'osób kończy'} trening.`
+                : 'Sala pusta. Rozbuduj siłownię, posprzątaj — zamknij, kiedy skończysz.'}
+            </small>
+          </div>
+          <button className="btn primary tiny" onClick={endDay}>
+            Zamknij dzień
+          </button>
+        </div>
       )}
 
       <Phone
@@ -573,8 +718,8 @@ export default function App() {
         <ClientCard
           state={state}
           client={partner}
-          onScan={() => {
-            scan(partner.uid)
+          onScan={trainerUid => {
+            scan(partner.uid, trainerUid)
             setTalking(null)
           }}
           onClose={() => setTalking(null)}

@@ -1,5 +1,6 @@
-import type { Client, ClientKind, GameState, Machine } from './types'
+import type { Client, ClientKind, GameState, Machine, Staff } from './types'
 import { machineType } from './content/machines'
+import { isClosingTime } from './clock'
 import { rollRarity } from './content/rarity'
 import { nextRandom } from './rng'
 import { addXp, entryFee } from './economy'
@@ -11,8 +12,9 @@ import {
   LIL_D_SPAWN_CHANCE,
   MAX_QUEUE,
   PATIENCE_MS,
+  TRAINER_SATISFACTION_MULT,
 } from './constants'
-import { DOOR_X, DOOR_QUEUE_ANCHOR } from './layout'
+import { DOOR_QUEUE_Z, doorX } from './layout'
 import { spawnStain, STAIN_CHANCE } from './stains'
 
 /**
@@ -27,17 +29,50 @@ const SPAWN_PER_REP = 0.24
 const MEMBER_VISITS_PER_DAY = 1.6
 
 /** Shared with clientMove.ts: a walled-off entrance costs exactly what an impatient walkout does. */
-export const REP_LOSS_ON_WALKOUT = 3
+export const REP_LOSS_ON_WALKOUT = 1.5
 export const SAT_LOSS_ON_WALKOUT = 2
-const REP_GAIN_ON_WORKOUT = 1.5
+/**
+ * Reputation per finished workout, at zero reputation. These numbers were set
+ * when a broken receptionist meant the player served a handful of people by
+ * hand; a working desk serves sixty a day, and at the old +1.5 the gym went
+ * from unknown to famous in an afternoon.
+ *
+ * The gain is also scaled by how much reputation is left to win, so the first
+ * points come quickly and the last ones have to be earned over days. A walkout
+ * costs a flat `REP_LOSS_ON_WALKOUT`, so the better the gym's name, the more
+ * a turned-away client actually costs it.
+ */
+const REP_GAIN_ON_WORKOUT = 0.4
 const XP_ON_SCAN = 2
 
 export const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v))
 
 const isUsable = (m: Machine) => m.durability > 0 && m.occupiedBy === null
 
+/**
+ * True when a trainer is on the payroll, being paid, and not already booked.
+ * The booking lives on the client, so "free" is simply "nobody names them".
+ *
+ * This lives here rather than in `staff.ts` because `staff.ts` already imports
+ * `scanClient` from this module — putting it the other way round would close
+ * an import cycle.
+ */
+export function isTrainerFree(state: GameState, trainerUid: string): boolean {
+  const trainer = state.staff.find(s => s.uid === trainerUid)
+  // `owed > 0` is an employee on strike over unpaid wages; they coach nobody.
+  if (!trainer || trainer.role !== 'trainer' || trainer.owed > 0) return false
+  return !state.clients.some(c => c.trainerUid === trainerUid)
+}
+
+/** Every trainer available to be booked for the client at the desk right now. */
+export function freeTrainers(state: GameState): Staff[] {
+  return state.staff.filter(s => s.role === 'trainer' && isTrainerFree(state, s.uid))
+}
+
 /** True when the gym can take one more person through the door right now. */
 function acceptingArrivals(state: GameState): boolean {
+  // Past 20:00 the door is shut. Whoever is already inside still finishes.
+  if (isClosingTime(state.dayMs)) return false
   if (!state.machines.some(isUsable)) return false
   const waiting = state.clients.filter(c => c.phase === 'queue' || c.phase === 'arriving').length
   return waiting < MAX_QUEUE
@@ -53,8 +88,9 @@ function enqueue(state: GameState, kind: ClientKind, memberUid: string | null): 
     phaseMs: 0,
     machineUid: null,
     memberUid,
-    x: DOOR_X,
-    z: DOOR_QUEUE_ANCHOR.z,
+    trainerUid: null,
+    x: doorX(),
+    z: DOOR_QUEUE_Z,
     path: [],
     goal: null,
   }
@@ -74,8 +110,9 @@ export function summonLilD(state: GameState): GameState {
     phaseMs: 0,
     machineUid: null,
     memberUid: null,
-    x: DOOR_X,
-    z: DOOR_QUEUE_ANCHOR.z,
+    trainerUid: null,
+    x: doorX(),
+    z: DOOR_QUEUE_Z,
     path: [],
     goal: null,
   }
@@ -188,8 +225,17 @@ export function advanceClients(state: GameState, dtMs: number): GameState {
     }
 
     served += 1
-    satisfaction = clamp(satisfaction + type.satisfaction, 0, 100)
-    reputation = clamp(reputation + REP_GAIN_ON_WORKOUT, 0, 100)
+    const coached = client.trainerUid !== null
+    satisfaction = clamp(
+      satisfaction + type.satisfaction * (coached ? TRAINER_SATISFACTION_MULT : 1),
+      0,
+      100,
+    )
+    reputation = clamp(
+      reputation + REP_GAIN_ON_WORKOUT * (1 - clamp(reputation, 0, 100) / 100),
+      0,
+      100,
+    )
     machine.durability = client.special === 'lil-d'
       ? 0
       : clamp(machine.durability - type.wearPerUse, 0, 100)
@@ -199,12 +245,16 @@ export function advanceClients(state: GameState, dtMs: number): GameState {
     if (dirtRoll < STAIN_CHANCE) dirtied.push({ x: machine.x, y: machine.y })
     xpAwarded += type.xpPerUse
 
-    // Finished clients walk out rather than blinking away.
+    // Finished clients walk out rather than blinking away. The session is
+    // over the moment the workout is, so the trainer is released here rather
+    // than when the client finally reaches the door — otherwise a coach would
+    // stay booked for the length of a walk across the hall.
     survivors.push({
       ...client,
       phase: 'leaving',
       phaseMs: 0,
       machineUid: null,
+      trainerUid: null,
       path: [],
       goal: null,
     })
@@ -247,8 +297,18 @@ export function advanceClients(state: GameState, dtMs: number): GameState {
  * The fee is settled here because this is where the machine is assigned, and
  * the machine's multiplier is what the visit is worth. Members go through the
  * same turnstile — their pass only discounts it.
+ *
+ * `trainerUid` books a personal trainer for the visit, which is what makes the
+ * client worth `TRAINER_FEE_MULT` of the usual fee. It is validated rather
+ * than trusted: a trainer who has since been booked, sacked or gone on strike
+ * is quietly ignored and the client goes through at the plain price, so a
+ * stale button in the UI can never conjure money out of nothing.
  */
-export function scanClient(state: GameState, clientUid: string): GameState {
+export function scanClient(
+  state: GameState,
+  clientUid: string,
+  trainerUid: string | null = null,
+): GameState {
   const client = state.clients.find(c => c.uid === clientUid)
   if (!client || client.phase !== 'queue') return state
 
@@ -256,7 +316,16 @@ export function scanClient(state: GameState, clientUid: string): GameState {
   if (!machine) return state
 
   const isLilD = client.special === 'lil-d'
-  const fee = isLilD ? LIL_D_FAKE_PAYMENT : entryFee(machine.type, client.kind, client.rarity)
+  const coach = trainerUid && !isLilD && isTrainerFree(state, trainerUid) ? trainerUid : null
+
+  const plainFee = isLilD
+    ? 0
+    : entryFee(machine.type, client.kind, client.rarity, state.reputation)
+  const fee = isLilD
+    ? LIL_D_FAKE_PAYMENT
+    : entryFee(machine.type, client.kind, client.rarity, state.reputation, coach !== null)
+  // A breakdown of `fee`, not income on top of it — see `DayLedger.trainerFees`.
+  const trainerShare = isLilD ? 0 : fee - plainFee
   const cashDelta = isLilD ? -fee : fee
 
   const next: GameState = {
@@ -272,6 +341,7 @@ export function scanClient(state: GameState, clientUid: string): GameState {
             phase: 'toMachine' as const,
             phaseMs: 0,
             machineUid: machine.uid,
+            trainerUid: coach,
             path: [],
             goal: null,
           }
@@ -280,6 +350,7 @@ export function scanClient(state: GameState, clientUid: string): GameState {
     today: {
       ...state.today,
       entryFees: state.today.entryFees + (isLilD ? 0 : fee),
+      trainerFees: state.today.trainerFees + trainerShare,
       counterfeitLoss: state.today.counterfeitLoss + (isLilD ? fee : 0),
     },
     stats: isLilD

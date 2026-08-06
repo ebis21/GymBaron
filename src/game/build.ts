@@ -8,7 +8,7 @@ import type {
   Rotation,
   WallSide,
 } from './types'
-import { GRID_H, GRID_W } from './constants'
+import { gridH, gridW } from './layout'
 
 export type PlacedKind = 'machine' | 'decor'
 
@@ -19,8 +19,11 @@ export interface Occupant {
 
 export const nextRotation = (r: Rotation): Rotation => (((r + 1) % 4) as Rotation)
 
+/** Within the buildable floor of whatever room the player has bought so far. */
 export function insideGrid(x: number, y: number): boolean {
-  return Number.isInteger(x) && Number.isInteger(y) && x >= 0 && y >= 0 && x < GRID_W && y < GRID_H
+  return (
+    Number.isInteger(x) && Number.isInteger(y) && x >= 0 && y >= 0 && x < gridW() && y < gridH()
+  )
 }
 
 /**

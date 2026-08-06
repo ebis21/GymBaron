@@ -22,14 +22,29 @@ describe('advance', () => {
     expect(s.day).toBe(1)
   })
 
-  it('closes the day exactly at 20:00 and then stands still', () => {
-    const closed = advance(initialState(9, 0), DAY_MS)
-    expect(closed.dayEnded).toBe(true)
-    expect(closed.dayReport).not.toBeNull()
+  it('shuts the door at 20:00 without ending the day', () => {
+    const after = advance(initialState(9, 0), DAY_MS)
+    // Closing time is the player's cue, not an ambush: the gym stays live so
+    // they can rebuild, and only `closeDay` settles the till.
+    expect(after.dayEnded).toBe(false)
+    expect(after.dayReport).toBeNull()
+    expect(after.dayMs).toBe(DAY_MS)
+  })
+
+  it('admits nobody new after closing time', () => {
+    let s = advance(initialState(9, 0), DAY_MS)
+    const inside = s.clients.length
+    // Long enough that the spawn roll would certainly have fired by now.
+    for (let i = 0; i < 60; i += 1) s = advance(s, 1_000)
+    expect(s.clients.length).toBeLessThanOrEqual(inside)
+  })
+
+  it('keeps a closed day frozen', () => {
+    const closed = { ...advance(initialState(9, 0), DAY_MS), dayEnded: true }
     expect(advance(closed, 60_000)).toEqual(closed)
   })
 
-  it('leaves cash alone until the day closes', () => {
+  it('leaves cash alone all day', () => {
     const midday = advance(initialState(9, 0), DAY_MS - 1)
     expect(midday.dayEnded).toBe(false)
     expect(midday.cash).toBeGreaterThanOrEqual(initialState(9, 0).cash)

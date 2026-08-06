@@ -1,6 +1,9 @@
-import type { GameState } from '../game/types'
-import { ROLE_LABEL, RANK_LABEL, wageFor, workMsFor, STAFF_LIMIT } from '../game/content/staff'
+import type { GameState, StaffRole } from '../game/types'
+import {
+  ROLE_LABEL, RANK_LABEL, wageFor, workMsFor, roleUnlockLevel, STAFF_LIMIT,
+} from '../game/content/staff'
 import { REFRESH_PRICE } from '../game/recruit'
+import { TRAINER_FEE_MULT } from '../game/constants'
 import { money } from './format'
 
 interface Props {
@@ -10,10 +13,16 @@ interface Props {
   onBack: () => void
 }
 
-const JOB_HINT: Record<string, (ms: number) => string> = {
+/**
+ * The one number that says what hiring this person changes. A trainer has no
+ * such clock — they are booked per visit, not per task — so theirs is the fee
+ * the booking earns instead.
+ */
+const JOB_HINT: Record<StaffRole, (ms: number) => string> = {
   reception: ms => `skan co ${(ms / 1000).toFixed(1)} s`,
   cleaner: ms => `plama w ${(ms / 1000).toFixed(1)} s`,
   repair: ms => `naprawa w ${(ms / 1000).toFixed(0)} s`,
+  trainer: () => `trening 1:1 — ×${TRAINER_FEE_MULT} za wejście`,
 }
 
 export default function RecruitScreen({ state, onHire, onReroll, onBack }: Props) {
@@ -33,6 +42,8 @@ export default function RecruitScreen({ state, onHire, onReroll, onBack }: Props
       <ul className="candidate-list">
         {state.candidates.map(c => {
           const needsDesk = c.role === 'reception' && !hasDesk
+          const needsLevel = roleUnlockLevel(c.role)
+          const locked = state.level < needsLevel
           const afford = state.cash >= c.price
           return (
             <li key={c.uid} className="candidate">
@@ -47,16 +58,20 @@ export default function RecruitScreen({ state, onHire, onReroll, onBack }: Props
                 <span>{money(wageFor(c.role, c.rank))} / dzień</span>
               </div>
 
-              {!afford && !full && !needsDesk && (
+              {!afford && !full && !needsDesk && !locked && (
                 <div className="shop-reason">Za mało gotówki — brakuje {money(c.price - state.cash)}</div>
               )}
 
               <button
                 className="btn primary block"
                 onClick={() => onHire(c.uid)}
-                disabled={full || needsDesk || !afford}
+                disabled={full || needsDesk || locked || !afford}
               >
-                {needsDesk ? 'Brak biurka' : full ? 'Komplet' : `Zatrudnij za ${money(c.price)}`}
+                {locked
+                  ? `Od poziomu ${needsLevel}`
+                  : needsDesk ? 'Brak biurka'
+                  : full ? 'Komplet'
+                  : `Zatrudnij za ${money(c.price)}`}
               </button>
             </li>
           )

@@ -1,8 +1,9 @@
 import type { Client, GameState } from './types'
 import type { Point, QueueAnchor, Tile } from './layout'
 import {
-  DOOR_QUEUE_ANCHOR,
-  DOOR_X,
+  DOOR_QUEUE_Z,
+  doorQueueAnchor,
+  doorX,
   queueSpot,
   tileToWorld,
   worldToTile,
@@ -17,7 +18,7 @@ export const CLIENT_SPEED = 2.0
 /** Where the queue forms: in front of the reception desk, if one is placed. */
 export function queueAnchorFor(state: GameState): QueueAnchor {
   const desk = state.decor.find(d => d.type === 'reception')
-  if (!desk) return DOOR_QUEUE_ANCHOR
+  if (!desk) return doorQueueAnchor()
 
   const at = tileToWorld(desk.x, desk.y)
   return { x: at.x, z: at.z, angle: (desk.rotation * Math.PI) / 2 }
@@ -36,7 +37,7 @@ function destination(state: GameState, client: Client, queueIndex: number): Poin
     return m && m.durability > 0 ? tileToWorld(m.x, m.y) : null
   }
 
-  if (client.phase === 'leaving') return { x: DOOR_X, z: DOOR_QUEUE_ANCHOR.z }
+  if (client.phase === 'leaving') return { x: doorX(), z: DOOR_QUEUE_Z }
 
   return null
 }

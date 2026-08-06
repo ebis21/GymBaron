@@ -1,9 +1,12 @@
 import { describe, it, expect } from 'vitest'
-import { ensurePool, refreshPool, rollPool, POOL_SIZE, REFRESH_PRICE } from './recruit'
+import { ensurePool, refreshPool, rollPool, unlockedRoles, POOL_SIZE, REFRESH_PRICE } from './recruit'
 import { initialState } from './economy'
+import { STAFF_ROLES } from './content/staff'
+import { STAFF_UNLOCK_LEVEL, TRAINER_UNLOCK_LEVEL } from './constants'
 import type { GameState } from './types'
 
-const gym = (over: Partial<GameState> = {}): GameState => ({ ...initialState(7, 0), ...over })
+const gym = (over: Partial<GameState> = {}): GameState =>
+  ({ ...initialState(7, 0), level: STAFF_UNLOCK_LEVEL, ...over })
 
 describe('rollPool', () => {
   it('draws a full board', () => {
@@ -18,10 +21,48 @@ describe('rollPool', () => {
   it('gives every candidate a name, role, rank and price', () => {
     for (const c of rollPool(gym()).candidates) {
       expect(c.name.length).toBeGreaterThan(0)
-      expect(['reception', 'cleaner', 'repair']).toContain(c.role)
+      expect(STAFF_ROLES).toContain(c.role)
       expect(['rare', 'epic', 'legend']).toContain(c.rank)
       expect(c.price).toBeGreaterThan(0)
     }
+  })
+
+  /**
+   * The board used to draw from every role at any level, so a player who had
+   * just unlocked trainers at 3 spent their rerolls looking at receptionists
+   * they could not touch for another seven levels.
+   */
+  it('offers only trainers to a player who has unlocked nothing else', () => {
+    let s = gym({ level: TRAINER_UNLOCK_LEVEL })
+    for (let i = 0; i < 40; i++) {
+      s = rollPool(s)
+      for (const c of s.candidates) expect(c.role).toBe('trainer')
+    }
+  })
+
+  it('offers every role once they are all unlocked', () => {
+    let s = gym({ level: STAFF_UNLOCK_LEVEL })
+    const seen = new Set<string>()
+    for (let i = 0; i < 60; i++) {
+      s = rollPool(s)
+      for (const c of s.candidates) seen.add(c.role)
+    }
+    for (const role of STAFF_ROLES) expect(seen).toContain(role)
+  })
+
+  it('still fills the board below every unlock, rather than handing back nothing', () => {
+    expect(rollPool(gym({ level: 1 })).candidates).toHaveLength(POOL_SIZE)
+  })
+})
+
+describe('unlockedRoles', () => {
+  it('opens up as the player levels', () => {
+    expect(unlockedRoles(gym({ level: TRAINER_UNLOCK_LEVEL }))).toEqual(['trainer'])
+    expect(unlockedRoles(gym({ level: STAFF_UNLOCK_LEVEL }))).toEqual(STAFF_ROLES)
+  })
+
+  it('falls back to the whole list before anything is unlocked', () => {
+    expect(unlockedRoles(gym({ level: 1 }))).toEqual(STAFF_ROLES)
   })
 
   it('prices a legend above an epic above a rare', () => {

@@ -2,6 +2,7 @@ import type { DecorTypeId, GameState, MachineTypeId } from '../game/types'
 import { MACHINE_TYPES } from '../game/content/machines'
 import { DECOR_TYPES, WALL_PRICE } from '../game/content/decor'
 import { ENTRY_FEE_BASE } from '../game/constants'
+import { expansionAt, nextExpansion } from '../game/content/expansion'
 import { assetFor } from '../assets/assetFor'
 import { money } from './format'
 
@@ -10,6 +11,8 @@ interface Props {
   onBuyMachine: (type: MachineTypeId) => void
   onBuyDecor: (type: DecorTypeId) => void
   onBuyWall: () => void
+  /** Buys the next rung of the floor-space ladder; ignored on the top rung. */
+  onBuyExpansion: () => void
 }
 
 /**
@@ -17,11 +20,25 @@ interface Props {
  * player decides where they stand in build mode — so the shop never has to
  * care whether there is room.
  */
-export default function ShopScreen({ state, onBuyMachine, onBuyDecor, onBuyWall }: Props) {
+export default function ShopScreen({
+  state,
+  onBuyMachine,
+  onBuyDecor,
+  onBuyWall,
+  onBuyExpansion,
+}: Props) {
   const shortfall = (price: number) =>
     state.cash < price ? `Brakuje ${money(price - state.cash)}` : null
 
   const wallReason = shortfall(WALL_PRICE)
+
+  const room = expansionAt(state.expansion)
+  const nextRoom = nextExpansion(state.expansion)
+  const roomReason = !nextRoom
+    ? null
+    : state.level < nextRoom.minLevel
+      ? `Wymaga poziomu ${nextRoom.minLevel}`
+      : shortfall(nextRoom.price)
 
   return (
     <div className="screen">
@@ -107,6 +124,41 @@ export default function ShopScreen({ state, onBuyMachine, onBuyDecor, onBuyWall 
             {money(WALL_PRICE)}
           </button>
         </div>
+      </div>
+
+      <h2 className="section-title" style={{ marginTop: 20 }}>
+        Rozbudowa
+      </h2>
+      <p className="hint">
+        Więcej pól pod sprzęt. Wszystko, co już stoi, zostaje na swoim polu —
+        sala rozrasta się dookoła. Teraz masz {room.w} × {room.h} pól.
+      </p>
+
+      <div className="shop-list">
+        {nextRoom ? (
+          <div className={`shop-row${roomReason ? ' locked' : ''}`}>
+            <div className="inv-glyph">+</div>
+            <div className="shop-info">
+              <div className="shop-name">{nextRoom.name}</div>
+              <div className="shop-meta">
+                {nextRoom.w} × {nextRoom.h} pól · o {nextRoom.w * nextRoom.h - room.w * room.h} pól
+                więcej
+              </div>
+              {roomReason && <div className="shop-reason">{roomReason}</div>}
+            </div>
+            <button className="btn" disabled={roomReason !== null} onClick={onBuyExpansion}>
+              {money(nextRoom.price)}
+            </button>
+          </div>
+        ) : (
+          <div className="shop-row">
+            <div className="inv-glyph">✓</div>
+            <div className="shop-info">
+              <div className="shop-name">{room.name}</div>
+              <div className="shop-meta">Największa sala — nie ma czego dokupić</div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

@@ -1,7 +1,7 @@
 import type { Client, GameState, Machine } from './types'
 import { initialState } from './economy'
 import { SAVE_VERSION } from './constants'
-import { DOOR_X, DOOR_QUEUE_ANCHOR } from './layout'
+import { DOOR_QUEUE_Z, doorX } from './layout'
 
 export function serialize(state: GameState): string {
   return JSON.stringify(state)
@@ -68,8 +68,8 @@ function looksLikeV4(s: Record<string, unknown>): boolean {
 function migrateV3(raw: Record<string, unknown>): Record<string, unknown> {
   const clients = (raw.clients as Client[]).map(c => ({
     ...c,
-    x: DOOR_X,
-    z: DOOR_QUEUE_ANCHOR.z,
+    x: doorX(),
+    z: DOOR_QUEUE_Z,
     path: [],
     goal: null,
   }))
@@ -96,19 +96,26 @@ function migrateV4(raw: Record<string, unknown>): Record<string, unknown> {
   return { ...raw, version: 5, machines }
 }
 
-/** Adds neutral bookkeeping for the secret visitor and counterfeit cash. */
+/**
+ * Version 6 adds the expanded-floor/trainer bookkeeping plus the secret
+ * visitor's daily lock and counterfeit line. All values default to the
+ * neutral state, so an old gym resumes exactly where it stopped.
+ */
 function migrateV5(raw: Record<string, unknown>): Record<string, unknown> {
+  const clients = (raw.clients as Client[]).map(c => ({ ...c, trainerUid: c.trainerUid ?? null }))
   const today = raw.today as Record<string, unknown>
   const previousReport = raw.dayReport
   const dayReport = typeof previousReport === 'object' && previousReport !== null
-    ? { ...previousReport, counterfeitLoss: 0 }
+    ? { ...previousReport, trainerFees: 0, counterfeitLoss: 0 }
     : previousReport
 
   return {
     ...raw,
     version: 6,
+    clients,
+    expansion: 0,
     lilDSeenDay: 0,
-    today: { ...today, counterfeitLoss: 0 },
+    today: { ...today, trainerFees: 0, counterfeitLoss: 0 },
     dayReport,
   }
 }
@@ -118,11 +125,14 @@ function looksLikeV6(s: Record<string, unknown>): boolean {
   const report = s.dayReport
   const reportOkay = report === null || (
     typeof report === 'object' &&
+    typeof (report as Record<string, unknown>).trainerFees === 'number' &&
     typeof (report as Record<string, unknown>).counterfeitLoss === 'number'
   )
 
   return (
+    typeof s.expansion === 'number' &&
     typeof s.lilDSeenDay === 'number' &&
+    typeof today.trainerFees === 'number' &&
     typeof today.counterfeitLoss === 'number' &&
     reportOkay
   )

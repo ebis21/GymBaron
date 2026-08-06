@@ -1,8 +1,7 @@
 import * as THREE from 'three'
 import type { Decor, GameState, Machine, MachineTypeId, Wall } from '../game/types'
-import { GRID_H, GRID_W } from '../game/constants'
 import { tileOccupant, type PlacedKind } from '../game/build'
-import { buildHall } from './models/floor'
+import { buildHall, disposeHall } from './models/floor'
 import { buildDecor, buildWallSegment, WALL_THICK } from './models/decor'
 import { buildGhost, buildMachine } from './models/machines'
 import { animate, buildPlayer, type Rig } from './models/character'
@@ -13,11 +12,18 @@ import {
   HALL_W,
   REACH,
   TILE,
+  gridH,
+  gridW,
+  hallD,
+  hallW,
   insideGrid,
   overheadFraming,
+  queueSpot,
+  syncRoomSize,
   tileToWorld,
   worldToTile,
 } from './layout'
+import { queueAnchorFor } from '../game/clientMove'
 import { blockingSight } from './sight'
 import { PALETTE, ownMaterials, toon } from './style'
 import { ActorLayer } from './actors'
@@ -50,10 +56,14 @@ const PLAYER_RADIUS = 0.42
 
 /** How solid a partition stays while it is standing in front of the player. */
 const WALL_FADED = 0.22
-/** Where a character's eyes are, for the face-to-face camera. */
-const EYE_HEIGHT = 1.5
 /** How close to the reception desk counts as being behind it. */
 const DESK_REACH = 2.6
+
+/** Where the haze starts and ends in the hall the game ships with. */
+const FOG_NEAR = 34
+const FOG_FAR = 66
+/** Corner-to-corner of that same hall — the yardstick a bigger room scales by. */
+const BASE_REACH = Math.hypot(HALL_W, HALL_D)
 
 const DEFAULT_UP = new THREE.Vector3(0, 1, 0)
 
@@ -112,8 +122,15 @@ export class GymScene {
   private readonly controls = new Controls()
 
   private readonly player: Rig
-  private readonly playerPos = new THREE.Vector3(-HALL_W / 2 + 3.4, 0, 3)
+  private readonly playerPos = new THREE.Vector3(-hallW() / 2 + 3.4, 0, 3)
   private playerFacing = 0
+
+  /** The room the 3D shell was last built for; a change rebuilds it. */
+  private roomW = gridW()
+  private roomH = gridH()
+  private hall: THREE.Group
+  /** Kept so an expansion can widen the shadow frustum with the floor. */
+  private readonly sun: THREE.DirectionalLight
 
   private readonly machines = new Map<string, MachineView>()
   private readonly actors = new ActorLayer(this.scene)
@@ -159,12 +176,14 @@ export class GymScene {
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap
 
     this.scene.background = new THREE.Color(PALETTE.sky)
-    this.fog = new THREE.Fog(PALETTE.sky, 34, 66)
+    this.fog = new THREE.Fog(PALETTE.sky, FOG_NEAR, FOG_FAR)
     this.scene.fog = this.fog
 
     this.camera = new THREE.PerspectiveCamera(35, 1, 0.1, 200)
-    this.scene.add(buildHall())
-    this.addLights()
+    this.hall = buildHall(this.roomW, this.roomH)
+    this.scene.add(this.hall)
+    this.sun = this.addLights()
+    this.fitToRoom()
 
     this.player = buildPlayer()
     this.scene.add(this.player.root)
@@ -192,8 +211,8 @@ export class GymScene {
     })
     const half = TILE / 2
 
-    for (let y = 0; y < GRID_H; y += 1) {
-      for (let x = 0; x < GRID_W; x += 1) {
+    for (let y = 0; y < this.roomH; y += 1) {
+      for (let x = 0; x < this.roomW; x += 1) {
         const at = tileToWorld(x, y)
         const points = [
           new THREE.Vector3(at.x - half, 0.03, at.z - half),
@@ -208,10 +227,28 @@ export class GymScene {
       }
     }
 
-    this.gridOverlay.visible = false
+    this.gridOverlay.visible = this.buildMode
   }
 
-  private addLights(): void {
+  /**
+   * Empties the overlay. Every line owns its geometry and they all share one
+   * material, so both have to go — a room bought a few times over a long
+   * session would otherwise leak a grid's worth of buffers each time.
+   */
+  private clearGridOverlay(): void {
+    const materials = new Set<THREE.Material>()
+
+    for (const child of this.gridOverlay.children) {
+      if (!(child instanceof THREE.Line)) continue
+      child.geometry.dispose()
+      materials.add(child.material as THREE.Material)
+    }
+
+    for (const material of materials) material.dispose()
+    this.gridOverlay.clear()
+  }
+
+  private addLights(): THREE.DirectionalLight {
     // Sky above, warm bounce off the floor — the base of the Hay Day palette.
     this.scene.add(new THREE.HemisphereLight(PALETTE.sky, PALETTE.floorDark, 1.5))
 
@@ -220,18 +257,82 @@ export class GymScene {
     sun.castShadow = true
     sun.shadow.mapSize.set(2048, 2048)
     sun.shadow.bias = -0.0006
-
-    const cam = sun.shadow.camera
-    cam.left = -HALL_W
-    cam.right = HALL_W
-    cam.top = HALL_D
-    cam.bottom = -HALL_D
-    cam.near = 1
-    cam.far = 60
-    cam.updateProjectionMatrix()
+    sun.shadow.camera.near = 1
 
     this.scene.add(sun)
     this.scene.add(new THREE.AmbientLight('#ffffff', 0.35))
+    return sun
+  }
+
+  // --- room size ------------------------------------------------------------
+
+  /**
+   * Everything sized off the hall rather than off the grid: the sun's shadow
+   * box has to cover the whole floor or the far corner loses its shadows, and
+   * the haze has to start beyond the back wall or a big room fades out before
+   * the player can see the end of it.
+   */
+  private fitToRoom(): void {
+    const w = hallW()
+    const d = hallD()
+
+    const cam = this.sun.shadow.camera
+    cam.left = -w
+    cam.right = w
+    cam.top = d
+    cam.bottom = -d
+    cam.far = Math.max(60, w * 3)
+    cam.updateProjectionMatrix()
+
+    // The haze was tuned by eye on the starting hall, so rather than pick new
+    // numbers it is stretched by however much further the room now reaches —
+    // a bigger gym fades at the same point in its own depth, not sooner.
+    const scale = Math.hypot(w, d) / BASE_REACH
+    this.fog.near = FOG_NEAR * scale
+    this.fog.far = FOG_FAR * scale
+  }
+
+  /**
+   * Rebuilds the shell for a room of a different size. The hall and the grid
+   * overlay are the only two things built for one floor plan and no other, so
+   * they are thrown away whole rather than stretched; everything else is
+   * placed from state every frame and re-centres on its own. A no-op when the
+   * size has not moved, which is every frame but the one after a purchase.
+   */
+  setRoomSize(w: number, h: number): void {
+    if (w === this.roomW && h === this.roomH) return
+
+    // Both the grid and the hall are centred on the origin, so widening by two
+    // columns slides every fixed point half a column's worth of world units to
+    // the left — by the same amount for both. The player is the one thing on
+    // the floor that has no tile of its own to be replaced from, so it is
+    // carried across by hand; otherwise buying a wing would teleport them
+    // sideways relative to a room that had not moved under their feet.
+    this.playerPos.x -= ((w - this.roomW) * TILE) / 2
+    this.playerPos.z -= ((h - this.roomH) * TILE) / 2
+
+    this.roomW = w
+    this.roomH = h
+
+    this.scene.remove(this.hall)
+    disposeHall(this.hall)
+    this.hall = buildHall(w, h)
+    this.scene.add(this.hall)
+
+    this.clearGridOverlay()
+    this.buildGridOverlay()
+
+    this.fitToRoom()
+    this.frameHall()
+
+    // The player was standing somewhere in the old room's coordinates and the
+    // whole floor plan just re-centred under them; nudge them back inside
+    // rather than leaving them wedged in a wall.
+    this.clampPlayerInside()
+
+    // The overhead view is framed on the room's size, so it has to be re-cut
+    // rather than eased across.
+    this.cameraPlaced = false
   }
 
   // --- state synchronisation ------------------------------------------------
@@ -244,6 +345,12 @@ export class GymScene {
   sync(state: GameState): void {
     this.state = state
     this.solids = []
+
+    // Cheap and idempotent, and it means the renderer never depends on the
+    // engine having run first — a save loaded straight into an expanded gym
+    // draws the right room on its very first frame.
+    syncRoomSize(state)
+    this.setRoomSize(gridW(), gridH())
 
     this.syncMachines(state.machines)
     this.syncDecor(state.decor)
@@ -665,8 +772,9 @@ export class GymScene {
   }
 
   /**
-   * Steps the camera into the player's own eyes, facing one client. Passing
-   * null hands the view back to the usual over-the-shoulder camera.
+   * Marks which client the player is serving. It holds them still and turns
+   * them to face that client; the camera is deliberately left alone. Passing
+   * null hands them back to the walk controls.
    */
   setFacing(clientUid: string | null): void {
     this.facing = clientUid
@@ -679,9 +787,43 @@ export class GymScene {
 
   /** Inside the four walls. This one is never suspended. */
   private insideBounds(x: number, z: number): boolean {
-    const limitX = HALL_W / 2 - PLAYER_RADIUS - 0.3
-    const limitZ = HALL_D / 2 - PLAYER_RADIUS - 0.3
-    return Math.abs(x) <= limitX && Math.abs(z) <= limitZ
+    const limit = this.wallLimits()
+    return Math.abs(x) <= limit.x && Math.abs(z) <= limit.z
+  }
+
+  private wallLimits(): { x: number; z: number } {
+    return {
+      x: hallW() / 2 - PLAYER_RADIUS - 0.3,
+      z: hallD() / 2 - PLAYER_RADIUS - 0.3,
+    }
+  }
+
+  /** Pulls the player back within the walls after the room changed shape. */
+  /**
+   * Drops the player at the front counter. A testing shortcut: the desk is
+   * where almost everything worth checking happens, and walking there across
+   * a hall that may have just doubled in size is not the thing being tested.
+   *
+   * Lands them beside the head of the queue rather than on the desk itself, so
+   * whoever is waiting is immediately within reach of the action prompt.
+   */
+  teleportToReception(state: GameState): void {
+    const anchor = queueAnchorFor(state)
+    const spot = queueSpot(0, anchor)
+
+    // One pace to the attendant's left of the first person in line, so the
+    // player is not standing inside them.
+    this.playerPos.set(spot.x - Math.cos(anchor.angle) * 1.1, 0, spot.z + Math.sin(anchor.angle) * 1.1)
+    this.clampPlayerInside()
+    this.playerFacing = anchor.angle + Math.PI
+    // Cut rather than swoop across the room.
+    this.cameraPlaced = false
+  }
+
+  private clampPlayerInside(): void {
+    const limit = this.wallLimits()
+    this.playerPos.x = Math.max(-limit.x, Math.min(limit.x, this.playerPos.x))
+    this.playerPos.z = Math.max(-limit.z, Math.min(limit.z, this.playerPos.z))
   }
 
   /**
@@ -796,31 +938,20 @@ export class GymScene {
   }
 
   private followCamera(dt: number): void {
-    const partner = this.facingRig()
-
-    // The player's own body would fill a first-person view from the inside.
-    this.player.root.visible = partner === null
-
-    // Build mode looks straight down at the middle of the room, a
-    // conversation looks out of the player's own eyes, and otherwise the
+    // Build mode looks straight down at the middle of the room; otherwise the
     // camera sits roughly 45° above and behind — Hay Day's reading angle.
+    //
+    // Talking to a client used to drop the camera into the player's own eyes.
+    // It read as the screen lurching every time somebody was served, which is
+    // the one moment the player is about to look at a panel of numbers, so the
+    // move is gone: the player still stops and turns to face whoever they are
+    // serving, and the camera simply stays where it was.
     let eye: THREE.Vector3
     let aim: THREE.Vector3
 
     if (this.buildMode) {
       eye = this.buildEye
       aim = new THREE.Vector3(0, 0, 0)
-    } else if (partner) {
-      const head = new THREE.Vector3(
-        partner.root.position.x,
-        EYE_HEIGHT,
-        partner.root.position.z,
-      )
-      // A pace out of the player's own head, so the view is theirs without
-      // the near plane clipping through their hair.
-      eye = new THREE.Vector3(this.playerPos.x, EYE_HEIGHT, this.playerPos.z)
-      eye.lerp(head, 0.16)
-      aim = head
     } else {
       eye = new THREE.Vector3(this.playerPos.x - 1.5, 12.5, this.playerPos.z + 13.5)
       aim = new THREE.Vector3(this.playerPos.x, 1.1, this.playerPos.z - 0.5)
@@ -829,7 +960,7 @@ export class GymScene {
     // Snap on the opening frame and on a change of view. Lerping in from the
     // origin would swoop the camera up through the floor on load.
     if (this.cameraPlaced) {
-      const ease = Math.min(1, dt * (partner ? 5 : 3.2))
+      const ease = Math.min(1, dt * 3.2)
       this.camera.position.lerp(eye, ease)
       this.lookAtNow.lerp(aim, ease)
     } else {
@@ -863,6 +994,7 @@ export class GymScene {
   dispose(): void {
     this.controls.dispose()
     this.actors.dispose()
+    this.clearGridOverlay()
     this.scene.traverse(obj => {
       if (obj instanceof THREE.Mesh) obj.geometry.dispose()
     })

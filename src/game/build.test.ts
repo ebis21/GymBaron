@@ -1,6 +1,7 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, afterEach } from 'vitest'
 import {
   addToInventory,
+  insideGrid,
   canonicalEdge,
   movePlaced,
   moveWall,
@@ -14,10 +15,56 @@ import {
   tileOccupant,
 } from './build'
 import { initialState } from './economy'
+import { syncRoomSize } from './layout'
 import type { GameState } from './types'
 
 /** A blank room: the starter decor would get in the way of most of these. */
 const empty = (): GameState => ({ ...initialState(11, 0), decor: [] })
+
+/** Points the layout register at one rung of the floor-space ladder. */
+const roomOf = (expansion: number) => syncRoomSize({ expansion } as GameState)
+
+afterEach(() => roomOf(0))
+
+describe('insideGrid', () => {
+  it('stops at the base room until an expansion is bought', () => {
+    expect(insideGrid(7, 5)).toBe(true)
+    expect(insideGrid(8, 0)).toBe(false)
+    expect(insideGrid(0, 6)).toBe(false)
+  })
+
+  it('takes in the floor an expansion adds', () => {
+    roomOf(1) // 10 x 6
+    expect(insideGrid(9, 5)).toBe(true)
+    expect(insideGrid(10, 0)).toBe(false)
+    expect(insideGrid(0, 6)).toBe(false)
+
+    roomOf(2) // 10 x 8
+    expect(insideGrid(9, 7)).toBe(true)
+    expect(insideGrid(9, 8)).toBe(false)
+  })
+
+  it('never takes in the aisle, whatever the room size', () => {
+    for (const level of [0, 1, 2, 3]) {
+      roomOf(level)
+      expect(insideGrid(-1, 0)).toBe(false)
+    }
+  })
+})
+
+describe('placing on floor an expansion bought', () => {
+  it('accepts a tile the base room did not have', () => {
+    roomOf(1)
+    const s0 = addToInventory(empty(), { kind: 'machine', type: 'bench' })
+    const s = placeFromInventory(s0, s0.inventory[0]!.uid, 9, 5)
+    expect(s.machines[0]).toMatchObject({ x: 9, y: 5 })
+  })
+
+  it('refuses the same tile once the register is back on the base room', () => {
+    const s0 = addToInventory(empty(), { kind: 'machine', type: 'bench' })
+    expect(placeFromInventory(s0, s0.inventory[0]!.uid, 9, 5)).toBe(s0)
+  })
+})
 
 describe('nextRotation', () => {
   it('cycles through four quarter turns and back', () => {

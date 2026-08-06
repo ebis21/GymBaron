@@ -85,7 +85,7 @@ export type ClientPhase =
 
 /**
  * Members queue and get scanned exactly like walk-ins — the pass buys them a
- * 90% discount at the door, not a way around it.
+ * discount at the door, not a way around it.
  */
 export type ClientKind = 'walkin' | 'member'
 
@@ -104,6 +104,13 @@ export interface Client extends Walker {
   machineUid: string | null
   /** Set for members so a visit can be traced back to the pass holder. */
   memberUid: string | null
+  /**
+   * Employee booked to coach this visit, set at the desk in exchange for a
+   * `TRAINER_FEE_MULT` door fee. Doubles as the trainer's booking: an employee
+   * is free exactly when no client names them here, so the booking lives in
+   * one place rather than on both sides. Cleared when the client leaves.
+   */
+  trainerUid: string | null
   /** Named one-off visitors whose rules differ from the normal rarity table. */
   special?: 'lil-d'
 }
@@ -118,17 +125,25 @@ export interface Member {
 export interface DayLedger {
   entryFees: number
   subscriptions: number
-  /** Cash lost at the desk to banknotes that only looked real. */
-  counterfeitLoss: number
   signups: number
   clientsServed: number
   clientsLost: number
+  /**
+   * The trainer's share of the door fees, counted separately so the receipt
+   * can show what booking trainers actually earned. Already included in
+   * `entryFees` — this is a breakdown, not extra income.
+   */
+  trainerFees: number
+  /** Cash lost at the desk to banknotes that only looked real. */
+  counterfeitLoss: number
 }
 
 /** The receipt shown at 20:00. Written once by `closeDay`. */
 export interface DayReport {
   day: number
   entryFees: number
+  /** Part of `entryFees` that personal-trainer bookings brought in. */
+  trainerFees: number
   subscriptions: number
   counterfeitLoss: number
   signups: number
@@ -173,11 +188,25 @@ export interface GameState {
   /** Day the pool was drawn for; keeps a stale pool from surviving the night. */
   candidatesDay: number
   seed: number
+  /**
+   * How many floor expansions the player has bought — an index into
+   * `EXPANSIONS`, which is what actually decides the size of the room. 0 is
+   * the gym everyone starts with.
+   */
+  expansion: number
   /** 1-based. The player advances it by hand; nothing else may. */
   day: number
-  /** Position inside the day, 0…DAY_MS. Maps to a clock between 8:00 and 20:00. */
+  /**
+   * Position inside the day, 0…DAY_MS. Maps to a clock between 8:00 and 20:00.
+   * It stops at DAY_MS: past closing the gym stops admitting anyone, but the
+   * simulation keeps running so the player can rebuild in peace and shut up
+   * shop when they are ready.
+   */
   dayMs: number
-  /** True at 20:00. Freezes the whole simulation until `nextDay`. */
+  /**
+   * Set by `closeDay`, which only ever runs on the player's own say-so. Freezes
+   * the whole simulation until `nextDay`.
+   */
   dayEnded: boolean
   today: DayLedger
   /** The last closed day's receipt, or null before the first close. */
@@ -202,7 +231,7 @@ export interface Walker extends Point {
   goal: Tile | null
 }
 
-export type StaffRole = 'reception' | 'cleaner' | 'repair'
+export type StaffRole = 'reception' | 'cleaner' | 'repair' | 'trainer'
 export type StaffRank = 'rare' | 'epic' | 'legend'
 
 export interface Staff extends Walker {
@@ -210,7 +239,7 @@ export interface Staff extends Walker {
   name: string
   role: StaffRole
   rank: StaffRank
-  /** uid of a stain, a machine or a client — whichever the role works on. */
+  /** uid of a stain, a machine, a desk or a client — whichever the role works on. */
   targetUid: string | null
   /** ms already spent working at the target. */
   workMs: number

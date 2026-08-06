@@ -1,9 +1,13 @@
 import { describe, it, expect } from 'vitest'
-import { assignStaff, workStaff, fire, hire, payArrears, onDuty, restTileFor } from './staff'
+import {
+  assignStaff, workStaff, fire, hire, payArrears, onDuty, restTileFor, targetTile,
+  deskPost, freeTrainers, isTrainerFree, nextToServe,
+} from './staff'
 import { initialState } from './economy'
-import { tileToWorld } from './layout'
-import { STAFF_UNLOCK_LEVEL } from './constants'
-import type { Candidate, Decor, GameState, Machine, Staff, Stain } from './types'
+import { isAtStaffDoor, staffDoorTile, tileToWorld } from './layout'
+import { workMsFor } from './content/staff'
+import { PATIENCE_MS, STAFF_UNLOCK_LEVEL, TRAINER_UNLOCK_LEVEL } from './constants'
+import type { Candidate, Client, Decor, GameState, Machine, Staff, Stain } from './types'
 
 const at = (x: number, y: number) => tileToWorld(x, y)
 
@@ -25,6 +29,15 @@ const desk = (over: Partial<Decor> = {}): Decor => ({ uid: 'd1', type: 'receptio
 const candidate = (over: Partial<Candidate> = {}): Candidate => ({
   uid: 'k1', name: 'Marta K.', role: 'cleaner', rank: 'rare', price: 1200, ...over,
 })
+
+const client = (over: Partial<Client> = {}): Client => ({
+  uid: 'c1', kind: 'walkin', rarity: 'common', phase: 'queue', phaseMs: 0,
+  machineUid: null, memberUid: null, trainerUid: null,
+  x: 0, z: 0, path: [], goal: null, ...over,
+})
+
+/** Standing at the counter of a desk at (1,1) facing north — the tile at (1,0). */
+const atDesk = { x: at(1, 0).x, z: at(1, 0).z }
 
 const gym = (over: Partial<GameState> = {}): GameState => ({
   ...initialState(7, 0),
@@ -92,6 +105,108 @@ describe('assignStaff', () => {
     }))
     expect(s.staff[0]!.targetUid).toBe('d1')
     expect(s.staff[1]!.targetUid).toBeNull()
+  })
+
+  /**
+   * The shipped desk sat at (0,0) facing north, which puts the attendant's
+   * tile at y = -1 — off the grid. The job could never be walked to, so it was
+   * handed out and dropped again on every tick: nobody was ever served, and
+   * the staff array was rebuilt sixty times a second for the trouble.
+   */
+  it('gives a receptionist a reachable post at a desk in the top row', () => {
+    const s = assignStaff(gym({
+      staff: [staff({ role: 'reception' })],
+      decor: [desk({ x: 0, y: 0, rotation: 0 })],
+    }))
+    expect(s.staff[0]!.targetUid).toBe('d1')
+
+    const post = targetTile(s, s.staff[0]!)
+    expect(post).not.toBeNull()
+    expect(post!.y).toBeGreaterThanOrEqual(0)
+  })
+
+  it('settles instead of re-assigning the same desk every tick', () => {
+    const first = assignStaff(gym({
+      staff: [staff({ role: 'reception' })],
+      decor: [desk({ x: 0, y: 0, rotation: 0 })],
+    }))
+    expect(assignStaff(first)).toBe(first)
+  })
+
+  it('leaves a desk nobody can stand at unassigned', () => {
+    // Boxed in on all four sides by machines, with the attendant's tile off
+    // the grid: there is genuinely nowhere to work from.
+    const s = assignStaff(gym({
+      staff: [staff({ role: 'reception' })],
+      decor: [desk({ x: 1, y: 0, rotation: 0 })],
+      machines: [
+        machine({ uid: 'mA', x: 0, y: 0 }),
+        machine({ uid: 'mB', x: 2, y: 0 }),
+        machine({ uid: 'mC', x: 1, y: 1 }),
+      ],
+    }))
+    expect(s.staff[0]!.targetUid).toBeNull()
+  })
+
+  /**
+   * Storing and re-placing a desk mints a new uid. `targetTile` read *any*
+   * desk, so a receptionist holding the old uid kept working while a second
+   * one was handed the new desk — both stood on the same tile, both scanning.
+   */
+  it('drops a claim on a desk that no longer exists', () => {
+    const s = gym({
+      staff: [staff({ role: 'reception', targetUid: 'd-old' })],
+      decor: [desk({ uid: 'd-new', x: 3, y: 3 })],
+    })
+    expect(targetTile(s, s.staff[0]!)).toBeNull()
+    expect(assignStaff(s).staff[0]!.targetUid).toBe('d-new')
+  })
+})
+
+describe('deskPost', () => {
+  it('prefers the attendant\'s side, opposite the queue', () => {
+    const s = gym()
+    expect(deskPost(s, desk({ x: 3, y: 3, rotation: 0 }))).toEqual({ x: 3, y: 2 })
+  })
+
+  it('falls back to another side when that tile is off the grid', () => {
+    const s = gym()
+    const post = deskPost(s, desk({ x: 0, y: 0, rotation: 0 }))
+    expect(post).not.toBeNull()
+    expect(Math.abs(post!.x - 0) + Math.abs(post!.y - 0)).toBe(1)
+  })
+
+  it('falls back again when that tile is built over', () => {
+    const s = gym({ machines: [machine({ x: 3, y: 2 })] })
+    expect(deskPost(s, desk({ x: 3, y: 3, rotation: 0 }))).not.toEqual({ x: 3, y: 2 })
+  })
+
+  it('gives up on a desk with nowhere at all to stand', () => {
+    const s = gym({
+      machines: [
+        machine({ uid: 'mA', x: 0, y: 0 }),
+        machine({ uid: 'mB', x: 2, y: 0 }),
+        machine({ uid: 'mC', x: 1, y: 1 }),
+      ],
+    })
+    expect(deskPost(s, desk({ x: 1, y: 0, rotation: 0 }))).toBeNull()
+  })
+})
+
+describe('nextToServe', () => {
+  it('takes whoever is closest to walking out, not whoever queued first', () => {
+    const s = gym({
+      clients: [
+        client({ uid: 'fresh', phaseMs: 1000 }),
+        client({ uid: 'desperate', phaseMs: PATIENCE_MS - 500 }),
+      ],
+    })
+    expect(nextToServe(s)!.uid).toBe('desperate')
+  })
+
+  it('ignores everybody who is not queueing', () => {
+    const s = gym({ clients: [client({ phase: 'workout', phaseMs: 99_999 })] })
+    expect(nextToServe(s)).toBeNull()
   })
 })
 
@@ -161,6 +276,227 @@ describe('workStaff', () => {
     }))
     expect(s.staff[0]!.targetUid).toBe('m1')
   })
+
+  const receptionist = (over: Partial<Staff> = {}) =>
+    staff({ role: 'reception', targetUid: 'd1', ...atDesk, ...over })
+
+  const SCAN_MS = workMsFor('reception', 'rare')
+
+  it('scans the queue once the scan time is up', () => {
+    let s = gym({
+      staff: [receptionist()],
+      decor: [desk()],
+      machines: [machine()],
+      clients: [client()],
+    })
+    s = workStaff(s, SCAN_MS)
+    expect(s.clients[0]!.phase).toBe('toMachine')
+  })
+
+  /**
+   * The cycle used to be spent whether or not anybody was served, so somebody
+   * walking in a frame after a scan completed waited a whole extra cycle for a
+   * turn that had already come and gone.
+   */
+  it('holds a finished cycle when there is nobody to serve', () => {
+    let s = gym({ staff: [receptionist()], decor: [desk()], machines: [machine()] })
+    s = workStaff(s, SCAN_MS)
+    expect(s.staff[0]!.workMs).toBe(SCAN_MS)
+
+    s = { ...s, clients: [client()] }
+    s = workStaff(s, 16)
+    expect(s.clients[0]!.phase).toBe('toMachine')
+    expect(s.staff[0]!.workMs).toBe(0)
+  })
+
+  it('holds the cycle rather than banking it while the queue stays empty', () => {
+    let s = gym({ staff: [receptionist()], decor: [desk()], machines: [machine()] })
+    for (let i = 0; i < 20; i++) s = workStaff(s, SCAN_MS)
+    expect(s.staff[0]!.workMs).toBe(SCAN_MS)
+    // And the waiting costs nothing: no new state sixty times a second.
+    expect(workStaff(s, 100)).toBe(s)
+  })
+
+  it('holds the cycle when every machine is busy, too', () => {
+    let s = gym({
+      staff: [receptionist()],
+      decor: [desk()],
+      machines: [machine({ occupiedBy: 'c9' })],
+      clients: [client()],
+    })
+    s = workStaff(s, SCAN_MS * 2)
+    expect(s.clients[0]!.phase).toBe('queue')
+    expect(s.staff[0]!.workMs).toBe(SCAN_MS)
+  })
+
+  // The receptionist runs the desk exactly as the player would, upsell and
+  // all — otherwise hiring one quietly cost you every trainer booking.
+  it('books a free trainer for whoever it admits', () => {
+    let s = gym({
+      staff: [receptionist(), staff({ uid: 'e2', role: 'trainer' })],
+      decor: [desk()],
+      machines: [machine()],
+      clients: [client()],
+    })
+    s = workStaff(s, SCAN_MS)
+    expect(s.clients[0]!.phase).toBe('toMachine')
+    expect(s.clients[0]!.trainerUid).toBe('e2')
+  })
+
+  it('charges the trainer rate for a booking it made itself', () => {
+    const base = gym({
+      staff: [receptionist()],
+      decor: [desk()],
+      machines: [machine()],
+      clients: [client()],
+    })
+    const withCoach = { ...base, staff: [...base.staff, staff({ uid: 'e2', role: 'trainer' })] }
+
+    const plain = workStaff(base, SCAN_MS).cash - base.cash
+    const coached = workStaff(withCoach, SCAN_MS).cash - withCoach.cash
+    expect(coached).toBeCloseTo(plain * 1.5, 5)
+  })
+
+  it('admits people without a coach once every trainer is busy', () => {
+    let s = gym({
+      staff: [receptionist(), staff({ uid: 'e2', role: 'trainer' })],
+      decor: [desk()],
+      machines: [machine(), machine({ uid: 'm2' })],
+      clients: [client({ uid: 'c1' }), client({ uid: 'c2' })],
+    })
+    s = workStaff(s, SCAN_MS)
+    s = workStaff(s, SCAN_MS)
+
+    const booked = s.clients.filter(c => c.trainerUid === 'e2')
+    expect(booked).toHaveLength(1)
+    expect(s.clients.every(c => c.phase === 'toMachine')).toBe(true)
+  })
+
+  it('serves whoever is closest to walking out', () => {
+    let s = gym({
+      staff: [receptionist()],
+      decor: [desk()],
+      machines: [machine()],
+      clients: [
+        client({ uid: 'fresh', phaseMs: 0 }),
+        client({ uid: 'desperate', phaseMs: PATIENCE_MS - 500 }),
+      ],
+    })
+    s = workStaff(s, SCAN_MS)
+    expect(s.clients.find(c => c.uid === 'desperate')!.phase).toBe('toMachine')
+    expect(s.clients.find(c => c.uid === 'fresh')!.phase).toBe('queue')
+  })
+
+  it('never scans from a desk somebody else claimed', () => {
+    const s = gym({
+      staff: [receptionist({ targetUid: 'd-old' })],
+      decor: [desk({ uid: 'd-new' })],
+      machines: [machine()],
+      clients: [client()],
+    })
+    expect(workStaff(s, SCAN_MS).clients[0]!.phase).toBe('queue')
+  })
+
+  /**
+   * Coaching runs off the client's own visit, not off a work timer. Left to
+   * fall through, a trainer standing by the kit would have started scanning
+   * the queue from across the room.
+   */
+  it('never lets a trainer scan the queue', () => {
+    const s = gym({
+      staff: [staff({ role: 'trainer', targetUid: 'c1', ...atDesk })],
+      decor: [desk()],
+      machines: [machine()],
+      clients: [client()],
+    })
+    expect(workStaff(s, 60_000).clients[0]!.phase).toBe('queue')
+  })
+})
+
+describe('trainers', () => {
+  const trainer = (over: Partial<Staff> = {}) => staff({ role: 'trainer', ...over })
+
+  it('counts a trainer nobody has booked as free', () => {
+    const s = gym({ staff: [trainer()], clients: [client()] })
+    expect(freeTrainers(s).map(t => t.uid)).toEqual(['e1'])
+    expect(isTrainerFree(s, 'e1')).toBe(true)
+  })
+
+  it('counts a trainer some client has named as busy', () => {
+    const s = gym({ staff: [trainer()], clients: [client({ trainerUid: 'e1' })] })
+    expect(freeTrainers(s)).toHaveLength(0)
+    expect(isTrainerFree(s, 'e1')).toBe(false)
+  })
+
+  it('holds the booking from the moment it is made, before the client moves', () => {
+    const s = gym({
+      staff: [trainer()],
+      clients: [client({ phase: 'queue', trainerUid: 'e1' })],
+    })
+    expect(isTrainerFree(s, 'e1')).toBe(false)
+  })
+
+  it('frees the trainer again once the client has gone', () => {
+    const s = gym({ staff: [trainer()], clients: [] })
+    expect(isTrainerFree(s, 'e1')).toBe(true)
+  })
+
+  it('never offers somebody on strike', () => {
+    const s = gym({ staff: [trainer({ owed: 400 })] })
+    expect(freeTrainers(s)).toHaveLength(0)
+  })
+
+  it('offers nobody but trainers', () => {
+    const s = gym({ staff: [staff({ role: 'cleaner' }), staff({ uid: 'e2', role: 'repair' })] })
+    expect(freeTrainers(s)).toHaveLength(0)
+  })
+
+  it('takes the client who booked them as the job', () => {
+    const s = assignStaff(gym({
+      staff: [trainer()],
+      machines: [machine({ occupiedBy: 'c1' })],
+      clients: [client({ phase: 'workout', machineUid: 'm1', trainerUid: 'e1' })],
+    }))
+    expect(s.staff[0]!.targetUid).toBe('c1')
+  })
+
+  it('waits for the client to be sent to a machine before walking anywhere', () => {
+    const s = assignStaff(gym({
+      staff: [trainer()],
+      clients: [client({ phase: 'queue', trainerUid: 'e1' })],
+    }))
+    expect(s.staff[0]!.targetUid).toBeNull()
+  })
+
+  it('takes no job from a client who booked somebody else', () => {
+    const s = assignStaff(gym({
+      staff: [trainer()],
+      machines: [machine({ occupiedBy: 'c1' })],
+      clients: [client({ phase: 'workout', machineUid: 'm1', trainerUid: 'e9' })],
+    }))
+    expect(s.staff[0]!.targetUid).toBeNull()
+  })
+
+  it('is released the moment the booked client leaves', () => {
+    const before = gym({
+      staff: [trainer({ targetUid: 'c1' })],
+      machines: [machine()],
+      clients: [client({ phase: 'leaving', trainerUid: 'e1' })],
+    })
+    expect(targetTile(before, before.staff[0]!)).toBeNull()
+    expect(assignStaff(before).staff[0]!.targetUid).toBeNull()
+  })
+
+  it('stands beside the client\'s machine rather than on top of them', () => {
+    const s = gym({
+      staff: [trainer({ targetUid: 'c1' })],
+      machines: [machine({ x: 4, y: 2, occupiedBy: 'c1' })],
+      clients: [client({ phase: 'workout', machineUid: 'm1', trainerUid: 'e1' })],
+    })
+    const tile = targetTile(s, s.staff[0]!)!
+    expect(tile).not.toEqual({ x: 4, y: 2 })
+    expect(Math.abs(tile.x - 4) + Math.abs(tile.y - 2)).toBe(1)
+  })
 })
 
 describe('fire', () => {
@@ -228,10 +564,50 @@ describe('hire', () => {
     const before = gym({ candidates: [candidate({ role: 'reception' })], cash: 100_000, decor: [] })
     expect(hire(before, 'k1')).toBe(before)
   })
+
+  it('takes on a trainer at the trainer unlock, long before the rest', () => {
+    const before = gym({
+      level: TRAINER_UNLOCK_LEVEL,
+      candidates: [candidate({ role: 'trainer' })],
+      cash: 100_000,
+    })
+    expect(hire(before, 'k1').staff).toHaveLength(1)
+  })
+
+  it('still refuses everybody else at that level', () => {
+    const before = gym({
+      level: TRAINER_UNLOCK_LEVEL,
+      candidates: [candidate({ role: 'cleaner' })],
+      cash: 100_000,
+    })
+    expect(hire(before, 'k1')).toBe(before)
+  })
+
+  it('refuses a trainer below the trainer unlock', () => {
+    const before = gym({
+      level: TRAINER_UNLOCK_LEVEL - 1,
+      candidates: [candidate({ role: 'trainer' })],
+      cash: 100_000,
+    })
+    expect(hire(before, 'k1')).toBe(before)
+  })
 })
 
 describe('restTileFor', () => {
-  it('parks idle staff in the aisle, out of the way', () => {
-    expect(restTileFor(gym({ staff: [staff()] }), staff()).x).toBeLessThan(0)
+  it('sends everybody to the same doorstep, out in the aisle', () => {
+    expect(restTileFor()).toEqual(staffDoorTile())
+    expect(restTileFor().x).toBeLessThan(0)
+  })
+
+  // Standing on the doorstep is the whole of being off shift: there is nothing
+  // behind the door, and the renderer keys off exactly this.
+  it('recognises the doorstep it sends them to', () => {
+    const door = staffDoorTile()
+    expect(isAtStaffDoor(at(door.x, door.y).x, at(door.x, door.y).z)).toBe(true)
+  })
+
+  it('counts anywhere on the gym floor as being out and visible', () => {
+    expect(isAtStaffDoor(at(4, 2).x, at(4, 2).z)).toBe(false)
+    expect(isAtStaffDoor(at(-1, 3).x, at(-1, 3).z)).toBe(false)
   })
 })

@@ -8,15 +8,33 @@ import { deserialize } from './save'
 import type { Client, GameState, Machine } from './types'
 
 const machine = (over: Partial<Machine> = {}): Machine => ({
-  uid: 'm1', type: 'dumbbells', x: 2, y: 2, rotation: 0,
-  durability: 100, occupiedBy: null, brokenMs: 0, ...over,
+  uid: 'm1',
+  type: 'dumbbells',
+  x: 2,
+  y: 2,
+  rotation: 0,
+  durability: 100,
+  occupiedBy: null,
+  brokenMs: 0,
+  ...over,
 })
 
 function lilD(over: Partial<Client> = {}): Client {
   return {
-    uid: 'c99', kind: 'walkin', rarity: 'secret', special: 'lil-d',
-    phase: 'queue', phaseMs: 0, machineUid: null, memberUid: null,
-    x: 0, z: 0, path: [], goal: null, ...over,
+    uid: 'c99',
+    kind: 'walkin',
+    rarity: 'secret',
+    special: 'lil-d',
+    phase: 'queue',
+    phaseMs: 0,
+    machineUid: null,
+    memberUid: null,
+    trainerUid: null,
+    x: 0,
+    z: 0,
+    path: [],
+    goal: null,
+    ...over,
   }
 }
 
@@ -80,7 +98,9 @@ describe('LIL D. secret visitor', () => {
 
   it('shows the full loss in the day report balance', () => {
     const state: GameState = {
-      ...gym(), cash: gym().cash - LIL_D_FAKE_PAYMENT, dayMs: DAY_MS,
+      ...gym(),
+      cash: gym().cash - LIL_D_FAKE_PAYMENT,
+      dayMs: DAY_MS,
       today: { ...gym().today, counterfeitLoss: LIL_D_FAKE_PAYMENT },
     }
     const report = closeDay(state).dayReport!

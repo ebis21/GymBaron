@@ -16,7 +16,10 @@ import {
 } from '../game/build'
 import { scanClient } from '../game/clients'
 import { wipeStain } from '../game/stains'
-import { nextDay } from '../game/dayClose'
+import { closeDay, nextDay } from '../game/dayClose'
+import { nextExpansion } from '../game/content/expansion'
+import { isClosingTime } from '../game/clock'
+import { syncRoomSize } from '../game/layout'
 import { advance } from '../game/tick'
 import { serialize, deserialize } from '../game/save'
 import { settleOffline } from '../game/offline'
@@ -44,7 +47,11 @@ interface GameStore {
   moveObject: (kind: PlacedKind, uid: string, x: number, y: number) => void
   moveWallEdge: (uid: string, x: number, y: number, side: 'n' | 's' | 'e' | 'w') => void
   demolishWall: (uid: string) => void
-  scan: (clientUid: string) => void
+  /** `trainerUid` books a personal trainer for this visit; null is the plain fee. */
+  scan: (clientUid: string, trainerUid?: string | null) => void
+  buyExpansion: () => void
+  /** Cashes up the day. Only offered once the clock has run out. */
+  endDay: () => void
   repair: (machineUid: string) => void
   wipe: (stainUid: string) => void
   hireCandidate: (candidateUid: string) => void
@@ -102,9 +109,10 @@ export const useGameStore = create<GameStore>((set, get) => {
     const next = advance(current, dtMs)
     set({ state: next })
 
-    // Closing time is worth a save of its own — the receipt and the bill are
-    // the one moment a player would hate to replay.
-    if (next.dayEnded) {
+    // Closing time is worth a save of its own — the takings of a whole day are
+    // the one thing a player would hate to replay. After that the gym stays
+    // live for building, so the ordinary autosave carries on below.
+    if (isClosingTime(next.dayMs) && !isClosingTime(current.dayMs)) {
       sinceSaveMs = 0
       persist(next)
       return
@@ -145,6 +153,10 @@ export const useGameStore = create<GameStore>((set, get) => {
         const now = Date.now()
         const raw = await loadRaw(SAVE_KEY)
         const loaded = raw ? deserialize(raw, now) : initialState(now, now)
+        // Before a single engine call: an expanded gym must be restored at its
+        // real size, or the first offline tick would route everyone around
+        // walls that are no longer there.
+        syncRoomSize(loaded)
         const settled = settleOffline(loaded, now)
         const { earned, awayMs } = settled
         const state = ensurePool(settled.state)
@@ -208,11 +220,27 @@ export const useGameStore = create<GameStore>((set, get) => {
 
     demolishWall: uid => commit(removeWall(get().state, uid)),
 
-    scan: clientUid => {
+    scan: (clientUid, trainerUid = null) => {
       const state = get().state
       if (state.gameOver) return
-      set({ state: scanClient(state, clientUid) })
+      commit(scanClient(state, clientUid, trainerUid))
     },
+
+    buyExpansion: () => {
+      const state = get().state
+      const next = nextExpansion(state.expansion)
+      if (state.gameOver || !next) return
+      if (state.level < next.minLevel || state.cash < next.price) return
+
+      const grown = { ...charge(state, next.price), expansion: state.expansion + 1 }
+      // The room register is what `walkable`/`insideGrid` read; sync it now so
+      // the very next build action already sees the new floor, rather than
+      // waiting for the next engine tick to widen the bounds.
+      syncRoomSize(grown)
+      commit(grown)
+    },
+
+    endDay: () => commit(closeDay(get().state)),
 
     repair: machineUid => {
       const state = get().state
@@ -280,6 +308,8 @@ export const useGameStore = create<GameStore>((set, get) => {
     restart: () => {
       const now = Date.now()
       const fresh = ensurePool(initialState(now, now))
+      // A fresh gym is the base room again, whatever the last one grew to.
+      syncRoomSize(fresh)
       sinceSaveMs = 0
       set({ state: fresh, welcomeBack: null, ready: true })
       persist(fresh)

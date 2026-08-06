@@ -1,7 +1,7 @@
 import { useGameStore } from '../store/gameStore'
-import { STAFF_UNLOCK_LEVEL } from '../game/constants'
+import { DAY_MS, STAFF_UNLOCK_LEVEL } from '../game/constants'
 import { summonLilD } from '../game/clients'
-import { DOOR_QUEUE_ANCHOR, DOOR_X } from '../game/layout'
+import { DOOR_QUEUE_Z, doorX } from '../game/layout'
 import type { Client, ClientRarity } from '../game/types'
 
 const SHOWCASE_RARITIES: ClientRarity[] = ['common', 'rare', 'epic', 'legend', 'influencer']
@@ -13,7 +13,12 @@ const SHOWCASE_RARITIES: ClientRarity[] = ['common', 'rare', 'epic', 'legend', '
  * into `npm run dev` — Vite strips this whole module from `npm run build`,
  * so it never ships in the mobile app.
  */
-export default function DevPanel() {
+interface Props {
+  /** Drops the player at the front counter; the scene owns their position. */
+  onTeleportToReception: () => void
+}
+
+export default function DevPanel({ onTeleportToReception }: Props) {
   const state = useGameStore(s => s.state)
   const cheat = useGameStore(s => s.cheat)
   const restart = useGameStore(s => s.restart)
@@ -33,8 +38,9 @@ export default function DevPanel() {
           phaseMs: 0,
           machineUid: null,
           memberUid: null,
-          x: DOOR_X,
-          z: DOOR_QUEUE_ANCHOR.z,
+          trainerUid: null,
+          x: doorX(),
+          z: DOOR_QUEUE_Z,
           path: [],
           goal: null,
         })
@@ -53,6 +59,8 @@ export default function DevPanel() {
       <button onClick={() => cheat({ level: STAFF_UNLOCK_LEVEL, xp: 0 })}>
         Poziom {STAFF_UNLOCK_LEVEL} (personel)
       </button>
+      <button onClick={onTeleportToReception}>Teleport do recepcji</button>
+      <button onClick={() => cheat({ dayMs: DAY_MS })}>Przewiń na 20:00</button>
       <button onClick={() => cheat(summonLilD(state))}>Przywołaj LIL D.</button>
       <button onClick={summonShowcase}>Parada rang ♀/♂</button>
       <button onClick={restart}>Restart zapisu</button>

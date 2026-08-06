@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { addMember, applyChurn, chargeRenewals, signupChance } from './members'
-import { initialState, passPrice } from './economy'
+import { gymClass, initialState, passPrice } from './economy'
 import { MEMBER_FEE } from './constants'
 import type { GameState, Machine, Member } from './types'
 
@@ -48,7 +48,7 @@ describe('addMember', () => {
 
   it('prices that first pass at the gym class', () => {
     const posh: GameState = { ...base(), machines: [machine('m1', 'cable')] }
-    expect(addMember(posh).cash - posh.cash).toBeCloseTo(MEMBER_FEE * 1.9, 5)
+    expect(addMember(posh).cash - posh.cash).toBeCloseTo(MEMBER_FEE * gymClass(posh), 5)
   })
 
   it('stamps the member with the day they joined', () => {
@@ -143,7 +143,7 @@ describe('applyChurn', () => {
       day: 5,
       satisfaction: 0,
       clients: [
-        { uid: 'c1', kind: 'member', rarity: 'common', phase: 'queue', phaseMs: 0, machineUid: null, memberUid: 'p49', x: 0, z: 0, path: [], goal: null },
+        { uid: 'c1', kind: 'member', rarity: 'common', phase: 'queue', phaseMs: 0, machineUid: null, memberUid: 'p49', trainerUid: null, x: 0, z: 0, path: [], goal: null },
       ],
     })
     const { state } = applyChurn(s)

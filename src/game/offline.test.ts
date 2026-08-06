@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { settleOffline } from './offline'
+import { closeDay } from './dayClose'
 import { initialState } from './economy'
 import { tileToWorld } from './layout'
 import { OFFLINE_CAP_MS, DEBT_LIMIT, DAY_MS, DAILY_RENT } from './constants'
@@ -18,14 +19,26 @@ describe('settleOffline', () => {
     expect(settleOffline(initialState(5, 0), OFFLINE_CAP_MS * 3).awayMs).toBe(OFFLINE_CAP_MS)
   })
 
-  it('charges rent for the time away', () => {
+  // The bill is no longer collected behind the player's back: a night away
+  // leaves the gym at closing time with the till uncounted, and the player
+  // presses the button themselves. So neither rent nor bankruptcy can land
+  // while they are gone — the settlement only runs the floor, not the books.
+  it('does not charge rent while the player is away', () => {
     const s0 = initialState(5, 0)
-    expect(settleOffline(s0, DAY_MS).state.cash).toBeCloseTo(s0.cash - DAILY_RENT, 5)
+    expect(settleOffline(s0, DAY_MS).state.cash).toBeGreaterThanOrEqual(s0.cash)
+    expect(settleOffline(s0, DAY_MS).state.dayEnded).toBe(false)
   })
 
-  it('ends the game when settlement breaches the debt limit', () => {
+  it('cannot end the game while the player is away', () => {
     const s0 = { ...initialState(5, 0), cash: DEBT_LIMIT + 1 }
-    expect(settleOffline(s0, OFFLINE_CAP_MS).state.gameOver).toBe(true)
+    expect(settleOffline(s0, OFFLINE_CAP_MS).state.gameOver).toBe(false)
+  })
+
+  it('leaves the day ready to be cashed up', () => {
+    const settled = settleOffline(initialState(5, 0), OFFLINE_CAP_MS).state
+    const closed = closeDay(settled)
+    expect(closed.dayEnded).toBe(true)
+    expect(closed.cash).toBeCloseTo(settled.cash - DAILY_RENT, 5)
   })
 
   it('stamps lastSeenAt to now', () => {
