@@ -13,7 +13,7 @@ const machine = (over: Partial<Machine> = {}): Machine => ({
 
 const client = (over: Partial<Client> = {}): Client => ({
   uid: 'c1', kind: 'walkin', rarity: 'common',
-  phase: 'arriving', phaseMs: 0, machineUid: null, memberUid: null,
+  phase: 'arriving', phaseMs: 0, machineUid: null, memberUid: null, trainerUid: null,
   x: DOOR_X, z: 0, path: [], goal: null, ...over,
 })
 

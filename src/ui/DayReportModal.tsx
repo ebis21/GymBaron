@@ -16,8 +16,9 @@ function Row({ label, value, tone }: { label: string; value: string; tone?: 'in'
 }
 
 /**
- * The 20:00 receipt. Deliberately modal with no dismiss: the day is over, and
- * the only way forward is to open the gym again tomorrow.
+ * The receipt, shown once the player has cashed up of their own accord.
+ * Deliberately modal with no dismiss: the till is counted, and the only way
+ * forward is to open the gym again tomorrow.
  */
 export default function DayReportModal({ report, onNextDay }: Props) {
   const income = report.entryFees + report.subscriptions
@@ -35,12 +36,31 @@ export default function DayReportModal({ report, onNextDay }: Props) {
         <section className="receipt-block">
           <h3>Przychód</h3>
           <Row label="Wejściówki" value={money(report.entryFees)} tone="in" />
+          {report.trainerFees > 0 && (
+            <Row
+              label="↳ w tym sesje z trenerem"
+              value={money(report.trainerFees)}
+              tone="in"
+            />
+          )}
           <Row label="Karnety" value={money(report.subscriptions)} tone="in" />
           <div className="receipt-row total">
             <span>Razem</span>
             <span className="receipt-in">{money(income)}</span>
           </div>
         </section>
+
+        {report.counterfeitLoss > 0 && (
+          <section className="receipt-block receipt-counterfeit">
+            <h3>Wpadka przy kasie</h3>
+            <Row
+              label="Fałszywe pieniądze — LIL D."
+              value={`−${money(report.counterfeitLoss)}`}
+              tone="out"
+            />
+            <p>Banknoty wyglądały legitnie. Dopiero wieczorne liczenie ujawniło przekręt.</p>
+          </section>
+        )}
 
         <section className="receipt-block">
           <h3>Do zapłaty</h3>

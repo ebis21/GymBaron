@@ -7,7 +7,8 @@ import { tileToWorld } from '../game/layout'
 import { PATIENCE_MS } from '../game/constants'
 import { STAIN_OLD_MS } from '../game/stains'
 import { queueAnchorFor } from '../game/clientMove'
-import { PALETTE } from './style'
+import { bookingFor } from '../game/staff'
+import { PALETTE, blockAt, sphere } from './style'
 
 const BAR_WIDTH = 0.62
 const BAR_FULL = new THREE.Color(PALETTE.ghost)
@@ -44,6 +45,24 @@ interface ActorView {
   seed: number
   bar: THREE.Group
   barFill: THREE.Mesh
+}
+
+/**
+ * A coach's whistle on a cord. Every role is drawn the same figure and told
+ * apart by the name tag over its head, which is a lot of reading at this
+ * camera height — so the one role the player books by hand gets something on
+ * the body too. Geometry is fresh per figure, which is what `disposeSubtree`
+ * frees; the paint is the shared toon cache, same as every other prop, and is
+ * deliberately not disposed with it.
+ */
+function addWhistle(rig: Rig): void {
+  const cord = blockAt(0.44, 0.05, 0.05, PALETTE.frameRed, 0, 0.63, 0.15, { radius: 0.02 })
+  cord.rotation.z = 0.14
+  rig.hips.add(cord)
+
+  const whistle = sphere(0.08, PALETTE.frameYellow, 10)
+  whistle.position.set(0.02, 0.44, 0.2)
+  rig.hips.add(whistle)
 }
 
 /**
@@ -102,7 +121,9 @@ export class ActorLayer {
       const view = this.viewFor(staff.uid, () => {
         const seed = Number(staff.uid.replace(/\D/g, '')) || 1
         const { group: bar, fill: barFill } = buildPatienceBar()
-        return { rig: buildStaffNpc(staff.role, staff.rank, seed), seed, bar, barFill }
+        const rig = buildStaffNpc(staff.role, staff.rank, seed)
+        if (staff.role === 'trainer') addWhistle(rig)
+        return { rig, seed, bar, barFill }
       })
 
       this.placeStaff(view, staff, state, elapsed)
@@ -122,7 +143,8 @@ export class ActorLayer {
       seenStains.add(stain.uid)
       let mesh = this.stains.get(stain.uid)
       if (!mesh) {
-        mesh = buildStain()
+        const variant = Number(stain.uid.replace(/\D/g, '')) || 0
+        mesh = buildStain(variant)
         this.stains.set(stain.uid, mesh)
         this.scene.add(mesh)
       }
@@ -132,7 +154,7 @@ export class ActorLayer {
       mesh.position.z = at.z
 
       const stale = stain.ageMs > STAIN_OLD_MS
-      ;(mesh.material as THREE.MeshStandardMaterial).opacity = stale ? 1.0 : 0.82
+      ;(mesh.material as THREE.MeshBasicMaterial).opacity = stale ? 1.0 : 0.92
       mesh.scale.setScalar(stale ? 1.25 : 1)
     }
 
@@ -245,11 +267,22 @@ export class ActorLayer {
     const walking = staff.path.length > 0
     const atDesk = staff.role === 'reception' && staff.targetUid !== null && !walking
 
+    // A trainer who has arrived turns to the person they are coaching — the
+    // whole point of the booking is that the two are working together, and a
+    // coach staring off at the wall beside the machine says the opposite.
+    const coaching = !walking && staff.role === 'trainer'
+      ? bookingFor(state, staff.uid)
+      : null
+
     // Face the way you are going; a receptionist who has arrived faces across
     // the desk into the queue instead, not whichever way the last step of the
     // walk-up happened to leave them.
     if (atDesk) {
       view.rig.root.rotation.y = queueAnchorFor(state).angle
+    } else if (coaching) {
+      const dx = coaching.x - staff.x
+      const dz = coaching.z - staff.z
+      if (dx * dx + dz * dz > 1e-4) view.rig.root.rotation.y = Math.atan2(dx, dz)
     } else {
       const dx = staff.x - view.rig.root.position.x
       const dz = staff.z - view.rig.root.position.z

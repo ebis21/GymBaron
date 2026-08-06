@@ -1,6 +1,6 @@
-import type { Candidate, GameState, StaffRank } from './types'
+import type { Candidate, GameState, StaffRank, StaffRole } from './types'
 import { nextRandom } from './rng'
-import { STAFF_RANKS, STAFF_ROLES, hirePriceFor } from './content/staff'
+import { STAFF_RANKS, STAFF_ROLES, hirePriceFor, roleUnlockLevel } from './content/staff'
 
 export const POOL_SIZE = 3
 export const REFRESH_PRICE = 500
@@ -43,16 +43,29 @@ function rollRank(seed: number): [StaffRank, number] {
   return [STAFF_RANKS[STAFF_RANKS.length - 1]!, next]
 }
 
+/**
+ * Roles the player could actually take on today. Trainers open at level 3 and
+ * everyone else at 10, so a board drawn from the whole list would be mostly
+ * people a level-3 player can only look at. Below every unlock the full list
+ * stands in — the hiring app is locked at that point anyway, and an empty
+ * board would be a stranger thing to hand back than an unusable one.
+ */
+export function unlockedRoles(state: GameState): StaffRole[] {
+  const open = STAFF_ROLES.filter(role => state.level >= roleUnlockLevel(role))
+  return open.length > 0 ? open : STAFF_ROLES
+}
+
 /** Draws a fresh board of candidates, threading the seed like the rest of the engine. */
 export function rollPool(state: GameState): GameState {
   let seed = state.seed
   let uid = state.nextUid
   const candidates: Candidate[] = []
+  const roles = unlockedRoles(state)
 
   for (let i = 0; i < POOL_SIZE; i += 1) {
     const [first, s1] = pick(FIRST_NAMES, seed)
     const [initial, s2] = pick(SURNAME_INITIALS, s1)
-    const [role, s3] = pick(STAFF_ROLES, s2)
+    const [role, s3] = pick(roles, s2)
     const [rank, s4] = rollRank(s3)
     seed = s4
 

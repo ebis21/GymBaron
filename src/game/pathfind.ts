@@ -1,6 +1,6 @@
 import type { GameState } from './types'
 import type { Tile } from './layout'
-import { GRID_H, GRID_W } from './constants'
+import { gridH, gridW } from './layout'
 import { tileOccupant, wallAt } from './build'
 
 /**
@@ -8,13 +8,17 @@ import { tileOccupant, wallAt } from './build'
  * entrance aisle, exactly two tile columns of it. Nothing can ever be built
  * there — `build.ts` rejects negative x — so the aisle is walkable by
  * construction and always offers a way around a blocked room.
+ *
+ * The aisle is the one part of the floor plan an expansion does *not* change:
+ * the door stays where it is and the room grows away from it, so this stays a
+ * constant while the far edge moves.
  */
 export const WALK_MIN_X = -2
 
 export function walkable(state: GameState, x: number, y: number): boolean {
   if (!Number.isInteger(x) || !Number.isInteger(y)) return false
-  if (y < 0 || y >= GRID_H) return false
-  if (x < WALK_MIN_X || x >= GRID_W) return false
+  if (y < 0 || y >= gridH()) return false
+  if (x < WALK_MIN_X || x >= gridW()) return false
   if (x < 0) return true
   return tileOccupant(state, x, y) === null
 }

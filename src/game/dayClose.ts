@@ -1,5 +1,6 @@
 import type { DayReport, GameState, Staff } from './types'
 import { DAY_MS, DEBT_LIMIT } from './constants'
+import { isClosingTime } from './clock'
 import { dailyCosts, emptyLedger } from './economy'
 import { applyChurn, chargeRenewals } from './members'
 import { wageFor } from './content/staff'
@@ -40,15 +41,22 @@ export function payWages(state: GameState, budget: number): {
 }
 
 /**
- * Settles 20:00 and freezes the game. Order matters: renewals and the bill are
+ * Cashes up and freezes the game. Order matters: renewals and the bill are
  * both figured on the membership as it stood all day, and only then do the
  * unhappy ones quit — nobody escapes a bill for a day they used the place.
  *
  * The bill is never trimmed to fit the takings. Spend the last credit on a
  * machine and the invoice still arrives, which is what makes an unscanned
  * client hurt.
+ *
+ * Nothing calls this on a timer. The clock stopping at 20:00 only shuts the
+ * door; the player locks up when they are done rearranging the place, and this
+ * is that button. It refuses to run early so a stray call cannot cash up a
+ * morning, and refuses to run twice on the same day.
  */
 export function closeDay(state: GameState): GameState {
+  if (state.dayEnded || state.gameOver || !isClosingTime(state.dayMs)) return state
+
   const cashBefore = state.cash
 
   const renewed = chargeRenewals(state).state
@@ -63,7 +71,9 @@ export function closeDay(state: GameState): GameState {
   const report: DayReport = {
     day: state.day,
     entryFees: ledger.entryFees,
+    trainerFees: ledger.trainerFees,
     subscriptions: ledger.subscriptions,
+    counterfeitLoss: ledger.counterfeitLoss,
     signups: ledger.signups,
     churn,
     rent: costs.rent,
@@ -71,7 +81,7 @@ export function closeDay(state: GameState): GameState {
     memberUpkeep: costs.memberUpkeep,
     wages: payroll.paid,
     bill: costs.total,
-    net: ledger.entryFees + ledger.subscriptions - costs.total - payroll.paid,
+    net: ledger.entryFees + ledger.subscriptions - ledger.counterfeitLoss - costs.total - payroll.paid,
     cashBefore,
     cashAfter: cashAfterWages,
     clientsServed: ledger.clientsServed,

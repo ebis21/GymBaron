@@ -1,5 +1,10 @@
 import { useGameStore } from '../store/gameStore'
-import { STAFF_UNLOCK_LEVEL } from '../game/constants'
+import { DAY_MS, STAFF_UNLOCK_LEVEL } from '../game/constants'
+import { summonLilD } from '../game/clients'
+import { DOOR_QUEUE_Z, doorX } from '../game/layout'
+import type { Client, ClientRarity } from '../game/types'
+
+const SHOWCASE_RARITIES: ClientRarity[] = ['common', 'rare', 'epic', 'legend', 'influencer']
 
 /**
  * Testing shortcut, not a real feature: lets you jump straight to the parts
@@ -13,6 +18,33 @@ export default function DevPanel() {
   const cheat = useGameStore(s => s.cheat)
   const restart = useGameStore(s => s.restart)
 
+  const summonShowcase = () => {
+    let nextUid = state.nextUid
+    const clients: Client[] = []
+
+    for (const rarity of SHOWCASE_RARITIES) {
+      // Consecutive ids guarantee one female and one male body variant.
+      for (let variant = 0; variant < 2; variant += 1) {
+        clients.push({
+          uid: `c${nextUid++}`,
+          kind: 'walkin',
+          rarity,
+          phase: 'arriving',
+          phaseMs: 0,
+          machineUid: null,
+          memberUid: null,
+          trainerUid: null,
+          x: doorX(),
+          z: DOOR_QUEUE_Z,
+          path: [],
+          goal: null,
+        })
+      }
+    }
+
+    cheat({ clients: [...state.clients, ...clients], nextUid })
+  }
+
   return (
     <div className="dev-panel">
       <span className="dev-panel-tag">DEV</span>
@@ -22,6 +54,9 @@ export default function DevPanel() {
       <button onClick={() => cheat({ level: STAFF_UNLOCK_LEVEL, xp: 0 })}>
         Poziom {STAFF_UNLOCK_LEVEL} (personel)
       </button>
+      <button onClick={() => cheat({ dayMs: DAY_MS })}>Przewiń na 20:00</button>
+      <button onClick={() => cheat(summonLilD(state))}>Przywołaj LIL D.</button>
+      <button onClick={summonShowcase}>Parada rang ♀/♂</button>
       <button onClick={restart}>Restart zapisu</button>
     </div>
   )

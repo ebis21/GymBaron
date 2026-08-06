@@ -47,9 +47,32 @@ describe('entryFee', () => {
     )
   })
 
-  it('puts the cheapest machine at 26.4 credits at the door and 2.64 for a member', () => {
+  it('puts the cheapest machine at 26.4 credits at the door and half that for a member', () => {
     expect(entryFee('dumbbells', 'walkin', 'common')).toBeCloseTo(26.4, 5)
-    expect(entryFee('dumbbells', 'member', 'common')).toBeCloseTo(2.64, 5)
+    expect(entryFee('dumbbells', 'member', 'common')).toBeCloseTo(13.2, 5)
+  })
+
+  it('leaves an unknown gym exactly where it was', () => {
+    expect(entryFee('dumbbells', 'walkin', 'common', 0)).toBeCloseTo(26.4, 5)
+  })
+
+  it('pays a little more at a gym everyone has heard of', () => {
+    const unknown = entryFee('dumbbells', 'walkin', 'common', 0)
+    const famous = entryFee('dumbbells', 'walkin', 'common', 100)
+    expect(famous).toBeCloseTo(unknown * 1.25, 5)
+    // Gentle on purpose: reputation nudges the price, it does not set it.
+    expect(famous).toBeLessThan(unknown * 1.5)
+  })
+
+  it('charges half again for a session with a personal trainer', () => {
+    const plain = entryFee('dumbbells', 'walkin', 'common', 40)
+    const coached = entryFee('dumbbells', 'walkin', 'common', 40, true)
+    expect(coached).toBeCloseTo(plain * 1.5, 5)
+  })
+
+  it('gives a member the trainer at their discounted rate too', () => {
+    const member = entryFee('dumbbells', 'member', 'common', 0)
+    expect(entryFee('dumbbells', 'member', 'common', 0, true)).toBeCloseTo(member * 1.5, 5)
   })
 
   it('scales up with rarity, from common to influencer', () => {

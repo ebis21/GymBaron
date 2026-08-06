@@ -96,6 +96,18 @@ describe('closeDay', () => {
   it('records the bill as money spent', () => {
     expect(closeDay(atClosing()).stats.totalSpent).toBe(DAILY_RENT)
   })
+
+  // Closing is the player's own button now, so it has to defend itself: the
+  // day may not be cashed up before it is over, nor twice on the same day.
+  it('refuses to cash up before closing time', () => {
+    const midday = atClosing({ dayMs: DAY_MS - 1 })
+    expect(closeDay(midday)).toBe(midday)
+  })
+
+  it('refuses to cash up a day already closed', () => {
+    const done = closeDay(atClosing())
+    expect(closeDay(done)).toBe(done)
+  })
 })
 
 describe('nextDay', () => {
@@ -112,7 +124,7 @@ describe('nextDay', () => {
     const s = nextDay({
       ...closed(),
       clients: [
-        { uid: 'c1', kind: 'walkin', rarity: 'common', phase: 'workout', phaseMs: 0, machineUid: 'm1', memberUid: null, x: 0, z: 0, path: [], goal: null },
+        { uid: 'c1', kind: 'walkin', rarity: 'common', phase: 'workout', phaseMs: 0, machineUid: 'm1', memberUid: null, trainerUid: null, x: 0, z: 0, path: [], goal: null },
       ],
     })
     expect(s.clients).toEqual([])
@@ -122,7 +134,15 @@ describe('nextDay', () => {
   it('starts the ledger from zero', () => {
     const s = nextDay({
       ...closed(),
-      today: { entryFees: 90, subscriptions: 200, signups: 1, clientsServed: 4, clientsLost: 1 },
+      today: {
+        entryFees: 90,
+        subscriptions: 200,
+        signups: 1,
+        clientsServed: 4,
+        clientsLost: 1,
+        trainerFees: 30,
+        counterfeitLoss: 0,
+      },
     })
     expect(s.today).toEqual({
       entryFees: 0,
@@ -130,6 +150,8 @@ describe('nextDay', () => {
       signups: 0,
       clientsServed: 0,
       clientsLost: 0,
+      trainerFees: 0,
+      counterfeitLoss: 0,
     })
   })
 
@@ -156,44 +178,41 @@ describe('wages', () => {
   })
 
   it('pays everybody when the money is there', () => {
-    const s = closeDay({ ...initialState(7, 0), cash: 50_000, staff: [employee('e1')] })
+    const s = closeDay(atClosing({ cash: 50_000, staff: [employee('e1')] }))
     expect(s.staff[0]!.owed).toBe(0)
     expect(s.dayReport!.wages).toBe(1000)
   })
 
   it('bills wages on top of rent, not instead of it', () => {
-    const withStaff = closeDay({ ...initialState(7, 0), cash: 50_000, staff: [employee('e1')] })
-    const without = closeDay({ ...initialState(7, 0), cash: 50_000 })
+    const withStaff = closeDay(atClosing({ cash: 50_000, staff: [employee('e1')] }))
+    const without = closeDay(atClosing({ cash: 50_000 }))
     expect(withStaff.cash).toBe(without.cash - 1000)
   })
 
   it('pays in hiring order and leaves the rest owed', () => {
     // Enough for the first 1000 wage and the 60 rent, not for the second.
-    const s = closeDay({
-      ...initialState(7, 0),
+    const s = closeDay(atClosing({
       cash: 1100,
       staff: [employee('e1'), employee('e2')],
-    })
+    }))
     expect(s.staff[0]!.owed).toBe(0)
     expect(s.staff[1]!.owed).toBe(1000)
   })
 
   it('does not charge a striking employee again', () => {
-    const s = closeDay({
-      ...initialState(7, 0),
+    const s = closeDay(atClosing({
       cash: 50_000,
       staff: [employee('e1', { owed: 1000 })],
-    })
+    }))
     expect(s.staff[0]!.owed).toBe(1000)
     expect(s.dayReport!.wages).toBe(0)
   })
 
   it('charges the higher rate for a higher rank', () => {
-    const s = closeDay({
-      ...initialState(7, 0),
+    const s = closeDay(atClosing({
       cash: 100_000,
       staff: [employee('e1', { rank: 'legend', role: 'repair' })],
-    })
+    }))
     expect(s.dayReport!.wages).toBe(20_000)
   })
 })

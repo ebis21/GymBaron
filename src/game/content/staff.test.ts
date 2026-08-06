@@ -1,7 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import {
-  STAFF_RANKS, STAFF_ROLES, wageFor, workMsFor, speedFor, hirePriceFor, STAFF_LIMIT,
+  STAFF_RANKS, STAFF_ROLES, wageFor, workMsFor, speedFor, hirePriceFor, roleUnlockLevel,
+  STAFF_LIMIT,
 } from './staff'
+import { STAFF_UNLOCK_LEVEL, TRAINER_UNLOCK_LEVEL } from '../constants'
 
 describe('wageFor', () => {
   it('matches the published day rates', () => {
@@ -49,9 +51,43 @@ describe('speedFor', () => {
   })
 })
 
+describe('roleUnlockLevel', () => {
+  it('opens the trainer long before the roles that play the game for you', () => {
+    expect(roleUnlockLevel('trainer')).toBe(TRAINER_UNLOCK_LEVEL)
+    expect(roleUnlockLevel('trainer')).toBeLessThan(roleUnlockLevel('reception'))
+  })
+
+  it('leaves every other role on the staff unlock', () => {
+    for (const role of STAFF_ROLES) {
+      if (role === 'trainer') continue
+      expect(roleUnlockLevel(role)).toBe(STAFF_UNLOCK_LEVEL)
+    }
+  })
+})
+
+describe('trainer wage', () => {
+  /**
+   * The trainer is priced against what a booking adds — half a door fee, worth
+   * ~17 on early kit — rather than against the other roles. A dozen bookings a
+   * day is about all one trainer can fit in, so a rare has to land near that.
+   */
+  it('pays back a rare trainer in roughly a dozen early bookings', () => {
+    expect(wageFor('trainer', 'rare')).toBeLessThanOrEqual(12 * 20)
+    expect(wageFor('trainer', 'rare')).toBeGreaterThan(12 * 10)
+  })
+
+  it('still costs less than any role that works the floor unattended', () => {
+    for (const role of STAFF_ROLES) {
+      if (role === 'trainer') continue
+      expect(wageFor('trainer', 'rare')).toBeLessThan(wageFor(role, 'rare'))
+    }
+  })
+})
+
 describe('tables', () => {
   it('covers every role and rank', () => {
-    expect(STAFF_ROLES).toHaveLength(3)
+    expect(STAFF_ROLES).toHaveLength(4)
+    expect(STAFF_ROLES).toContain('trainer')
     expect(STAFF_RANKS).toHaveLength(3)
     for (const role of STAFF_ROLES) {
       for (const rank of STAFF_RANKS) {

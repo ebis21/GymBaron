@@ -1,5 +1,6 @@
-import type { GameState } from '../game/types'
+import type { GameState, Staff } from '../game/types'
 import { ROLE_LABEL, RANK_LABEL, wageFor, STAFF_LIMIT } from '../game/content/staff'
+import { isTrainerFree } from '../game/staff'
 import { money } from './format'
 
 interface Props {
@@ -7,6 +8,16 @@ interface Props {
   onFire: (uid: string) => void
   onSettle: (uid: string) => void
   onOpenRecruit: () => void
+}
+
+/**
+ * What this employee is doing right now, when that is worth a line. Only the
+ * trainer has a state the player chose and can change — everybody else works
+ * whatever the floor throws at them — so only the trainer says anything.
+ */
+function activity(state: GameState, s: Staff): string | null {
+  if (s.role !== 'trainer') return null
+  return isTrainerFree(state, s.uid) ? 'Wolny — do wzięcia przy recepcji' : 'Prowadzi trening'
 }
 
 /**
@@ -36,6 +47,7 @@ export default function StaffPanel({ state, onFire, onSettle, onOpenRecruit }: P
       <ul className="staff-list">
         {state.staff.map(s => {
           const striking = s.owed > 0
+          const doing = striking ? null : activity(state, s)
           return (
             <li key={s.uid} className={`staff-row${striking ? ' striking' : ''}`}>
               <div className="staff-id">
@@ -48,6 +60,7 @@ export default function StaffPanel({ state, onFire, onSettle, onOpenRecruit }: P
                 {striking
                   ? <span className="warn">Strajk — zalega {money(s.owed)}</span>
                   : <span className="muted">{money(wageFor(s.role, s.rank))} / dzień</span>}
+                {doing && <span className="muted">{doing}</span>}
               </div>
 
               <div className="staff-actions">

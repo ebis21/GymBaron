@@ -7,7 +7,9 @@ import {
   MEMBER_DISCOUNT,
   MEMBER_FEE,
   MEMBER_UPKEEP,
+  REP_REVENUE_BONUS,
   START_CASH,
+  TRAINER_FEE_MULT,
   XP_PER_LEVEL,
   SAVE_VERSION,
 } from './constants'
@@ -15,9 +17,11 @@ import {
 export const emptyLedger = (): DayLedger => ({
   entryFees: 0,
   subscriptions: 0,
+  counterfeitLoss: 0,
   signups: 0,
   clientsServed: 0,
   clientsLost: 0,
+  trainerFees: 0,
 })
 
 export function initialState(seed: number, now: number): GameState {
@@ -32,7 +36,10 @@ export function initialState(seed: number, now: number): GameState {
     // The room starts furnished but nothing is nailed down — every one of
     // these can be turned, shifted, or packed away in build mode.
     decor: [
-      { uid: 'd-reception', type: 'reception', x: 0, y: 0, rotation: 0 },
+      // One row down from the corner on purpose: the attendant stands on the
+      // tile *behind* the desk, and at y=0 facing north that tile is off the
+      // grid — the receptionist could never reach their own counter.
+      { uid: 'd-reception', type: 'reception', x: 0, y: 1, rotation: 0 },
       { uid: 'd-plant-a', type: 'plant', x: 7, y: 0, rotation: 0 },
       { uid: 'd-plant-b', type: 'plant', x: 7, y: 5, rotation: 0 },
       { uid: 'd-plant-c', type: 'plant', x: 0, y: 5, rotation: 0 },
@@ -46,11 +53,13 @@ export function initialState(seed: number, now: number): GameState {
     candidates: [],
     candidatesDay: 0,
     seed,
+    expansion: 0,
     day: 1,
     dayMs: 0,
     dayEnded: false,
     today: emptyLedger(),
     dayReport: null,
+    lilDSeenDay: 0,
     elapsedMs: 0,
     lastSeenAt: now,
     gameOver: false,
@@ -80,13 +89,35 @@ export function gymClass(state: GameState): number {
 }
 
 /**
+ * How much the gym's standing is worth at the till: 1.0 at reputation 0, up to
+ * `1 + REP_REVENUE_BONUS` at 100. Deliberately gentle — reputation already
+ * decides how many people walk through the door, and letting it set the price
+ * too would make it the only stat that matters.
+ */
+export function reputationBonus(reputation: number): number {
+  const rep = Math.max(0, Math.min(100, reputation))
+  return 1 + (rep / 100) * REP_REVENUE_BONUS
+}
+
+/**
  * What one visit costs at the door. The machine the client is put on decides
  * the multiplier, which is why the fee is charged at scan time rather than on
  * arrival — that is the moment the assignment is known.
+ *
+ * `reputation` and `withTrainer` default to the neutral case so the fee of a
+ * plain visit at an unknown gym is still a two-line call.
  */
-export function entryFee(typeId: MachineTypeId, kind: ClientKind, rarity: ClientRarity): number {
+export function entryFee(
+  typeId: MachineTypeId,
+  kind: ClientKind,
+  rarity: ClientRarity,
+  reputation = 0,
+  withTrainer = false,
+): number {
   const base = ENTRY_FEE_BASE * machineType(typeId).revenueMultiplier * RARITY_MULTIPLIER[rarity]
-  return kind === 'member' ? base * MEMBER_DISCOUNT : base
+  const discounted = kind === 'member' ? base * MEMBER_DISCOUNT : base
+  const coached = withTrainer ? discounted * TRAINER_FEE_MULT : discounted
+  return coached * reputationBonus(reputation)
 }
 
 /** Face value of a pass at the gym's current class. */

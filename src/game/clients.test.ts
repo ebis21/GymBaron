@@ -1,8 +1,12 @@
 import { describe, it, expect } from 'vitest'
-import { spawnWalkins, spawnMembers, advanceClients, scanClient } from './clients'
+import {
+  spawnWalkins, spawnMembers, advanceClients, scanClient, freeTrainers, isTrainerFree,
+} from './clients'
 import { initialState } from './economy'
-import { MAX_QUEUE, PATIENCE_MS } from './constants'
-import type { Client, GameState, Machine, Member } from './types'
+import {
+  DAY_MS, MAX_QUEUE, MEMBER_DISCOUNT, PATIENCE_MS, TRAINER_FEE_MULT,
+} from './constants'
+import type { Client, GameState, Machine, Member, Staff } from './types'
 
 const machine = (over: Partial<Machine> = {}): Machine =>
   ({ uid: 'm1', type: 'dumbbells', x: 0, y: 0, rotation: 0, durability: 100, occupiedBy: null, brokenMs: 0, ...over })
@@ -15,6 +19,7 @@ const client = (over: Partial<Client> = {}): Client => ({
   phaseMs: 0,
   machineUid: null,
   memberUid: null,
+  trainerUid: null,
   x: 0,
   z: 0,
   path: [],
@@ -23,6 +28,12 @@ const client = (over: Partial<Client> = {}): Client => ({
 })
 
 const member = (uid: string, joinedDay = 1): Member => ({ uid, joinedDay })
+
+const trainer = (uid: string, over: Partial<Staff> = {}): Staff => ({
+  uid, name: 'Ola D.', role: 'trainer', rank: 'rare',
+  x: 0, z: 0, path: [], goal: null,
+  targetUid: null, workMs: 0, owed: 0, ...over,
+})
 
 const gym = (): GameState => ({ ...initialState(7, 0), machines: [machine()] })
 
@@ -201,7 +212,7 @@ describe('workout completion', () => {
 })
 
 describe('member visits', () => {
-  it('charges a member a tenth of what a passer-by pays at the same machine', () => {
+  it('charges a member half of what a passer-by pays at the same machine', () => {
     const walkin = scanClient({ ...gym(), clients: [client()] }, 'c1')
     const holder: GameState = {
       ...gym(),
@@ -212,7 +223,7 @@ describe('member visits', () => {
 
     const paidByWalkin = walkin.cash - gym().cash
     const paidByMember = scanned.cash - holder.cash
-    expect(paidByMember).toBeCloseTo(paidByWalkin * 0.1, 5)
+    expect(paidByMember).toBeCloseTo(paidByWalkin * MEMBER_DISCOUNT, 5)
   })
 
   it('still makes a member queue and wait to be scanned', () => {
@@ -257,5 +268,117 @@ describe('signing up', () => {
     s = advanceClients(s, 99_000)
     expect(s.members).toHaveLength(1)
     expect(s.today.signups).toBe(0)
+  })
+})
+
+describe('closing time', () => {
+  const atClosing = (over: Partial<GameState> = {}): GameState =>
+    ({ ...gym(), dayMs: DAY_MS, ...over })
+
+  it('turns nobody new away from a gym that is still open', () => {
+    let s: GameState = { ...gym(), dayMs: DAY_MS - 1 }
+    for (let i = 0; i < 200; i++) s = spawnWalkins(s, 1000)
+    expect(s.clients.length).toBeGreaterThan(0)
+  })
+
+  it('admits no passers-by once the clock runs out', () => {
+    let s = atClosing()
+    for (let i = 0; i < 200; i++) s = spawnWalkins(s, 1000)
+    expect(s.clients).toHaveLength(0)
+  })
+
+  it('admits no members once the clock runs out', () => {
+    let s = atClosing({ members: [member('p1'), member('p2')] })
+    for (let i = 0; i < 200; i++) s = spawnMembers(s, 1000)
+    expect(s.clients).toHaveLength(0)
+  })
+
+  it('still lets the player serve whoever is already queueing', () => {
+    const s = atClosing({ clients: [client()] })
+    expect(scanClient(s, 'c1').clients[0]!.phase).toBe('toMachine')
+  })
+})
+
+describe('personal trainers', () => {
+  const withTrainer = (over: Partial<GameState> = {}): GameState =>
+    ({ ...gym(), staff: [trainer('e1')], clients: [client()], ...over })
+
+  it('counts an unbooked trainer as free', () => {
+    const s = withTrainer()
+    expect(isTrainerFree(s, 'e1')).toBe(true)
+    expect(freeTrainers(s).map(t => t.uid)).toEqual(['e1'])
+  })
+
+  it('does not count somebody who is not a trainer', () => {
+    const s = withTrainer({ staff: [trainer('e1', { role: 'cleaner' })] })
+    expect(isTrainerFree(s, 'e1')).toBe(false)
+  })
+
+  it('does not count a trainer on strike over unpaid wages', () => {
+    const s = withTrainer({ staff: [trainer('e1', { owed: 1500 })] })
+    expect(isTrainerFree(s, 'e1')).toBe(false)
+  })
+
+  it('charges half again when a trainer is booked', () => {
+    const s = withTrainer()
+    const plain = scanClient(s, 'c1').cash - s.cash
+    const coached = scanClient(s, 'c1', 'e1').cash - s.cash
+    expect(coached).toBeCloseTo(plain * TRAINER_FEE_MULT, 5)
+  })
+
+  it('records the trainer as booked on the client', () => {
+    const s = scanClient(withTrainer(), 'c1', 'e1')
+    expect(s.clients[0]!.trainerUid).toBe('e1')
+    expect(isTrainerFree(s, 'e1')).toBe(false)
+    expect(freeTrainers(s)).toHaveLength(0)
+  })
+
+  it('books the trainer only for the visit they were sold to', () => {
+    const s = withTrainer({
+      clients: [client(), client({ uid: 'c2' })],
+      machines: [machine(), machine({ uid: 'm2' })],
+    })
+    const after = scanClient(s, 'c1', 'e1')
+    expect(after.clients.find(c => c.uid === 'c2')!.trainerUid).toBeNull()
+  })
+
+  it('books the trainer as a breakdown of the door fee, not income on top', () => {
+    const s = withTrainer()
+    const after = scanClient(s, 'c1', 'e1')
+    const charged = after.cash - s.cash
+    expect(after.today.entryFees).toBeCloseTo(charged, 5)
+    expect(after.today.trainerFees).toBeGreaterThan(0)
+    expect(after.today.trainerFees).toBeLessThan(after.today.entryFees)
+  })
+
+  // The button could be a frame stale, and a stale button must never mint money.
+  it('quietly charges the plain fee for a trainer who is already busy', () => {
+    const s = withTrainer({
+      clients: [client(), client({ uid: 'c2', trainerUid: 'e1' })],
+      machines: [machine(), machine({ uid: 'm2' })],
+    })
+    const plain = scanClient(s, 'c1').cash - s.cash
+    const attempted = scanClient(s, 'c1', 'e1')
+    expect(attempted.cash - s.cash).toBeCloseTo(plain, 5)
+    expect(attempted.clients.find(c => c.uid === 'c1')!.trainerUid).toBeNull()
+    expect(attempted.today.trainerFees).toBe(0)
+  })
+
+  it('quietly charges the plain fee for a trainer who does not exist', () => {
+    const s = withTrainer({ staff: [] })
+    const plain = scanClient(s, 'c1').cash - s.cash
+    expect(scanClient(s, 'c1', 'e9').cash - s.cash).toBeCloseTo(plain, 5)
+  })
+
+  it('frees the trainer the moment the workout is over', () => {
+    const s = scanClient(withTrainer(), 'c1', 'e1')
+    const training: GameState = {
+      ...s,
+      clients: s.clients.map(c => ({ ...c, phase: 'workout' as const, phaseMs: 0 })),
+    }
+    const done = advanceClients(training, 60_000)
+    expect(done.clients[0]!.phase).toBe('leaving')
+    expect(done.clients[0]!.trainerUid).toBeNull()
+    expect(isTrainerFree(done, 'e1')).toBe(true)
   })
 })

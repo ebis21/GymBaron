@@ -34,3 +34,12 @@ export function dayProgress(dayMs: number): number {
 export function msLeftInDay(dayMs: number): number {
   return DAY_MS - clampDayMs(dayMs)
 }
+
+/**
+ * True from 20:00 onward. The gym stops admitting anyone at this point, but
+ * the day is not over: whoever is already inside finishes their workout, the
+ * floor stays live for building, and the player closes up when they choose to.
+ */
+export function isClosingTime(dayMs: number): boolean {
+  return dayMs >= DAY_MS
+}

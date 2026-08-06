@@ -1,4 +1,6 @@
 import { GRID_H, GRID_W } from './constants'
+import { expansionAt } from './content/expansion'
+import type { GameState } from './types'
 
 /** Kafelek siatki. Ujemne x to nawa wejściowa poza siatką sprzętu. */
 export interface Tile {
@@ -17,30 +19,80 @@ export const TILE = 2
 
 /** The hall is wider than the equipment grid — the surplus is the entrance aisle. */
 export const AISLE = 4
+
+/**
+ * The room the game ships with, and the size every one of these helpers
+ * reports until something tells it otherwise. Exported as plain constants
+ * because a handful of call sites (and a handful of tests) only ever care
+ * about the starting hall — everything that has to survive an expansion reads
+ * the accessors below instead.
+ */
 export const HALL_W = GRID_W * TILE + AISLE
 export const HALL_D = GRID_H * TILE
 
 /** The grid sits right of centre, leaving the aisle clear on the left. */
 export const GRID_OFFSET_X = AISLE / 2 - 0.2
 
-/** Front of the queue, in the aisle by the door. */
+/** Front of the queue, in the aisle by the door, in the *base* room. */
 export const DOOR_X = -HALL_W / 2 + 1.3
+
+// --- the current room --------------------------------------------------------
+
+/**
+ * Deliberate module state. The room's size is a property of the save, but
+ * `tileToWorld` and friends are pure two-argument functions called from some
+ * thirty places across the engine, the renderer and the tests — threading a
+ * `GameState` through every one of them would turn a geometry helper into a
+ * parameter of half the codebase for no gain, since there is only ever one gym
+ * on screen at a time.
+ *
+ * So the size lives here, in one register, and `syncRoomSize` is the single
+ * seam that writes it. It defaults to the base room, which means anything that
+ * never calls `syncRoomSize` — every existing test, every early-boot path —
+ * behaves exactly as it did before expansions existed.
+ */
+let roomW = GRID_W
+let roomH = GRID_H
+
+/**
+ * Points the geometry helpers at the room the given save is actually in.
+ * Idempotent and cheap by design: call it at the top of every tick, on load,
+ * and before the renderer rebuilds — never guess whether it is needed.
+ */
+export function syncRoomSize(state: GameState): void {
+  const room = expansionAt(state.expansion)
+  roomW = room.w
+  roomH = room.h
+}
+
+/** Equipment-grid width of the current room, in tiles. */
+export const gridW = (): number => roomW
+/** Equipment-grid depth of the current room, in tiles. */
+export const gridH = (): number => roomH
+/** Hall width in world units — the grid plus the entrance aisle. */
+export const hallW = (): number => roomW * TILE + AISLE
+/** Hall depth in world units. */
+export const hallD = (): number => roomH * TILE
+/** Front of the queue, in the aisle by the door, in the current room. */
+export const doorX = (): number => -hallW() / 2 + 1.3
 
 /**
  * Grid coordinates count from the top-left of the floor plan. The world is
- * centred on the origin, so the camera never has to compensate for an offset.
+ * centred on the origin, so the camera never has to compensate for an offset —
+ * and when the room grows, everything already placed keeps its tile and the
+ * whole floor plan re-centres around it.
  */
 export function tileToWorld(x: number, y: number): Point {
   return {
-    x: (x - (GRID_W - 1) / 2) * TILE + GRID_OFFSET_X,
-    z: (y - (GRID_H - 1) / 2) * TILE,
+    x: (x - (roomW - 1) / 2) * TILE + GRID_OFFSET_X,
+    z: (y - (roomH - 1) / 2) * TILE,
   }
 }
 
 export function worldToTile(x: number, z: number): Tile {
   return {
-    x: Math.round((x - GRID_OFFSET_X) / TILE + (GRID_W - 1) / 2),
-    y: Math.round(z / TILE + (GRID_H - 1) / 2),
+    x: Math.round((x - GRID_OFFSET_X) / TILE + (roomW - 1) / 2),
+    y: Math.round(z / TILE + (roomH - 1) / 2),
   }
 }
 
@@ -75,8 +127,22 @@ export function queueSpot(index: number, anchor: QueueAnchor): Point {
   }
 }
 
-/** Fallback formation used when no reception desk is placed. */
-export const DOOR_QUEUE_ANCHOR: QueueAnchor = { x: DOOR_X, z: -2.4, angle: 0 }
+/**
+ * How far up the hall the door-side queue forms when there is no desk to form
+ * in front of. A fixed world offset rather than a fraction of the room: the
+ * door is in the same corner however big the gym gets.
+ */
+export const DOOR_QUEUE_Z = -2.4
+
+/**
+ * Fallback formation used when no reception desk is placed — the *base* room's
+ * one. Kept as a const because several callers still import it directly; use
+ * `doorQueueAnchor()` instead anywhere the room can have grown.
+ */
+export const DOOR_QUEUE_ANCHOR: QueueAnchor = { x: DOOR_X, z: DOOR_QUEUE_Z, angle: 0 }
+
+/** The same fallback formation, placed in whatever room is current. */
+export const doorQueueAnchor = (): QueueAnchor => ({ x: doorX(), z: DOOR_QUEUE_Z, angle: 0 })
 
 /**
  * The tile immediately behind a rotatable fixture — the side opposite

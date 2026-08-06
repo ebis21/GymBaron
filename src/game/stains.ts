@@ -1,5 +1,7 @@
 import type { GameState, Stain } from './types'
 import type { Tile } from './layout'
+import { isClosingTime } from './clock'
+import { gridH, gridW } from './layout'
 import { walkable } from './pathfind'
 import { nextRandom } from './rng'
 import { NEGLECT_GRACE_MS } from './neglect'
@@ -7,12 +9,14 @@ import {
   AMBIENT_DIRT_CHANCE,
   AMBIENT_DIRT_INTERVAL_MS,
   AMBIENT_DIRT_MAX_STAINS,
-  GRID_H,
-  GRID_W,
 } from './constants'
 
-/** Odds a finished workout leaves a mess behind. */
-export const STAIN_CHANCE = 0.18
+/**
+ * Odds a finished workout leaves a mess behind. Down from 0.18: with a busy
+ * floor that meant a stain every few workouts on top of the ambient dirt, and
+ * the player spent the day mopping instead of running a gym.
+ */
+export const STAIN_CHANCE = 0.07
 
 /** Past this age a stain reads as neglect and costs double. */
 export const STAIN_OLD_MS = 30_000
@@ -51,9 +55,15 @@ export function spawnStain(state: GameState, x: number, y: number): GameState {
  * unoccupied, currently clean tiles on the equipment grid, and stops once the
  * floor already carries `AMBIENT_DIRT_MAX_STAINS` messes so a neglected gym
  * can't spiral past a fair ceiling.
+ *
+ * Footfall needs feet: once the doors are shut and the last visitor has gone,
+ * an empty hall stops making its own mess. Otherwise the after-hours stretch —
+ * which is exactly when the player is rearranging the room and can do nothing
+ * about it — would quietly keep dirtying the floor they just mopped.
  */
 export function spawnAmbientDirt(state: GameState, dtMs: number): GameState {
   if (state.stains.length >= AMBIENT_DIRT_MAX_STAINS) return state
+  if (isClosingTime(state.dayMs) && state.clients.length === 0) return state
 
   const chance = Math.min(1, AMBIENT_DIRT_CHANCE * (dtMs / AMBIENT_DIRT_INTERVAL_MS))
   const [roll, seed] = nextRandom(state.seed)
@@ -61,8 +71,8 @@ export function spawnAmbientDirt(state: GameState, dtMs: number): GameState {
   if (roll >= chance) return rolled
 
   const candidates: Tile[] = []
-  for (let x = 0; x < GRID_W; x += 1) {
-    for (let y = 0; y < GRID_H; y += 1) {
+  for (let x = 0; x < gridW(); x += 1) {
+    for (let y = 0; y < gridH(); y += 1) {
       if (walkable(rolled, x, y) && !rolled.stains.some(s => s.x === x && s.y === y)) {
         candidates.push({ x, y })
       }

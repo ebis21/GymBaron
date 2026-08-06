@@ -1,6 +1,6 @@
 import type { GameState } from '../game/types'
 import { formatClock } from '../game/clock'
-import { STAFF_UNLOCK_LEVEL } from '../game/constants'
+import { HIRING_UNLOCK_LEVEL } from '../game/constants'
 import { money } from './format'
 
 /** Everything reachable from the phone. `staff` is a placeholder for now. */
@@ -30,7 +30,10 @@ const APPS: Tile[] = [
   { id: 'build', label: 'Buduj', glyph: '🔨', tint: 'gold' },
   { id: 'shop', label: 'Sklep', glyph: '🛒', tint: 'leaf' },
   { id: 'stats', label: 'Statystyki', glyph: '📊', tint: 'sky' },
-  { id: 'staff', label: 'Personel', glyph: '👔', tint: 'plum', minLevel: STAFF_UNLOCK_LEVEL },
+  // Trainers unlock long before the automation roles, and they are hired from
+  // this same screen — so the app opens at the earliest level that can hire
+  // anybody at all, and the panel itself explains what is still locked.
+  { id: 'staff', label: 'Personel', glyph: '👔', tint: 'plum', minLevel: HIRING_UNLOCK_LEVEL },
 ]
 
 /**

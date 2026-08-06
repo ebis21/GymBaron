@@ -1,11 +1,20 @@
-import type { Client, ClientKind, GameState, Machine } from './types'
+import type { Client, ClientKind, GameState, Machine, Staff } from './types'
 import { machineType } from './content/machines'
+import { isClosingTime } from './clock'
 import { rollRarity } from './content/rarity'
 import { nextRandom } from './rng'
 import { addXp, entryFee } from './economy'
 import { addMember, signupChance } from './members'
-import { DAY_MS, MAX_QUEUE, PATIENCE_MS } from './constants'
-import { DOOR_X, DOOR_QUEUE_ANCHOR } from './layout'
+import {
+  DAY_MS,
+  LIL_D_EXTRA_WORKOUT_MS,
+  LIL_D_FAKE_PAYMENT,
+  LIL_D_SPAWN_CHANCE,
+  MAX_QUEUE,
+  PATIENCE_MS,
+  TRAINER_SATISFACTION_MULT,
+} from './constants'
+import { DOOR_QUEUE_Z, doorX } from './layout'
 import { spawnStain, STAIN_CHANCE } from './stains'
 
 /**
@@ -29,8 +38,30 @@ export const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.mi
 
 const isUsable = (m: Machine) => m.durability > 0 && m.occupiedBy === null
 
+/**
+ * True when a trainer is on the payroll, being paid, and not already booked.
+ * The booking lives on the client, so "free" is simply "nobody names them".
+ *
+ * This lives here rather than in `staff.ts` because `staff.ts` already imports
+ * `scanClient` from this module — putting it the other way round would close
+ * an import cycle.
+ */
+export function isTrainerFree(state: GameState, trainerUid: string): boolean {
+  const trainer = state.staff.find(s => s.uid === trainerUid)
+  // `owed > 0` is an employee on strike over unpaid wages; they coach nobody.
+  if (!trainer || trainer.role !== 'trainer' || trainer.owed > 0) return false
+  return !state.clients.some(c => c.trainerUid === trainerUid)
+}
+
+/** Every trainer available to be booked for the client at the desk right now. */
+export function freeTrainers(state: GameState): Staff[] {
+  return state.staff.filter(s => s.role === 'trainer' && isTrainerFree(state, s.uid))
+}
+
 /** True when the gym can take one more person through the door right now. */
 function acceptingArrivals(state: GameState): boolean {
+  // Past 20:00 the door is shut. Whoever is already inside still finishes.
+  if (isClosingTime(state.dayMs)) return false
   if (!state.machines.some(isUsable)) return false
   const waiting = state.clients.filter(c => c.phase === 'queue' || c.phase === 'arriving').length
   return waiting < MAX_QUEUE
@@ -46,12 +77,51 @@ function enqueue(state: GameState, kind: ClientKind, memberUid: string | null): 
     phaseMs: 0,
     machineUid: null,
     memberUid,
-    x: DOOR_X,
-    z: DOOR_QUEUE_ANCHOR.z,
+    trainerUid: null,
+    x: doorX(),
+    z: DOOR_QUEUE_Z,
     path: [],
     goal: null,
   }
   return { ...state, seed, nextUid: state.nextUid + 1, clients: [...state.clients, client] }
+}
+
+/** Adds the named secret visitor without consuming the normal rarity roll. */
+export function summonLilD(state: GameState): GameState {
+  if (state.clients.some(c => c.special === 'lil-d')) return state
+
+  const client: Client = {
+    uid: `c${state.nextUid}`,
+    kind: 'walkin',
+    rarity: 'secret',
+    special: 'lil-d',
+    phase: 'arriving',
+    phaseMs: 0,
+    machineUid: null,
+    memberUid: null,
+    trainerUid: null,
+    x: doorX(),
+    z: DOOR_QUEUE_Z,
+    path: [],
+    goal: null,
+  }
+
+  return {
+    ...state,
+    lilDSeenDay: state.day,
+    nextUid: state.nextUid + 1,
+    clients: [...state.clients, client],
+  }
+}
+
+/** Rare easter egg, but never more than once during the same business day. */
+export function spawnLilD(state: GameState, dtMs: number): GameState {
+  if (state.lilDSeenDay === state.day || !acceptingArrivals(state)) return state
+
+  const [roll, seed] = nextRandom(state.seed)
+  const rolled = { ...state, seed }
+  const chance = Math.min(1, LIL_D_SPAWN_CHANCE * (dtMs / 1000))
+  return roll < chance ? summonLilD(rolled) : rolled
 }
 
 /**
@@ -137,32 +207,44 @@ export function advanceClients(state: GameState, dtMs: number): GameState {
     if (!machine) continue // machine vanished; drop the orphaned client
 
     const type = machineType(machine.type)
-    if (phaseMs < type.workoutMs) {
+    const workoutMs = type.workoutMs + (client.special === 'lil-d' ? LIL_D_EXTRA_WORKOUT_MS : 0)
+    if (phaseMs < workoutMs) {
       survivors.push({ ...client, phaseMs })
       continue
     }
 
     served += 1
-    satisfaction = clamp(satisfaction + type.satisfaction, 0, 100)
+    const coached = client.trainerUid !== null
+    satisfaction = clamp(
+      satisfaction + type.satisfaction * (coached ? TRAINER_SATISFACTION_MULT : 1),
+      0,
+      100,
+    )
     reputation = clamp(reputation + REP_GAIN_ON_WORKOUT, 0, 100)
-    machine.durability = clamp(machine.durability - type.wearPerUse, 0, 100)
+    machine.durability = client.special === 'lil-d'
+      ? 0
+      : clamp(machine.durability - type.wearPerUse, 0, 100)
     machine.occupiedBy = null
     const [dirtRoll, dirtSeed] = nextRandom(seed)
     seed = dirtSeed
     if (dirtRoll < STAIN_CHANCE) dirtied.push({ x: machine.x, y: machine.y })
     xpAwarded += type.xpPerUse
 
-    // Finished clients walk out rather than blinking away.
+    // Finished clients walk out rather than blinking away. The session is
+    // over the moment the workout is, so the trainer is released here rather
+    // than when the client finally reaches the door — otherwise a coach would
+    // stay booked for the length of a walk across the hall.
     survivors.push({
       ...client,
       phase: 'leaving',
       phaseMs: 0,
       machineUid: null,
+      trainerUid: null,
       path: [],
       goal: null,
     })
 
-    if (client.kind === 'walkin') {
+    if (client.kind === 'walkin' && client.special !== 'lil-d') {
       const [roll, nextSeed] = nextRandom(seed)
       seed = nextSeed
       if (roll < signupChance(satisfaction)) signups += 1
@@ -200,19 +282,40 @@ export function advanceClients(state: GameState, dtMs: number): GameState {
  * The fee is settled here because this is where the machine is assigned, and
  * the machine's multiplier is what the visit is worth. Members go through the
  * same turnstile — their pass only discounts it.
+ *
+ * `trainerUid` books a personal trainer for the visit, which is what makes the
+ * client worth `TRAINER_FEE_MULT` of the usual fee. It is validated rather
+ * than trusted: a trainer who has since been booked, sacked or gone on strike
+ * is quietly ignored and the client goes through at the plain price, so a
+ * stale button in the UI can never conjure money out of nothing.
  */
-export function scanClient(state: GameState, clientUid: string): GameState {
+export function scanClient(
+  state: GameState,
+  clientUid: string,
+  trainerUid: string | null = null,
+): GameState {
   const client = state.clients.find(c => c.uid === clientUid)
   if (!client || client.phase !== 'queue') return state
 
   const machine = state.machines.find(isUsable)
   if (!machine) return state
 
-  const fee = entryFee(machine.type, client.kind, client.rarity)
+  const isLilD = client.special === 'lil-d'
+  const coach = trainerUid && !isLilD && isTrainerFree(state, trainerUid) ? trainerUid : null
+
+  const plainFee = isLilD
+    ? 0
+    : entryFee(machine.type, client.kind, client.rarity, state.reputation)
+  const fee = isLilD
+    ? LIL_D_FAKE_PAYMENT
+    : entryFee(machine.type, client.kind, client.rarity, state.reputation, coach !== null)
+  // A breakdown of `fee`, not income on top of it — see `DayLedger.trainerFees`.
+  const trainerShare = isLilD ? 0 : fee - plainFee
+  const cashDelta = isLilD ? -fee : fee
 
   const next: GameState = {
     ...state,
-    cash: state.cash + fee,
+    cash: state.cash + cashDelta,
     machines: state.machines.map(m =>
       m.uid === machine.uid ? { ...m, occupiedBy: client.uid } : m,
     ),
@@ -223,13 +326,21 @@ export function scanClient(state: GameState, clientUid: string): GameState {
             phase: 'toMachine' as const,
             phaseMs: 0,
             machineUid: machine.uid,
+            trainerUid: coach,
             path: [],
             goal: null,
           }
         : c,
     ),
-    today: { ...state.today, entryFees: state.today.entryFees + fee },
-    stats: { ...state.stats, totalEarned: state.stats.totalEarned + fee },
+    today: {
+      ...state.today,
+      entryFees: state.today.entryFees + (isLilD ? 0 : fee),
+      trainerFees: state.today.trainerFees + trainerShare,
+      counterfeitLoss: state.today.counterfeitLoss + (isLilD ? fee : 0),
+    },
+    stats: isLilD
+      ? { ...state.stats, totalSpent: state.stats.totalSpent + fee }
+      : { ...state.stats, totalEarned: state.stats.totalEarned + fee },
   }
   return addXp(next, XP_ON_SCAN)
 }

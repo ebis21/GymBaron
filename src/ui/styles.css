@@ -266,11 +266,36 @@ body {
 }
 
 /* Repair and clean no longer resolve on tap — the player has to hold the
-   button down while this bar fills, same visual language as `.meter`. */
-.action-btn.holdable {
+   button down while this bar fills, same visual language as `.meter`.
+   `holding` covers the keyboard route, which fills the same bar even on the
+   tap-only "serve" action and so needs the same room at the bottom. */
+.action-btn.holdable,
+.action-btn.holding {
   padding-bottom: 20px;
   touch-action: none;
   user-select: none;
+}
+
+/* The keyboard affordance, shown only where there is a keyboard to press. */
+.action-key {
+  display: block;
+  margin-top: 3px;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  opacity: 0.85;
+}
+
+.action-key kbd {
+  display: inline-block;
+  min-width: 15px;
+  padding: 1px 4px;
+  font: inherit;
+  font-weight: 800;
+  text-align: center;
+  color: var(--ink);
+  background: #fff;
+  border-radius: 5px;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.3);
 }
 
 .action-hold-track {
@@ -396,6 +421,24 @@ body {
 .client-rarity.influencer {
   background: #ff5fae;
 }
+.client-rarity.secret {
+  background: linear-gradient(135deg, #17131f, #5a386d);
+  border-color: #f6d36d;
+  color: #f6d36d;
+  box-shadow: 0 0 14px rgba(246, 211, 109, 0.45);
+}
+
+.client-secret-name {
+  margin: 7px 0 -4px;
+  color: #3b2344;
+  font-size: 24px;
+  letter-spacing: 0.04em;
+}
+
+.client-row.secret-cash strong {
+  color: var(--gold);
+  text-shadow: 0 1px 0 var(--wood-dark);
+}
 
 .client-kind {
   margin: 8px 0 10px;
@@ -420,6 +463,124 @@ body {
 
 .client-row strong {
   color: var(--ink);
+}
+
+/* The upsell, sat between the visitor's numbers and the button that admits
+   them — a second decision, so it reads as a card of its own rather than
+   another row in the table above. */
+.client-trainer {
+  margin-bottom: 12px;
+}
+
+.trainer-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  font: inherit;
+  text-align: left;
+  color: var(--ink);
+  background: var(--cream);
+  border: 3px dashed var(--wood);
+  border-radius: 14px;
+  cursor: pointer;
+}
+
+.trainer-toggle.on {
+  color: #fff;
+  background: var(--plum);
+  border-style: solid;
+  border-color: var(--plum-dark);
+}
+
+.trainer-mark {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 26px;
+  height: 26px;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--ink);
+  background: var(--paper);
+  border-radius: 9px;
+  box-shadow: 0 2px 0 rgba(125, 74, 38, 0.35);
+}
+
+.trainer-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.trainer-text strong {
+  font-size: 14px;
+}
+
+.trainer-text small {
+  font-size: 11px;
+  font-weight: 700;
+  opacity: 0.85;
+}
+
+.trainer-hint {
+  margin: 0;
+  padding: 8px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  background: var(--cream);
+  border-radius: 12px;
+}
+
+/* --- after hours --------------------------------------------------------- */
+
+/*
+ * From 20:00 the door is shut but the day is not over. This sits where the
+ * build bar does, low and full-width, because the player is expected to be
+ * rearranging the room while it is up — and closing is their call, not a
+ * modal that ambushes them.
+ */
+.closing-bar {
+  position: absolute;
+  left: 50%;
+  bottom: calc(104px + var(--safe-bottom));
+  z-index: 12;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: min(460px, calc(100vw - 32px));
+  padding: 10px 12px;
+  transform: translateX(-50%);
+  background: var(--cream);
+  border: 4px solid var(--wood);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  animation: pop 160ms ease-out;
+}
+
+.closing-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.closing-text strong {
+  font-size: 13px;
+  color: var(--wood-dark);
+}
+
+.closing-text small {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+
+.clock-cell.closing .topbar-label {
+  color: var(--coral-dark);
 }
 
 /* --- phone --------------------------------------------------------------- */
@@ -909,6 +1070,21 @@ body {
   color: var(--ink-soft);
 }
 
+.receipt-counterfeit {
+  padding: 10px 12px;
+  background: rgba(217, 64, 58, 0.11);
+  border: 2px dashed rgba(217, 64, 58, 0.45);
+  border-radius: 12px;
+}
+
+.receipt-counterfeit p {
+  margin: 5px 0 0;
+  color: var(--danger-dark);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
 .receipt-row {
   display: flex;
   justify-content: space-between;
@@ -1206,7 +1382,12 @@ p.warn {
   color: var(--ink-soft);
 }
 
+/* Wage and, for a trainer, what they are doing — one under the other, or the
+   two run together into "2000 kr / dzieńWolny…". */
 .staff-state {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
   font-size: 12.5px;
 }
 

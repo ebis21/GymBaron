@@ -1,5 +1,5 @@
 import type { GameState } from '../game/types'
-import { dayProgress, formatClock } from '../game/clock'
+import { dayProgress, formatClock, isClosingTime } from '../game/clock'
 import { gymClass } from '../game/economy'
 import { BILLING_PERIOD_DAYS } from '../game/constants'
 import { money } from './format'
@@ -22,12 +22,13 @@ function daysToNextRenewal(state: GameState): number | null {
 
 export default function TopBar({ state }: { state: GameState }) {
   const renewal = daysToNextRenewal(state)
+  const closing = isClosingTime(state.dayMs) && !state.dayEnded
 
   return (
     <div className="topbar-wrap">
       <div className="topbar">
-        <div className="topbar-cell clock-cell">
-          <span className="topbar-label">Dzień {state.day}</span>
+        <div className={`topbar-cell clock-cell${closing ? ' closing' : ''}`}>
+          <span className="topbar-label">{closing ? 'Po godzinach' : `Dzień ${state.day}`}</span>
           <span className="topbar-value clock">{formatClock(state.dayMs)}</span>
         </div>
         <div className="topbar-cell">

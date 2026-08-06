@@ -14,6 +14,7 @@ export const RARITY_LABEL: Record<ClientRarity, string> = {
   epic: 'EPIC',
   legend: 'LEGEND',
   influencer: 'INFLUENCER',
+  secret: 'SECRET',
 }
 
 /** Stacks on top of the machine's own multiplier when the door fee is charged. */
@@ -23,6 +24,8 @@ export const RARITY_MULTIPLIER: Record<ClientRarity, number> = {
   epic: 2.0,
   legend: 2.4,
   influencer: 3.2,
+  // Secret visitors settle at the desk through their own rules.
+  secret: 1,
 }
 
 /** Relative odds of a walk-in landing on each rarity — weights, not percentages. */
@@ -32,6 +35,7 @@ const RARITY_WEIGHT: Record<ClientRarity, number> = {
   epic: 20,
   legend: 6,
   influencer: 2,
+  secret: 0,
 }
 
 const TOTAL_WEIGHT = CLIENT_RARITIES.reduce((sum, r) => sum + RARITY_WEIGHT[r], 0)
