@@ -30,6 +30,7 @@ const RARITY_NAME: Record<ClientRarity, string> = {
   epic: 'Epicki',
   legend: 'Legendarny',
   influencer: 'Influencer',
+  secret: 'Tajny',
 }
 
 interface Selection {

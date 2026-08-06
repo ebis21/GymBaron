@@ -2,6 +2,7 @@ import type { Client, GameState } from '../game/types'
 import { entryFee } from '../game/economy'
 import { machineType } from '../game/content/machines'
 import { RARITY_LABEL, RARITY_MULTIPLIER } from '../game/content/rarity'
+import { LIL_D_FAKE_PAYMENT } from '../game/constants'
 import { money } from './format'
 
 interface Props {
@@ -19,7 +20,12 @@ interface Props {
  */
 export default function ClientCard({ state, client, onScan, onClose }: Props) {
   const free = state.machines.find(m => m.durability > 0 && m.occupiedBy === null)
-  const fee = free ? entryFee(free.type, client.kind, client.rarity) : 0
+  const isLilD = client.special === 'lil-d'
+  const fee = free
+    ? isLilD ? LIL_D_FAKE_PAYMENT : entryFee(free.type, client.kind, client.rarity)
+    : 0
+  const numericId = Number(client.uid.replace(/\D/g, '')) || 1
+  const appearance = isLilD ? 'mężczyzna' : numericId % 2 === 0 ? 'kobieta' : 'mężczyzna'
 
   return (
     <div className="client-card">
@@ -29,15 +35,28 @@ export default function ClientCard({ state, client, onScan, onClose }: Props) {
 
       <span className={`client-rarity ${client.rarity}`}>{RARITY_LABEL[client.rarity]}</span>
 
+      {isLilD && <h2 className="client-secret-name">LIL D.</h2>}
+
       <p className="client-kind">
-        {client.kind === 'member' ? 'Członek — karnet, 90% zniżki' : 'Przechodzień z ulicy'}
+        {isLilD
+          ? 'Gość specjalny · płaci grubym plikiem gotówki'
+          : client.kind === 'member'
+            ? 'Członek — zniżka z karnetu'
+            : `Przechodzień z ulicy · ${appearance}`}
       </p>
 
       <div className="client-rows">
-        <div className="client-row">
-          <span>Mnożnik gościa</span>
-          <strong>×{RARITY_MULTIPLIER[client.rarity].toFixed(1)}</strong>
-        </div>
+        {isLilD ? (
+          <div className="client-row secret-cash">
+            <span>Nominał banknotów</span>
+            <strong>{money(LIL_D_FAKE_PAYMENT)}</strong>
+          </div>
+        ) : (
+          <div className="client-row">
+            <span>Mnożnik gościa</span>
+            <strong>×{RARITY_MULTIPLIER[client.rarity].toFixed(1)}</strong>
+          </div>
+        )}
         <div className="client-row">
           <span>Wolne stanowisko</span>
           <strong>{free ? machineType(free.type).name : '—'}</strong>
@@ -45,7 +64,9 @@ export default function ClientCard({ state, client, onScan, onClose }: Props) {
       </div>
 
       <button className="btn primary block big" disabled={!free} onClick={onScan}>
-        {free ? `Skanuj karnet · +${money(fee)}` : 'Brak wolnej maszyny'}
+        {free
+          ? isLilD ? `Przyjmij gotówkę · +${money(fee)}?` : `Skanuj karnet · +${money(fee)}`
+          : 'Brak wolnej maszyny'}
       </button>
     </div>
   )

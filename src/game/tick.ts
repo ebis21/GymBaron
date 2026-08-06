@@ -1,5 +1,5 @@
 import type { GameState } from './types'
-import { spawnWalkins, spawnMembers, advanceClients } from './clients'
+import { spawnLilD, spawnWalkins, spawnMembers, advanceClients } from './clients'
 import { moveClients } from './clientMove'
 import { closeDay } from './dayClose'
 import { msLeftInDay } from './clock'
@@ -21,6 +21,7 @@ const assign: System = state => assignStaff(state)
  * tick starts working in it, rather than idling for a frame.
  */
 const SYSTEMS: System[] = [
+  spawnLilD,
   spawnWalkins,
   spawnMembers,
   moveClients,

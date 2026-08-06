@@ -122,11 +122,12 @@ describe('nextDay', () => {
   it('starts the ledger from zero', () => {
     const s = nextDay({
       ...closed(),
-      today: { entryFees: 90, subscriptions: 200, signups: 1, clientsServed: 4, clientsLost: 1 },
+      today: { entryFees: 90, subscriptions: 200, counterfeitLoss: 0, signups: 1, clientsServed: 4, clientsLost: 1 },
     })
     expect(s.today).toEqual({
       entryFees: 0,
       subscriptions: 0,
+      counterfeitLoss: 0,
       signups: 0,
       clientsServed: 0,
       clientsLost: 0,

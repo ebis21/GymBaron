@@ -15,6 +15,7 @@ import {
 export const emptyLedger = (): DayLedger => ({
   entryFees: 0,
   subscriptions: 0,
+  counterfeitLoss: 0,
   signups: 0,
   clientsServed: 0,
   clientsLost: 0,
@@ -51,6 +52,7 @@ export function initialState(seed: number, now: number): GameState {
     dayEnded: false,
     today: emptyLedger(),
     dayReport: null,
+    lilDSeenDay: 0,
     elapsedMs: 0,
     lastSeenAt: now,
     gameOver: false,

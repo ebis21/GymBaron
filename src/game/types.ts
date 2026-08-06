@@ -93,7 +93,7 @@ export type ClientKind = 'walkin' | 'member'
  * How much of a catch a client is. Stacks on top of the machine's own
  * multiplier, so a lucky influencer on top-tier kit is worth a small fortune.
  */
-export type ClientRarity = 'common' | 'rare' | 'epic' | 'legend' | 'influencer'
+export type ClientRarity = 'common' | 'rare' | 'epic' | 'legend' | 'influencer' | 'secret'
 
 export interface Client extends Walker {
   uid: string
@@ -104,6 +104,8 @@ export interface Client extends Walker {
   machineUid: string | null
   /** Set for members so a visit can be traced back to the pass holder. */
   memberUid: string | null
+  /** Named one-off visitors whose rules differ from the normal rarity table. */
+  special?: 'lil-d'
 }
 
 export interface Member {
@@ -116,6 +118,8 @@ export interface Member {
 export interface DayLedger {
   entryFees: number
   subscriptions: number
+  /** Cash lost at the desk to banknotes that only looked real. */
+  counterfeitLoss: number
   signups: number
   clientsServed: number
   clientsLost: number
@@ -126,6 +130,7 @@ export interface DayReport {
   day: number
   entryFees: number
   subscriptions: number
+  counterfeitLoss: number
   signups: number
   churn: number
   rent: number
@@ -177,6 +182,8 @@ export interface GameState {
   today: DayLedger
   /** The last closed day's receipt, or null before the first close. */
   dayReport: DayReport | null
+  /** Day on which LIL D. last spawned; keeps the secret to one visit per day. */
+  lilDSeenDay: number
   elapsedMs: number
   lastSeenAt: number    // epoch ms, written by the store, never by the engine
   gameOver: boolean

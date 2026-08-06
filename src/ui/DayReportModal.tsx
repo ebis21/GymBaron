@@ -42,6 +42,18 @@ export default function DayReportModal({ report, onNextDay }: Props) {
           </div>
         </section>
 
+        {report.counterfeitLoss > 0 && (
+          <section className="receipt-block receipt-counterfeit">
+            <h3>Wpadka przy kasie</h3>
+            <Row
+              label="Fałszywe pieniądze — LIL D."
+              value={`−${money(report.counterfeitLoss)}`}
+              tone="out"
+            />
+            <p>Banknoty wyglądały legitnie. Dopiero wieczorne liczenie ujawniło przekręt.</p>
+          </section>
+        )}
+
         <section className="receipt-block">
           <h3>Do zapłaty</h3>
           <Row label="Czynsz" value={`−${money(report.rent)}`} tone="out" />
