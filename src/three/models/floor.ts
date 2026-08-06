@@ -1,14 +1,5 @@
 import * as THREE from 'three'
-import {
-  AISLE,
-  AISLE_COLUMNS,
-  STAFF_ROOM_DEPTH,
-  TILE,
-  WALL_H,
-  staffRoomCentre,
-  staffRoomTiles,
-  tileToWorld,
-} from '../layout'
+import { AISLE, TILE, WALL_H, staffDoorPoint, tileToWorld } from '../layout'
 import { PALETTE, blockAt, toon } from '../style'
 
 /**
@@ -97,85 +88,38 @@ function buildWalls(gw: number, gh: number): THREE.Group {
 }
 
 /**
- * The staff room: a marked-off corner at the back of the entrance aisle with
- * its own door in the side wall. Nobody uses that door — it is there to say
- * "this bit is not the gym floor", so an employee standing off shift reads as
- * being somewhere, rather than as a client who wandered out of the queue.
- *
- * Drawn as part of the shell because it is fixed to the room, not to state:
- * the player cannot move it, build on it, or sell it.
+ * The staff door: a doorway in the back wall, up in the entrance aisle, and
+ * nothing at all behind it. There is no room to model — an employee with
+ * nothing to do is not in the building, so the door is purely the place they
+ * walk out of and back into. `placeStaff` stops drawing whoever is standing on
+ * its threshold, which is the entire trick.
  */
-function buildStaffRoom(gw: number, gh: number): THREE.Group {
+function buildStaffDoor(gh: number): THREE.Group {
   const group = new THREE.Group()
-  const { w } = hallSize(gw, gh)
-  const tiles = staffRoomTiles()
-  if (tiles.length === 0) return group
+  const at = staffDoorPoint()
+  // The inner face of the back wall, which `buildWalls` puts at -d / 2. The
+  // door sits just inside it, on the room's side, or the wall would swallow it.
+  const z = -(gh * TILE) / 2
 
-  const centre = staffRoomCentre()
-  const depth = Math.min(STAFF_ROOM_DEPTH, gh) * TILE
-  const width = AISLE_COLUMNS * TILE
-
-  // Its own floor colour, laid over the slab, so the boundary is legible from
-  // the overhead build camera as well as from the chase camera.
-  const mat = blockAt(width, 0.14, depth, PALETTE.staffFloor, centre.x, -0.08, centre.z, {
-    radius: 0.06,
-    outline: 0,
-  })
-  group.add(mat)
-
-  // A threshold strip where the room meets the aisle — the visual "you are
-  // leaving the floor now" line.
-  const lip = blockAt(width, 0.16, 0.12, PALETTE.skirting, centre.x, -0.02, centre.z - depth / 2, {
-    radius: 0.05,
-    outline: 0,
-  })
-  group.add(lip)
-
-  // The partition that makes it a room rather than a corner. Deliberately
-  // shorter than the outer walls: nobody is drawn behind it — see
-  // `placeStaff` — so it only has to read as a boundary, and a full-height
-  // slab this close to the camera swallowed a third of the gym floor.
-  const partitionH = WALL_H * 0.62
-  const partition = blockAt(
-    width + 0.4, partitionH, 0.42, PALETTE.wall,
-    centre.x, partitionH / 2, centre.z - depth / 2,
-    { radius: 0.12, outline: 0.02 },
-  )
-  group.add(partition)
-
-  // Skirting along its floor edge, matching the outer walls.
-  group.add(
-    blockAt(width + 0.4, 0.35, 0.12, PALETTE.skirting, centre.x, 0.17, centre.z - depth / 2 + 0.27, {
-      radius: 0.05,
-      outline: 0,
-    }),
-  )
-
-  // A sign on the gym side, so the wall reads as "staff only" rather than as
-  // a dead end the player is meant to find a way around.
-  group.add(
-    blockAt(0.9, 0.55, 0.08, PALETTE.skirting, centre.x, partitionH * 0.68, centre.z - depth / 2 - 0.25, {
-      radius: 0.06,
-      outline: 0.02,
-    }),
-  )
-
-  // The door itself, set into the left wall beside the room.
-  const doorZ = centre.z
-  const frame = blockAt(0.22, 2.5, 1.9, PALETTE.wallTrim, -w / 2 - 0.18, 1.25, doorZ, {
-    radius: 0.08,
+  const frame = blockAt(1.9, 2.6, 0.2, PALETTE.wallTrim, at.x, 1.3, z + 0.12, {
+    radius: 0.1,
     outline: 0.02,
   })
-  const leaf = blockAt(0.14, 2.2, 1.55, PALETTE.skirting, -w / 2 - 0.26, 1.1, doorZ, {
-    radius: 0.06,
+  const leaf = blockAt(1.5, 2.2, 0.14, PALETTE.skirting, at.x, 1.1, z + 0.2, {
+    radius: 0.08,
     outline: 0,
   })
-  const handle = blockAt(0.12, 0.12, 0.12, PALETTE.wall, -w / 2 - 0.34, 1.1, doorZ + 0.55, {
+  const handle = blockAt(0.13, 0.13, 0.13, PALETTE.wall, at.x + 0.52, 1.1, z + 0.3, {
     radius: 0.05,
     outline: 0,
   })
-  group.add(frame, leaf, handle)
+  // A lintel sign, so it reads as the way in for staff rather than a cupboard.
+  const sign = blockAt(1.1, 0.32, 0.1, PALETTE.wall, at.x, 2.8, z + 0.16, {
+    radius: 0.06,
+    outline: 0.02,
+  })
 
+  group.add(frame, leaf, handle, sign)
   return group
 }
 
@@ -191,7 +135,7 @@ function buildStaffRoom(gw: number, gh: number): THREE.Group {
  */
 export function buildHall(gw: number, gh: number): THREE.Group {
   const hall = new THREE.Group()
-  hall.add(buildFloor(gw, gh), buildWalls(gw, gh), buildStaffRoom(gw, gh))
+  hall.add(buildFloor(gw, gh), buildWalls(gw, gh), buildStaffDoor(gh))
   return hall
 }
 

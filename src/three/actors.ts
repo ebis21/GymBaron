@@ -3,7 +3,7 @@ import type { Client, GameState, Staff } from '../game/types'
 import { buildNpc, buildStaffNpc, animate, poseScan, type Rig } from './models/character'
 import { stanceFor } from './models/stance'
 import { buildStain } from './models/stain'
-import { isInStaffRoom, tileToWorld } from '../game/layout'
+import { isAtStaffDoor, tileToWorld } from '../game/layout'
 import { PATIENCE_MS } from '../game/constants'
 import { STAIN_OLD_MS } from '../game/stains'
 import { queueAnchorFor } from '../game/clientMove'
@@ -260,11 +260,10 @@ export class ActorLayer {
   private placeStaff(view: ActorView, staff: Staff, state: GameState, elapsed: number): void {
     view.bar.visible = false
 
-    // Off shift they are behind the partition, in the staff room, and the
-    // player has no business seeing in there. Occlusion alone would not do it:
-    // the camera sits high enough to look over any wall short enough to keep
-    // the aisle readable, so the room is sealed by not drawing what is in it.
-    view.rig.root.visible = !isInStaffRoom(staff.x, staff.z)
+    // Off shift they are through the staff door and out of the building. There
+    // is nothing behind it to model — stepping off the doorstep is the whole
+    // animation, and standing on it is the whole of being away.
+    view.rig.root.visible = !isAtStaffDoor(staff.x, staff.z)
 
     const target = new THREE.Vector3(staff.x, 0, staff.z)
     if (view.rig.root.position.lengthSq() === 0) view.rig.root.position.copy(target)

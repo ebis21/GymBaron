@@ -1,10 +1,10 @@
 import type { Client, Decor, GameState, Machine, Staff } from './types'
 import type { Tile } from './layout'
-import { gridH, staffRoomTiles, tileBehind, tileToWorld, worldToTile } from './layout'
+import { staffDoorTile, tileBehind, tileToWorld } from './layout'
 import { wipeStain } from './stains'
 import { freeTrainers, scanClient } from './clients'
 import { workMsFor, STAFF_LIMIT, roleUnlockLevel } from './content/staff'
-import { WALK_MIN_X, walkable } from './pathfind'
+import { walkable } from './pathfind'
 
 /** How close somebody must be standing to actually do the job. */
 const WORK_REACH = 1.6
@@ -16,36 +16,13 @@ export const needsRepair = (m: Machine): boolean => m.durability <= 0
 export const onDuty = (s: Staff): boolean => s.owed <= 0
 
 /**
- * Off-shift staff wait in the staff room at the back of the aisle, not on the
- * floor. Nothing can be built at negative x, so those tiles are guaranteed
- * clear, and the room holds six against a payroll capped at five.
- *
- * The rest of the aisle is the overflow, filled from the back forwards, so
- * even a full house never puts an idle employee in among the queue.
+ * Where an employee goes when there is nothing to do: back through the staff
+ * door. There is no room behind it and nothing to lay out — off shift they are
+ * simply not in the building, so everybody shares the one doorstep and the
+ * renderer stops drawing whoever is standing on it.
  */
-export function restTileFor(state: GameState, self: Staff): Tile {
-  const taken = new Set(
-    state.staff
-      .filter(s => s.uid !== self.uid)
-      .map(s => {
-        const t = worldToTile(s.x, s.z)
-        return `${t.x},${t.y}`
-      }),
-  )
-
-  const free = (t: Tile) => !taken.has(`${t.x},${t.y}`)
-
-  const room = staffRoomTiles()
-  const spot = room.find(free)
-  if (spot) return spot
-
-  // Overflow: the rest of the aisle, deepest row first for the same reason.
-  for (let y = gridH() - 1; y >= 0; y -= 1) {
-    for (let x = -1; x >= WALK_MIN_X; x -= 1) {
-      if (free({ x, y })) return { x, y }
-    }
-  }
-  return room[0] ?? { x: -1, y: gridH() - 1 }
+export function restTileFor(): Tile {
+  return staffDoorTile()
 }
 
 /** The four tiles sharing an edge, in a fixed order — ties break the same way twice. */
@@ -334,14 +311,8 @@ export function hire(state: GameState, candidateUid: string): GameState {
   if (candidate.role === 'reception' && !state.decor.some(d => d.type === 'reception')) return state
   if (state.cash < candidate.price) return state
 
-  // New hires report to the staff room rather than materialising at the head
-  // of the queue, and every one of them gets their own spot there.
-  const rest = staffRoomTiles().find(
-    t => !state.staff.some(s => {
-      const at = worldToTile(s.x, s.z)
-      return at.x === t.x && at.y === t.y
-    }),
-  ) ?? { x: -1, y: gridH() - 1 }
+  // New hires walk in through the staff door like everybody else.
+  const rest = staffDoorTile()
   const at = tileToWorld(rest.x, rest.y)
 
   const employee: Staff = {

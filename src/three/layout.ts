@@ -16,11 +16,7 @@ export {
   tileToWorld,
   worldToTile,
   queueSpot,
-  AISLE_COLUMNS,
-  STAFF_ROOM_DEPTH,
-  staffRoomTiles,
-  staffRoomCentre,
-  isInStaffRoom,
+  staffDoorPoint,
 } from '../game/layout'
 export type { Point, Tile, QueueAnchor } from '../game/layout'
 

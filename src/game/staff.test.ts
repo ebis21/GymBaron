@@ -4,7 +4,7 @@ import {
   deskPost, freeTrainers, isTrainerFree, nextToServe,
 } from './staff'
 import { initialState } from './economy'
-import { gridH, isInStaffRoom, staffRoomTiles, tileToWorld } from './layout'
+import { isAtStaffDoor, staffDoorTile, tileToWorld } from './layout'
 import { workMsFor } from './content/staff'
 import { PATIENCE_MS, STAFF_UNLOCK_LEVEL, TRAINER_UNLOCK_LEVEL } from './constants'
 import type { Candidate, Client, Decor, GameState, Machine, Staff, Stain } from './types'
@@ -594,44 +594,20 @@ describe('hire', () => {
 })
 
 describe('restTileFor', () => {
-  const inRoom = (t: { x: number; y: number }) =>
-    staffRoomTiles().some(r => r.x === t.x && r.y === t.y)
-
-  it('parks idle staff in the aisle, out of the way', () => {
-    expect(restTileFor(gym({ staff: [staff()] }), staff()).x).toBeLessThan(0)
+  it('sends everybody to the same doorstep, out in the aisle', () => {
+    expect(restTileFor()).toEqual(staffDoorTile())
+    expect(restTileFor().x).toBeLessThan(0)
   })
 
-  // The point of the room: an off-shift employee standing at the head of the
-  // aisle is standing in the queue, and reads as a client waiting to be served.
-  it('sends them to the staff room at the back, not to the head of the queue', () => {
-    const spot = restTileFor(gym({ staff: [staff()] }), staff())
-    expect(inRoom(spot)).toBe(true)
-    expect(spot.y).toBeGreaterThan(0)
+  // Standing on the doorstep is the whole of being off shift: there is nothing
+  // behind the door, and the renderer keys off exactly this.
+  it('recognises the doorstep it sends them to', () => {
+    const door = staffDoorTile()
+    expect(isAtStaffDoor(at(door.x, door.y).x, at(door.x, door.y).z)).toBe(true)
   })
 
-  it('gives everybody on a full payroll their own spot in the room', () => {
-    const crew = ['e1', 'e2', 'e3', 'e4', 'e5'].map(uid => staff({ uid }))
-    const spots = crew.map(self => {
-      const others = crew.filter(s => s.uid !== self.uid)
-      return restTileFor(gym({ staff: [self, ...others] }), self)
-    })
-
-    expect(spots.every(inRoom)).toBe(true)
-  })
-
-  it('starts the room at the back wall of whatever room the player has bought', () => {
-    expect(staffRoomTiles()[0]!.y).toBe(gridH() - 1)
-  })
-
-  // Gates both what the renderer draws and where the player may walk, so it
-  // has to agree with the tile list exactly on both sides of the partition.
-  it('recognises the room it walls off', () => {
-    const back = staffRoomTiles()[0]!
-    expect(isInStaffRoom(at(back.x, back.y).x, at(back.x, back.y).z)).toBe(true)
-  })
-
-  it('leaves the gym floor and the front of the aisle outside it', () => {
-    expect(isInStaffRoom(at(-1, 0).x, at(-1, 0).z)).toBe(false)
-    expect(isInStaffRoom(at(4, 2).x, at(4, 2).z)).toBe(false)
+  it('counts anywhere on the gym floor as being out and visible', () => {
+    expect(isAtStaffDoor(at(4, 2).x, at(4, 2).z)).toBe(false)
+    expect(isAtStaffDoor(at(-1, 3).x, at(-1, 3).z)).toBe(false)
   })
 })

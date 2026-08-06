@@ -83,48 +83,34 @@ export const doorX = (): number => -hallW() / 2 + 1.3
 export const AISLE_COLUMNS = AISLE / TILE
 
 /**
- * How deep the staff room runs into the back of the aisle. Six tiles at two
- * columns wide, against a payroll capped at five, so everybody off shift has
- * their own spot and nobody is left loitering in the queue.
- */
-export const STAFF_ROOM_DEPTH = 3
-
-/**
- * Where off-shift staff wait: the back of the entrance aisle, behind its own
- * door, as far from the front counter as the room allows. They used to rest
- * at the head of the aisle — which is exactly where the queue forms — so an
- * idle cleaner was indistinguishable from a client waiting to be served.
+ * The tile staff step out onto, in the aisle against the back wall. There is
+ * no staff room behind it and there never was one to model: an employee with
+ * nothing to do is simply not in the building, and this is the spot where they
+ * appear when they are needed and vanish when they are not.
  *
- * Ordered back-to-front, so the first person off shift takes the deepest spot
- * and the room fills away from the floor rather than toward it.
+ * The aisle keeps it clear of anything the player can build, and being on the
+ * back row puts it in the wall the door is drawn into.
  */
-export function staffRoomTiles(): Tile[] {
-  const tiles: Tile[] = []
-  const backmost = gridH() - 1
-  const frontmost = Math.max(0, gridH() - STAFF_ROOM_DEPTH)
+export function staffDoorTile(): Tile {
+  return { x: -1, y: 0 }
+}
 
-  for (let y = backmost; y >= frontmost; y -= 1) {
-    for (let x = -1; x >= -AISLE_COLUMNS; x -= 1) tiles.push({ x, y })
-  }
-  return tiles
+/** Where that tile lands in world units — the point staff walk in and out of. */
+export function staffDoorPoint(): Point {
+  const t = staffDoorTile()
+  return tileToWorld(t.x, t.y)
 }
 
 /**
- * Whether a world position is inside the staff room. The room is walled off,
- * so anybody standing in there is behind the partition as far as the player is
- * concerned — which is what the renderer uses this for.
+ * Whether somebody is standing on the doorstep, which is the renderer's cue to
+ * stop drawing them: they are through the door and out of the gym. Anything
+ * off the tile is on the floor and visible, so stepping off it reads as
+ * walking out and stepping onto it as going back in.
  */
-export function isInStaffRoom(x: number, z: number): boolean {
+export function isAtStaffDoor(x: number, z: number): boolean {
   const t = worldToTile(x, z)
-  return staffRoomTiles().some(r => r.x === t.x && r.y === t.y)
-}
-
-/** Centre of the staff room in world units, for drawing its floor and door. */
-export function staffRoomCentre(): Point {
-  const tiles = staffRoomTiles()
-  const first = tileToWorld(tiles[0]!.x, tiles[0]!.y)
-  const last = tileToWorld(tiles[tiles.length - 1]!.x, tiles[tiles.length - 1]!.y)
-  return { x: (first.x + last.x) / 2, z: (first.z + last.z) / 2 }
+  const door = staffDoorTile()
+  return t.x === door.x && t.y === door.y
 }
 
 /**

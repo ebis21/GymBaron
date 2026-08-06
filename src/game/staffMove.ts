@@ -92,7 +92,7 @@ export function moveStaff(state: GameState, dtMs: number): GameState {
 
     // Either idle, on strike, or holding a job nothing can reach. The aisle
     // is walkable by construction, so this practically always finds a way.
-    const stoodDown = walk(restTileFor(state, s), false, job !== null)
+    const stoodDown = walk(restTileFor(), false, job !== null)
     if (stoodDown) return stoodDown
 
     if (s.targetUid === null && s.path.length === 0) return s
