@@ -893,6 +893,35 @@ body {
   box-shadow: 0 3px 0 var(--wood);
 }
 
+/*
+ * The shortcut printed on the button itself. Without the cap it ran straight
+ * into the label — "ObróćR" — so it gets its own inset key, set apart from
+ * the words by a gap and dimmed enough to stay a footnote to them.
+ */
+.btn .btn-key {
+  display: inline-block;
+  min-width: 14px;
+  margin-left: 7px;
+  padding: 1px 4px;
+  font: inherit;
+  font-size: 0.85em;
+  font-weight: 800;
+  line-height: 1.3;
+  text-align: center;
+  vertical-align: 1px;
+  color: inherit;
+  background: rgba(255, 255, 255, 0.24);
+  border-radius: 5px;
+}
+
+.btn.ghost .btn-key {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.btn:disabled .btn-key {
+  background: rgba(255, 255, 255, 0.3);
+}
+
 /* --- shop ---------------------------------------------------------------- */
 
 .shop-list {
