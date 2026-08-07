@@ -19,6 +19,10 @@ export interface Rig {
   legR: THREE.Group
   /** Permanent forward lean used by characters such as the elderly LIL D. */
   restTilt?: number
+  /** A cane-bearing arm stays planted instead of swinging through the prop. */
+  steadyRightArm?: boolean
+  /** Handheld props are put away while the owner uses exercise equipment. */
+  stowDuringWorkout?: THREE.Object3D[]
 }
 
 /** Resting height of the hips inside the root. */
@@ -46,6 +50,7 @@ interface BodyDetails {
   chain?: boolean
   syringe?: boolean
   cane?: boolean
+  cash?: boolean
 }
 
 const RARITY_TINT: Record<ClientRarity, string> = {
@@ -100,6 +105,111 @@ function rarityTag(rarity: ClientRarity): THREE.Sprite {
   sprite.scale.set(1.05, 1.05 * (TAG_HEIGHT / TAG_WIDTH), 1)
   sprite.position.y = 2.05
   return sprite
+}
+
+/** A slim tube joining two local-space points, useful for cords and chains. */
+function tubeBetween(
+  from: THREE.Vector3,
+  to: THREE.Vector3,
+  radius: number,
+  color: string,
+): THREE.Mesh {
+  const direction = new THREE.Vector3().subVectors(to, from)
+  const tube = cylinder(radius, radius, direction.length(), color, 10)
+  tube.position.copy(from).add(to).multiplyScalar(0.5)
+  tube.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction.normalize())
+  return tube
+}
+
+/** A necklace that hangs from the neckline instead of lying flat as a ring. */
+export function buildGoldChain(torsoDepth: number): THREE.Group {
+  const chain = new THREE.Group()
+  chain.name = 'accessory-chain'
+
+  const front = torsoDepth / 2 + 0.035
+  const left = new THREE.Vector3(-0.17, 0.64, front)
+  const right = new THREE.Vector3(0.17, 0.64, front)
+  const drop = new THREE.Vector3(0, 0.43, front + 0.045)
+  chain.add(
+    tubeBetween(left, drop, 0.022, '#f6c64a'),
+    tubeBetween(right, drop, 0.022, '#f6c64a'),
+  )
+
+  const medallion = cylinder(0.085, 0.085, 0.045, '#f6c64a', 14)
+  medallion.name = 'chain-medallion'
+  medallion.rotation.x = Math.PI / 2
+  medallion.position.set(0, 0.39, front + 0.065)
+  chain.add(medallion)
+  return chain
+}
+
+/** A card with two visible cords, rather than a badge glued to the shirt. */
+function buildMemberLanyard(color: string, torsoDepth: number): THREE.Group {
+  const lanyard = new THREE.Group()
+  lanyard.name = 'accessory-lanyard'
+
+  const front = torsoDepth / 2 + 0.026
+  const drop = new THREE.Vector3(0, 0.4, front + 0.015)
+  lanyard.add(
+    tubeBetween(new THREE.Vector3(-0.11, 0.64, front), drop, 0.012, '#7d4a26'),
+    tubeBetween(new THREE.Vector3(0.11, 0.64, front), drop, 0.012, '#7d4a26'),
+    blockAt(0.16, 0.2, 0.045, color, 0, 0.31, front + 0.035, { radius: 0.04 }),
+  )
+  return lanyard
+}
+
+/** Built around an arm pivot: the hand is at y=-0.46 and the tip reaches ground. */
+export function buildCaneAccessory(): THREE.Group {
+  const cane = new THREE.Group()
+  cane.name = 'accessory-cane'
+
+  const shaft = cylinder(0.035, 0.035, 0.61, '#70452f', 10)
+  shaft.name = 'cane-shaft'
+  shaft.position.set(0, -0.755, 0.045)
+
+  const hook = new THREE.Mesh(
+    new THREE.TorusGeometry(0.1, 0.035, 7, 14, Math.PI),
+    toon('#70452f'),
+  )
+  hook.name = 'cane-hook'
+  hook.position.set(-0.1, -0.45, 0.045)
+  hook.castShadow = true
+
+  const tip = sphere(0.042, '#3d3550', 8)
+  tip.name = 'cane-tip'
+  tip.position.set(0, -1.065, 0.045)
+  cane.add(shaft, hook, tip)
+  return cane
+}
+
+export function buildSyringeAccessory(): THREE.Group {
+  const syringe = new THREE.Group()
+  syringe.name = 'accessory-syringe'
+
+  const barrel = cylinder(0.026, 0.026, 0.25, '#d8f4ff', 10)
+  barrel.rotation.z = Math.PI / 2
+  syringe.add(barrel)
+
+  const dose = cylinder(0.018, 0.018, 0.15, '#ef5d99', 8)
+  dose.rotation.z = Math.PI / 2
+  dose.position.x = -0.02
+  syringe.add(dose)
+
+  const needle = cylinder(0.008, 0.008, 0.16, '#6c7785', 8)
+  needle.rotation.z = Math.PI / 2
+  needle.position.x = 0.2
+  syringe.add(needle)
+  return syringe
+}
+
+function buildCashAccessory(): THREE.Group {
+  const cash = new THREE.Group()
+  cash.name = 'accessory-cash'
+  cash.add(
+    blockAt(0.2, 0.115, 0.024, '#78a45e', 0, 0, 0, { radius: 0.015 }),
+    blockAt(0.18, 0.1, 0.022, '#9cc47d', 0.035, 0.025, 0.018, { radius: 0.012 }),
+  )
+  return cash
 }
 
 function figure(
@@ -161,7 +271,7 @@ function figure(
   // A name tag over the head, so how much someone is worth reads from across
   // the room. It hangs off the root rather than the hips: a client lying on a
   // bench should still have their label the right way up, above them.
-  if (rarity) root.add(rarityTag(rarity))
+  if (rarity && typeof document !== 'undefined') root.add(rarityTag(rarity))
 
   for (const side of [-1, 1]) {
     const eye = sphere(0.045, '#2b2438', 8)
@@ -171,7 +281,7 @@ function figure(
 
   // A member wears their pass on a lanyard — one glance tells the two apart.
   if (badge) {
-    hips.add(blockAt(0.16, 0.2, 0.05, badge, 0, 0.4, 0.2, { radius: 0.04 }))
+    hips.add(buildMemberLanyard(badge, torsoD))
   }
 
   const arm = (x: number): THREE.Group => {
@@ -209,44 +319,32 @@ function figure(
   const armR = arm(shoulderX)
   const legL = leg(-0.14)
   const legR = leg(0.14)
+  const stowDuringWorkout: THREE.Object3D[] = []
 
   if (details.chain) {
-    const chain = new THREE.Mesh(new THREE.TorusGeometry(0.18, 0.025, 7, 20), toon('#f6c64a'))
-    chain.scale.y = 0.78
-    chain.position.set(0, 0.58, torsoD / 2 + 0.018)
-    hips.add(chain)
+    hips.add(buildGoldChain(torsoD))
   }
 
   if (details.syringe) {
-    const syringe = new THREE.Group()
-    const barrel = cylinder(0.026, 0.026, 0.25, '#d8f4ff', 10)
-    barrel.rotation.z = Math.PI / 2
-    syringe.add(barrel)
-    const dose = cylinder(0.018, 0.018, 0.15, '#ef5d99', 8)
-    dose.rotation.z = Math.PI / 2
-    dose.position.x = -0.02
-    syringe.add(dose)
-    const needle = cylinder(0.008, 0.008, 0.16, '#6c7785', 8)
-    needle.rotation.z = Math.PI / 2
-    needle.position.x = 0.2
-    syringe.add(needle)
-    syringe.position.set(0.25, 0.12, -torsoD / 2 - 0.09)
-    syringe.rotation.y = -0.28
-    hips.add(syringe)
+    const syringe = buildSyringeAccessory()
+    syringe.position.set(0, details.baggySleeves ? -0.52 : -0.46, 0.08)
+    syringe.rotation.set(0.16, 0, -0.58)
+    armR.add(syringe)
+    stowDuringWorkout.push(syringe)
   }
 
   if (details.cane) {
-    const shaft = cylinder(0.035, 0.035, 0.92, '#70452f', 10)
-    shaft.position.set(0.43, 0.46, 0.05)
-    root.add(shaft)
-    const hook = new THREE.Mesh(
-      new THREE.TorusGeometry(0.1, 0.035, 7, 14, Math.PI),
-      toon('#70452f'),
-    )
-    hook.rotation.z = Math.PI
-    hook.position.set(0.34, 0.92, 0.05)
-    root.add(hook)
-    root.add(blockAt(0.19, 0.035, 0.12, '#78a45e', -0.22, 0.67, 0.18, { radius: 0.015 }))
+    const cane = buildCaneAccessory()
+    armR.add(cane)
+    stowDuringWorkout.push(cane)
+  }
+
+  if (details.cash) {
+    const cash = buildCashAccessory()
+    cash.position.set(0, -0.47, 0.1)
+    cash.rotation.set(-0.12, 0.16, -0.2)
+    armL.add(cash)
+    stowDuringWorkout.push(cash)
   }
 
   // Soft contact patch so nobody looks like they are hovering.
@@ -255,7 +353,17 @@ function figure(
   blob.castShadow = false
   root.add(blob)
 
-  return { root, hips, armL, armR, legL, legR, restTilt: details.cane ? 0.13 : 0 }
+  return {
+    root,
+    hips,
+    armL,
+    armR,
+    legL,
+    legR,
+    restTilt: details.cane ? 0.13 : 0,
+    steadyRightArm: details.cane,
+    stowDuringWorkout,
+  }
 }
 
 export function buildPlayer(): Rig {
@@ -289,7 +397,7 @@ export function buildNpc(kind: ClientKind, rarity: ClientRarity, variant: number
       rarity,
       {
         gender: 'male', torsoW: 0.44, torsoD: 0.32, armW: 0.12, legW: 0.14,
-        headRadius: 0.27, hairStyle: 'old', cane: true,
+        headRadius: 0.27, hairStyle: 'old', cane: true, cash: true,
       },
     )
   }
@@ -429,7 +537,7 @@ export function animate(rig: Rig, timeSec: number, moving: boolean): void {
     rig.legL.rotation.x = swing
     rig.legR.rotation.x = -swing
     rig.armL.rotation.x = -swing * 0.8
-    rig.armR.rotation.x = swing * 0.8
+    rig.armR.rotation.x = rig.steadyRightArm ? 0.03 : swing * 0.8
     rig.root.position.y = Math.abs(Math.sin(timeSec * 9)) * 0.06
     return
   }
@@ -438,7 +546,7 @@ export function animate(rig: Rig, timeSec: number, moving: boolean): void {
   rig.legL.rotation.x = 0
   rig.legR.rotation.x = 0
   rig.armL.rotation.x = breathe
-  rig.armR.rotation.x = -breathe
+  rig.armR.rotation.x = rig.steadyRightArm ? 0.03 : -breathe
   rig.root.position.y = 0
 }
 
