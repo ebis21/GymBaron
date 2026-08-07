@@ -19,7 +19,7 @@ import { wipeStain } from '../game/stains'
 import { closeDay, nextDay } from '../game/dayClose'
 import { nextExpansion } from '../game/content/expansion'
 import { isClosingTime } from '../game/clock'
-import { syncRoomSize } from '../game/layout'
+import { staffDoorPoint, syncRoomSize } from '../game/layout'
 import { advance } from '../game/tick'
 import { serialize, deserialize } from '../game/save'
 import { settleOffline } from '../game/offline'
@@ -27,6 +27,7 @@ import { hire, fire, payArrears } from '../game/staff'
 import { refreshPool, ensurePool } from '../game/recruit'
 import { loadRaw, saveRaw } from './storage'
 import { AUTOSAVE_MS, SAVE_KEY } from '../game/constants'
+import { switchActiveFloor, unlockNextFloor } from '../game/floors'
 
 export interface WelcomeBack {
   earned: number
@@ -50,6 +51,8 @@ interface GameStore {
   /** `trainerUid` books a personal trainer for this visit; null is the plain fee. */
   scan: (clientUid: string, trainerUid?: string | null) => void
   buyExpansion: () => void
+  buyNextFloor: () => void
+  switchFloor: (floor: number) => void
   /** Cashes up the day. Only offered once the clock has run out. */
   endDay: () => void
   repair: (machineUid: string) => void
@@ -238,6 +241,28 @@ export const useGameStore = create<GameStore>((set, get) => {
       // waiting for the next engine tick to widen the bounds.
       syncRoomSize(grown)
       commit(grown)
+    },
+
+    buyNextFloor: () => commit(unlockNextFloor(get().state)),
+
+    switchFloor: floor => {
+      const current = get().state
+      const switched = switchActiveFloor(current, floor)
+      if (switched === current) return
+
+      // Geometry helpers and the staff entrance both depend on the active
+      // room's size. Move the register first, then put every employee safely
+      // on the target floor's doorway with their old job cleared.
+      syncRoomSize(switched)
+      const door = staffDoorPoint()
+      commit({
+        ...switched,
+        staff: switched.staff.map(member => ({
+          ...member,
+          x: door.x,
+          z: door.z,
+        })),
+      })
     },
 
     endDay: () => commit(closeDay(get().state)),

@@ -1067,6 +1067,150 @@ body {
   color: var(--wood-dark);
 }
 
+.modal-x {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  font: inherit;
+  color: var(--ink-soft);
+  background: var(--cream);
+  border: 3px solid rgba(168, 106, 61, 0.4);
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+/* --- floor access ------------------------------------------------------- */
+
+.floor-access-modal {
+  position: relative;
+  max-width: 420px;
+  text-align: center;
+  border-color: var(--gold);
+}
+
+.floor-lock-glyph {
+  width: 76px;
+  height: 76px;
+  display: grid;
+  place-items: center;
+  margin: 0 auto 6px;
+  font-size: 42px;
+  background: rgba(246, 183, 60, 0.2);
+  border: 4px solid var(--gold);
+  border-radius: 22px;
+  box-shadow: 0 5px 0 rgba(168, 106, 61, 0.28);
+}
+
+.floor-lock-glyph.open {
+  background: rgba(97, 185, 84, 0.16);
+  border-color: var(--leaf-dark);
+}
+
+.floor-access-copy {
+  margin: 0 0 16px;
+  color: var(--ink-soft);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.floor-requirement {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border-radius: 13px;
+  font-size: 12px;
+}
+
+.floor-requirement.done {
+  color: var(--leaf-dark);
+  background: rgba(97, 185, 84, 0.14);
+  border: 2px solid rgba(70, 148, 59, 0.32);
+}
+
+.floor-buy {
+  width: 100%;
+  font-size: 15px;
+}
+
+.floor-warning {
+  margin: 12px 0 0;
+  padding: 9px 11px;
+  color: var(--coral-dark);
+  background: rgba(242, 102, 76, 0.1);
+  border-radius: 11px;
+  font-size: 12px;
+}
+
+.floor-list {
+  display: grid;
+  gap: 9px;
+}
+
+.floor-option {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 46px 1fr 24px;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  font: inherit;
+  color: var(--ink);
+  text-align: left;
+  background: var(--cream);
+  border: 3px solid rgba(168, 106, 61, 0.42);
+  border-radius: 15px;
+  cursor: pointer;
+}
+
+.floor-option.current {
+  background: rgba(97, 185, 84, 0.13);
+  border-color: var(--leaf-dark);
+}
+
+.floor-option:disabled {
+  cursor: default;
+  opacity: 0.72;
+}
+
+.floor-number {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  background: var(--wood);
+  border-radius: 12px;
+  font-size: 20px;
+}
+
+.floor-option.current .floor-number {
+  background: var(--leaf-dark);
+}
+
+.floor-option strong,
+.floor-option small {
+  display: block;
+}
+
+.floor-option small {
+  margin-top: 2px;
+  color: var(--ink-soft);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.floor-arrow {
+  color: var(--leaf-dark);
+  font-size: 20px;
+  text-align: center;
+}
+
 /* --- day receipt --------------------------------------------------------- */
 
 .receipt-head {

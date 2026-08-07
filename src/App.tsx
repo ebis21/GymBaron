@@ -4,7 +4,7 @@ import type { PlacedKind } from './game/build'
 import type { ClientRarity } from './game/types'
 import { machineType } from './game/content/machines'
 import { decorType } from './game/content/decor'
-import { HIRING_UNLOCK_LEVEL, STAFF_UNLOCK_LEVEL } from './game/constants'
+import { FLOOR_UNLOCK_COST, HIRING_UNLOCK_LEVEL, STAFF_UNLOCK_LEVEL } from './game/constants'
 import { isClosingTime } from './game/clock'
 import GymScene3D from './three/GymScene3D'
 import type { Focus, PickResult } from './three/scene'
@@ -21,6 +21,8 @@ import ClientCard from './ui/ClientCard'
 import WelcomeBack from './ui/WelcomeBack'
 import DevPanel from './ui/DevPanel'
 import { money } from './ui/format'
+import FloorAccessModal from './ui/FloorAccessModal'
+import { floorName } from './game/floors'
 
 /** Which full-screen panel is over the room, if any. */
 type Tab = 'gym' | 'shop' | 'stats' | 'staff'
@@ -123,6 +125,8 @@ export default function App() {
   const demolishWall = useGameStore(s => s.demolishWall)
 
   const buyExpansion = useGameStore(s => s.buyExpansion)
+  const buyNextFloor = useGameStore(s => s.buyNextFloor)
+  const switchFloor = useGameStore(s => s.switchFloor)
   const endDay = useGameStore(s => s.endDay)
 
   const hireCandidate = useGameStore(s => s.hireCandidate)
@@ -134,6 +138,7 @@ export default function App() {
   const [phoneOpen, setPhoneOpen] = useState(false)
   const [focus, setFocus] = useState<Focus>(null)
   const [recruiting, setRecruiting] = useState(false)
+  const [floorAccessOpen, setFloorAccessOpen] = useState(false)
 
   const [buildMode, setBuildMode] = useState(false)
   /** Bumped by the dev panel to drop the player at the front counter. */
@@ -236,7 +241,7 @@ export default function App() {
   // hide the button outright and should clear any hold the same way.
   useEffect(() => {
     cancelHold()
-  }, [focus, buildMode, talking, tab, state.dayEnded, cancelHold])
+  }, [focus, buildMode, talking, tab, state.dayEnded, floorAccessOpen, cancelHold])
 
   // Belt-and-braces: drop any in-flight rAF if the component ever unmounts.
   useEffect(() => () => cancelHold(), [cancelHold])
@@ -460,6 +465,18 @@ export default function App() {
   const action = ((): Action | null => {
     if (!focus || state.dayEnded || buildMode || talking) return null
 
+    if (focus.kind === 'floorAccess') {
+      const unlocked = state.floorPlans.length > 1
+      return {
+        label: unlocked ? 'Wybierz piętro' : 'Odblokuj piętro',
+        hint: unlocked ? floorName(state.activeFloor) : money(FLOOR_UNLOCK_COST),
+        run: () => setFloorAccessOpen(true),
+        enabled: true,
+        hold: null,
+        key: { ms: 0, uid: 'floor-access' },
+      }
+    }
+
     if (focus.kind === 'repair') {
       const machine = state.machines.find(m => m.uid === focus.machineUid)
       if (!machine) return null
@@ -511,9 +528,11 @@ export default function App() {
         selected={selected}
         preview={null}
         facing={talking}
+        paused={floorAccessOpen}
         teleport={teleport}
         onFocus={onFocus}
         onPick={onPick}
+        onFloorAccess={() => setFloorAccessOpen(true)}
       />
 
       <TopBar state={state} />
@@ -764,6 +783,19 @@ export default function App() {
             setTalking(null)
           }}
           onClose={() => setTalking(null)}
+        />
+      )}
+
+      {floorAccessOpen && (
+        <FloorAccessModal
+          state={state}
+          onBuy={buyNextFloor}
+          onSwitch={floor => {
+            leaveBuildMode()
+            setTalking(null)
+            switchFloor(floor)
+          }}
+          onClose={() => setFloorAccessOpen(false)}
         />
       )}
 

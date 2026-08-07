@@ -169,6 +169,21 @@ export interface GameStats {
   membersLost: number
 }
 
+/**
+ * The pieces of the simulation that physically belong to one storey. The
+ * currently visited floor is mirrored in GameState's top-level fields so the
+ * existing engine can keep operating on one room without knowing about the
+ * inactive ones.
+ */
+export interface FloorPlan {
+  expansion: number
+  machines: Machine[]
+  decor: Decor[]
+  walls: Wall[]
+  stains: Stain[]
+  clients: Client[]
+}
+
 export interface GameState {
   version: number
   cash: number
@@ -194,6 +209,10 @@ export interface GameState {
    * the gym everyone starts with.
    */
   expansion: number
+  /** Zero is the ground floor; upper storeys are numbered from one. */
+  activeFloor: number
+  /** One plan per unlocked storey, including a snapshot of the active one. */
+  floorPlans: FloorPlan[]
   /** 1-based. The player advances it by hand; nothing else may. */
   day: number
   /**

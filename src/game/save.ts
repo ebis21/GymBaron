@@ -2,9 +2,13 @@ import type { Client, GameState, Machine } from './types'
 import { initialState } from './economy'
 import { SAVE_VERSION } from './constants'
 import { DOOR_QUEUE_Z, doorX } from './layout'
+import { floorPlanFrom, snapshotActiveFloor } from './floors'
 
 export function serialize(state: GameState): string {
-  return JSON.stringify(state)
+  // The engine works on a top-level mirror of the active room. Refresh its
+  // stored plan at the last possible moment so autosaves never lag behind a
+  // placement, stain, repair, or expansion.
+  return JSON.stringify(snapshotActiveFloor(state))
 }
 
 /**
@@ -138,6 +142,42 @@ function looksLikeV6(s: Record<string, unknown>): boolean {
   )
 }
 
+/** Version 7 introduces the paid wall lock and independently stored floors. */
+function migrateV6(raw: Record<string, unknown>): Record<string, unknown> {
+  const state = raw as unknown as GameState
+  return {
+    ...raw,
+    version: 7,
+    activeFloor: 0,
+    floorPlans: [floorPlanFrom(state)],
+  }
+}
+
+function looksLikeFloorPlan(value: unknown): boolean {
+  if (typeof value !== 'object' || value === null) return false
+  const plan = value as Record<string, unknown>
+  return (
+    typeof plan.expansion === 'number' &&
+    Array.isArray(plan.machines) &&
+    Array.isArray(plan.decor) &&
+    Array.isArray(plan.walls) &&
+    Array.isArray(plan.stains) &&
+    Array.isArray(plan.clients)
+  )
+}
+
+function looksLikeV7(s: Record<string, unknown>): boolean {
+  return (
+    typeof s.activeFloor === 'number' &&
+    Number.isInteger(s.activeFloor) &&
+    Array.isArray(s.floorPlans) &&
+    s.floorPlans.length > 0 &&
+    s.floorPlans.every(looksLikeFloorPlan) &&
+    s.activeFloor >= 0 &&
+    s.activeFloor < s.floorPlans.length
+  )
+}
+
 /**
  * Returns a fresh state on unparseable, malformed, or future-version input
  * rather than throwing — a corrupt save must never brick the app.
@@ -160,6 +200,8 @@ export function deserialize(raw: string, now: number): GameState {
     if (state.version === 4) state = migrateV4(state)
     if (state.version === 5) state = migrateV5(state)
     if (!looksLikeV6(state)) return initialState(now, now)
+    if (state.version === 6) state = migrateV6(state)
+    if (!looksLikeV7(state)) return initialState(now, now)
 
     return state as unknown as GameState
   } catch {

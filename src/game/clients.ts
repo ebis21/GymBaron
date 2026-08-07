@@ -16,6 +16,7 @@ import {
 } from './constants'
 import { DOOR_QUEUE_Z, doorX } from './layout'
 import { spawnStain, STAIN_CHANCE } from './stains'
+import { clientsAcrossFloors } from './floors'
 
 /**
  * Chance per second that a client walks in, at zero and at full reputation.
@@ -61,7 +62,7 @@ export function isTrainerFree(state: GameState, trainerUid: string): boolean {
   const trainer = state.staff.find(s => s.uid === trainerUid)
   // `owed > 0` is an employee on strike over unpaid wages; they coach nobody.
   if (!trainer || trainer.role !== 'trainer' || trainer.owed > 0) return false
-  return !state.clients.some(c => c.trainerUid === trainerUid)
+  return !clientsAcrossFloors(state).some(c => c.trainerUid === trainerUid)
 }
 
 /** Every trainer available to be booked for the client at the desk right now. */
