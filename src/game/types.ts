@@ -1,4 +1,5 @@
 import type { Point, Tile } from './layout'
+import type { UpgradeId } from './content/upgrades'
 
 export type MachineTypeId =
   | 'dumbbells' | 'bench' | 'treadmill' | 'latpulldown' | 'bike' | 'cable'
@@ -203,6 +204,13 @@ export interface GameState {
   candidates: Candidate[]
   /** Day the pool was drawn for; keeps a stale pool from surviving the night. */
   candidatesDay: number
+  /**
+   * How many rungs of each upgrade track the player has bought. Only the count
+   * is stored — `content/upgrades.ts` is the sole authority on what a rung is
+   * worth, so rebalancing the ladder needs no save migration and leaves no
+   * stale numbers behind in anybody's gym.
+   */
+  upgrades: Record<UpgradeId, number>
   seed: number
   /**
    * How many floor expansions the player has bought — an index into

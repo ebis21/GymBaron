@@ -22,10 +22,13 @@ export const DEBT_LIMIT = -20_000
  * How long somebody waits at the desk before walking out. Generous on
  * purpose: the player has a whole room to cross, and losing a visitor because
  * they were three tiles away reads as a punishment for moving around.
+ *
+ * This is the *base*, level 0 of the `patience` upgrade track. What the engine
+ * actually reads is `patienceMs(state)` — see `content/upgrades.ts`.
  */
 export const PATIENCE_MS = 26_000
 export const OFFLINE_CAP_MS = 8 * 60 * 60 * 1000
-export const SAVE_VERSION = 7
+export const SAVE_VERSION = 8
 export const SAVE_KEY = 'iron-empire-save'
 export const XP_PER_LEVEL = 100
 export const MAX_STEP_MS = 1_000
