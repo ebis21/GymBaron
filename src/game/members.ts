@@ -15,15 +15,36 @@ const SIGNUP_PER_SATISFACTION = 0.15
 const CHURN_BASE = 0.02
 const CHURN_PER_UNHAPPY = 0.08
 
+/**
+ * What the luck track is worth at the desk, and the wall it runs into.
+ *
+ * The ceiling is not optional. The comment above records why conversion came
+ * down from 40% in the first place: at that rate the membership — and with it
+ * the subscription income — pulled away from the rest of the economy. An
+ * upgrade has no business undoing that fix, so luck raises the odds but can
+ * never push them past a shade above today's best case (0.18).
+ *
+ * The side effect is the good kind. At full satisfaction the base already sits
+ * just under the ceiling, so luck buys almost nothing there; at the 0.03–0.12
+ * a middling gym actually runs at, it buys plenty. Luck rescues a struggling
+ * gym rather than gilding a thriving one.
+ */
+const SIGNUP_PER_LUCK = 0.30
+const SIGNUP_CEILING = 0.24
+
 const clamp01 = (v: number) => Math.max(0, Math.min(1, v))
 
 /**
  * Odds that a walk-in who just finished a workout buys a pass. A miserable
  * gym still converts the occasional enthusiast; a great one never converts
  * everybody.
+ *
+ * `luck` defaults to the unupgraded game, so existing callers are unaffected.
  */
-export function signupChance(satisfaction: number): number {
-  return SIGNUP_BASE + clamp01(satisfaction / 100) * SIGNUP_PER_SATISFACTION
+export function signupChance(satisfaction: number, luck = 1): number {
+  const base = SIGNUP_BASE + clamp01(satisfaction / 100) * SIGNUP_PER_SATISFACTION
+  const lucky = base * (1 + Math.max(0, luck - 1) * SIGNUP_PER_LUCK)
+  return Math.min(SIGNUP_CEILING, lucky)
 }
 
 /**

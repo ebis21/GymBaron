@@ -11,9 +11,9 @@ import {
   LIL_D_FAKE_PAYMENT,
   LIL_D_SPAWN_CHANCE,
   MAX_QUEUE,
-  PATIENCE_MS,
   TRAINER_SATISFACTION_MULT,
 } from './constants'
+import { earningsMult, luckMult, patienceMs } from './upgrades'
 import { DOOR_QUEUE_Z, doorX } from './layout'
 import { spawnStain, STAIN_CHANCE } from './stains'
 import { clientsAcrossFloors } from './floors'
@@ -80,7 +80,7 @@ function acceptingArrivals(state: GameState): boolean {
 }
 
 function enqueue(state: GameState, kind: ClientKind, memberUid: string | null): GameState {
-  const [rarity, seed] = rollRarity(state.seed)
+  const [rarity, seed] = rollRarity(state.seed, luckMult(state))
   const client: Client = {
     uid: `c${state.nextUid}`,
     kind,
@@ -190,6 +190,12 @@ export function advanceClients(state: GameState, dtMs: number): GameState {
   let signups = 0
   let xpAwarded = 0
 
+  // Both upgrade tracks are read once for the whole sweep rather than per
+  // client — they cannot change mid-tick, and the loop runs over every person
+  // in the building on every frame.
+  const patience = patienceMs(state)
+  const luck = luckMult(state)
+
   const machines = state.machines.map(m => ({ ...m }))
   const byUid = new Map(machines.map(m => [m.uid, m]))
   const survivors: Client[] = []
@@ -205,7 +211,7 @@ export function advanceClients(state: GameState, dtMs: number): GameState {
     const phaseMs = client.phaseMs + dtMs
 
     if (client.phase === 'queue') {
-      if (phaseMs > PATIENCE_MS) {
+      if (phaseMs > patience) {
         lost += 1
         reputation = clamp(reputation - REP_LOSS_ON_WALKOUT, 0, 100)
         satisfaction = clamp(satisfaction - SAT_LOSS_ON_WALKOUT, 0, 100)
@@ -263,7 +269,7 @@ export function advanceClients(state: GameState, dtMs: number): GameState {
     if (client.kind === 'walkin' && client.special !== 'lil-d') {
       const [roll, nextSeed] = nextRandom(seed)
       seed = nextSeed
-      if (roll < signupChance(satisfaction)) signups += 1
+      if (roll < signupChance(satisfaction, luck)) signups += 1
     }
   }
 
@@ -319,12 +325,23 @@ export function scanClient(
   const isLilD = client.special === 'lil-d'
   const coach = trainerUid && !isLilD && isTrainerFree(state, trainerUid) ? trainerUid : null
 
+  // LIL D. settles by his own rules and his notes are a loss, so the earnings
+  // track never touches him — upgrading how well you sell cannot make a con
+  // pay better.
+  const earnings = earningsMult(state)
   const plainFee = isLilD
     ? 0
-    : entryFee(machine.type, client.kind, client.rarity, state.reputation)
+    : entryFee(machine.type, client.kind, client.rarity, state.reputation, false, earnings)
   const fee = isLilD
     ? LIL_D_FAKE_PAYMENT
-    : entryFee(machine.type, client.kind, client.rarity, state.reputation, coach !== null)
+    : entryFee(
+        machine.type,
+        client.kind,
+        client.rarity,
+        state.reputation,
+        coach !== null,
+        earnings,
+      )
   // A breakdown of `fee`, not income on top of it — see `DayLedger.trainerFees`.
   const trainerShare = isLilD ? 0 : fee - plainFee
   const cashDelta = isLilD ? -fee : fee

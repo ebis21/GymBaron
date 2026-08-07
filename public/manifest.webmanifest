@@ -1,8 +1,8 @@
 {
   "name": "GYMBARON",
   "short_name": "GYMBARON",
-  "description": "Symulator prowadzenia siłowni. Pusta sala, 500 kr i jeden klient w drzwiach.",
-  "lang": "pl",
+  "description": "A gym management simulator. Start with an empty floor and $500.",
+  "lang": "en",
   "start_url": "/",
   "display": "standalone",
   "orientation": "portrait",

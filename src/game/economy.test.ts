@@ -224,3 +224,29 @@ describe('addXp', () => {
     expect(addXp(base(), 99).level).toBe(1)
   })
 })
+
+describe('entryFee — the earnings upgrade', () => {
+  it('is neutral when the track has not been bought', () => {
+    expect(entryFee('bench', 'walkin', 'common', 0, false, 1))
+      .toBeCloseTo(entryFee('bench', 'walkin', 'common'))
+  })
+
+  it('scales the whole fee, including the trainer share', () => {
+    const plain = entryFee('bench', 'walkin', 'common')
+    const coached = entryFee('bench', 'walkin', 'common', 0, true)
+
+    expect(entryFee('bench', 'walkin', 'common', 0, false, 2)).toBeCloseTo(plain * 2)
+    expect(entryFee('bench', 'walkin', 'common', 0, true, 2)).toBeCloseTo(coached * 2)
+  })
+
+  it('stacks on top of the member discount and the reputation bonus', () => {
+    const full = entryFee('treadmill', 'member', 'epic', 100, false)
+    expect(entryFee('treadmill', 'member', 'epic', 100, false, 4)).toBeCloseTo(full * 4)
+  })
+
+  it('leaves the price of a pass alone — that is the gym class only', () => {
+    const gym = { ...base(), machines: [machine('m1', 'bench')] }
+    // `passPrice` takes no earnings argument at all; this pins that down.
+    expect(passPrice(gym)).toBeCloseTo(MEMBER_FEE * gymClass(gym))
+  })
+})

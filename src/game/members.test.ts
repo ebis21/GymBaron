@@ -152,3 +152,29 @@ describe('applyChurn', () => {
     expect(stillQueued).toBe(stillMember)
   })
 })
+
+describe('signupChance — the luck upgrade', () => {
+  it('is unchanged when the track has not been bought', () => {
+    for (const satisfaction of [0, 25, 50, 75, 100]) {
+      expect(signupChance(satisfaction, 1)).toBeCloseTo(signupChance(satisfaction))
+    }
+  })
+
+  it('converts better at the middling satisfaction a real gym runs at', () => {
+    expect(signupChance(40, 4)).toBeGreaterThan(signupChance(40, 1))
+    expect(signupChance(60, 2)).toBeGreaterThan(signupChance(60, 1))
+  })
+
+  it('never breaks the ceiling that keeps membership income in check', () => {
+    for (const satisfaction of [0, 25, 50, 75, 100]) {
+      for (const luck of [1, 1.5, 2, 3, 4, 99]) {
+        expect(signupChance(satisfaction, luck)).toBeLessThanOrEqual(0.24)
+      }
+    }
+  })
+
+  it('cannot be dragged below the unupgraded odds by a nonsense luck value', () => {
+    expect(signupChance(50, 0)).toBeCloseTo(signupChance(50, 1))
+    expect(signupChance(50, -3)).toBeCloseTo(signupChance(50, 1))
+  })
+})

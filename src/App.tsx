@@ -10,6 +10,8 @@ import TopBar from './ui/TopBar'
 import Phone, { type PhoneApp } from './ui/Phone'
 import ShopScreen from './ui/ShopScreen'
 import StatsScreen from './ui/StatsScreen'
+import UpgradesScreen from './ui/UpgradesScreen'
+import { cleanHoldMs, repairHoldMs } from './game/upgrades'
 import StaffPanel from './ui/StaffPanel'
 import RecruitScreen from './ui/RecruitScreen'
 import GameOverScreen from './ui/GameOverScreen'
@@ -24,7 +26,7 @@ import FloorAccessModal from './ui/FloorAccessModal'
 import { floorName } from './game/floors'
 
 /** Which full-screen panel is over the room, if any. */
-type Tab = 'gym' | 'shop' | 'stats' | 'staff'
+type Tab = 'gym' | 'shop' | 'stats' | 'staff' | 'upgrades'
 
 interface Selection {
   kind: PlacedKind
@@ -38,9 +40,9 @@ interface Selection {
  */
 const EDGE_GRAB = 0.45
 
-/** Cleaning is quick; repairing kit takes noticeably longer. */
-const CLEAN_HOLD_MS = 3000
-const REPAIR_HOLD_MS = 5000
+// Cleaning is quick; repairing kit takes noticeably longer. Both are now the
+// base rung of an upgrade track — see `content/upgrades.ts` — and are read off
+// the state per render rather than fixed here.
 /**
  * Stepping up to a client is instant on E. It opens a card and charges
  * nothing on its own — the decision is still one tap away inside it — so
@@ -118,6 +120,7 @@ export default function App() {
   const demolishWall = useGameStore(s => s.demolishWall)
 
   const buyExpansion = useGameStore(s => s.buyExpansion)
+  const buyUpgrade = useGameStore(s => s.buyUpgrade)
   const buyNextFloor = useGameStore(s => s.buyNextFloor)
   const switchFloor = useGameStore(s => s.switchFloor)
   const endDay = useGameStore(s => s.endDay)
@@ -458,6 +461,11 @@ export default function App() {
   const afterHours = isClosingTime(state.dayMs) && !state.dayEnded && !state.gameOver
   const stillInside = state.clients.length
 
+  // The two proximity actions the player performs by hand, both shortened by
+  // their own upgrade track.
+  const cleanMs = cleanHoldMs(state)
+  const repairMs = repairHoldMs(state)
+
   /** The proximity button, shown only outside build mode. */
   const action = ((): Action | null => {
     if (!focus || state.dayEnded || buildMode || talking) return null
@@ -483,8 +491,8 @@ export default function App() {
         hint: t.content.machines[machine.type],
         enabled: state.cash >= spec.repairCost,
         run: () => repair(focus.machineUid),
-        hold: { ms: REPAIR_HOLD_MS, uid: focus.machineUid },
-        key: { ms: REPAIR_HOLD_MS, uid: focus.machineUid },
+        hold: { ms: repairMs, uid: focus.machineUid },
+        key: { ms: repairMs, uid: focus.machineUid },
       }
     }
 
@@ -494,8 +502,8 @@ export default function App() {
         hint: '',
         enabled: true,
         run: () => wipe(focus.stainUid),
-        hold: { ms: CLEAN_HOLD_MS, uid: focus.stainUid },
-        key: { ms: CLEAN_HOLD_MS, uid: focus.stainUid },
+        hold: { ms: cleanMs, uid: focus.stainUid },
+        key: { ms: cleanMs, uid: focus.stainUid },
       }
     }
 
@@ -552,7 +560,7 @@ export default function App() {
             <>
               <span className="build-hint">{t.build.pickEdge}</span>
               <button className="btn ghost tiny" onClick={() => setMovingWall(null)}>
-                Anuluj
+                {t.build.cancel}
               </button>
             </>
           ) : carrying ? (
@@ -563,14 +571,14 @@ export default function App() {
                   : t.build.pickTileForItem}
               </span>
               <button className="btn ghost tiny" onClick={() => setCarrying(null)}>
-                Anuluj
+                {t.build.cancel}
               </button>
             </>
           ) : selectedWall ? (
             <>
               <span className="build-hint">{t.build.wall}</span>
               <button className="btn tiny" onClick={() => setMovingWall(selectedWall)}>
-                Przestaw
+                {t.build.move}
               </button>
               <button
                 className="btn tiny"
@@ -579,7 +587,7 @@ export default function App() {
                   setSelectedWall(null)
                 }}
               >
-                Schowaj{HAS_KEYBOARD && <kbd className="btn-key">X</kbd>}
+                {t.build.store}{HAS_KEYBOARD && <kbd className="btn-key">X</kbd>}
               </button>
               <button className="btn ghost tiny" onClick={() => setSelectedWall(null)}>
                 ✕
@@ -601,7 +609,7 @@ export default function App() {
                   setSelected(null)
                 }}
               >
-                Przestaw
+                {t.build.move}
               </button>
               <button
                 className="btn tiny"
@@ -611,7 +619,7 @@ export default function App() {
                   setSelected(null)
                 }}
               >
-                Schowaj{HAS_KEYBOARD && <kbd className="btn-key">X</kbd>}
+                {t.build.store}{HAS_KEYBOARD && <kbd className="btn-key">X</kbd>}
               </button>
               <button className="btn ghost tiny" onClick={() => setSelected(null)}>
                 ✕
@@ -621,13 +629,13 @@ export default function App() {
             <>
               <span className="build-hint">{t.build.idle}</span>
               <button className="btn tiny" onClick={() => setBag({ tile: null })}>
-                Ekwipunek ({state.inventory.length})
+                {t.build.inventory(state.inventory.length)}
               </button>
               <button className="btn tiny" onClick={() => setTab('shop')}>
-                Sklep
+                {t.build.shop}
               </button>
               <button className="btn primary tiny" onClick={leaveBuildMode}>
-                ✓ Gotowe
+                {t.build.done}
               </button>
             </>
           )}
@@ -636,7 +644,7 @@ export default function App() {
 
       {tab !== 'gym' && (
         <div className="panel">
-          <button className="panel-close" onClick={() => setTab('gym')} aria-label="Zamknij">
+          <button className="panel-close" onClick={() => setTab('gym')} aria-label={t.settings.close}>
             ✕
           </button>
           {tab === 'shop' ? (
@@ -675,6 +683,8 @@ export default function App() {
                 onOpenRecruit={() => setRecruiting(true)}
               />
             )
+          ) : tab === 'upgrades' ? (
+            <UpgradesScreen state={state} onBuy={buyUpgrade} />
           ) : (
             <StatsScreen state={state} />
           )}
@@ -708,14 +718,16 @@ export default function App() {
           <span className="action-label">{action.label}</span>
           {holdPct > 0 ? (
             <span className="action-hint">
-              jeszcze {Math.max(0, ((1 - holdPct) * action.key.ms) / 1000).toFixed(1)}s
+              {t.action.remaining(
+                Math.max(0, ((1 - holdPct) * action.key.ms) / 1000).toFixed(1),
+              )}
             </span>
           ) : (
             <span className="action-hint">
               {action.hint}
               {HAS_KEYBOARD && (
                 <span className="action-key">
-                  <kbd>E</kbd> {action.key.ms > 0 ? 'przytrzymaj' : ''}
+                  <kbd>E</kbd> {action.key.ms > 0 ? t.action.hold : ''}
                 </span>
               )}
             </span>

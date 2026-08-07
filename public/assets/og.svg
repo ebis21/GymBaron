@@ -48,10 +48,10 @@
       GYMBARON
     </text>
     <text x="549" y="354" font-size="33" font-weight="600" fill="#e0c295">
-      Symulator prowadzenia siłowni
+      Gym management simulator
     </text>
     <text x="549" y="412" font-size="27" font-weight="500" fill="#b99a72">
-      Pusta sala, 500 kr i jeden klient w drzwiach.
+      An empty floor, $500, and one client at the door.
     </text>
   </g>
 </svg>

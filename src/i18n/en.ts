@@ -1,5 +1,6 @@
 import type { ClientRarity, DecorTypeId, MachineTypeId, StaffRole } from '../game/types'
 import type { ExpansionId } from '../game/content/expansion'
+import type { UpgradeId } from '../game/content/upgrades'
 
 /**
  * English is the source of truth: `Strings` is inferred from this object, so
@@ -40,7 +41,14 @@ export const en = {
     show: 'Show phone',
     hide: 'Hide phone',
     day: (n: number) => `Day ${n}`,
-    apps: { gym: 'Floor', build: 'Build', shop: 'Shop', stats: 'Stats', staff: 'Staff' },
+    apps: {
+      gym: 'Floor',
+      build: 'Build',
+      shop: 'Shop',
+      stats: 'Stats',
+      staff: 'Staff',
+      upgrades: 'Upgrades',
+    },
   },
 
   build: {
@@ -69,6 +77,18 @@ export const en = {
     passerby: 'Passer-by',
     floorPick: 'Pick a floor',
     floorUnlock: 'Unlock floor',
+    remaining: (seconds: string) => `${seconds}s left`,
+    hold: 'hold',
+  },
+
+  dev: {
+    levelUp: 'Level +1',
+    staffLevel: (level: number) => `Level ${level} (staff)`,
+    teleport: 'Teleport to reception',
+    closingTime: 'Skip to 20:00',
+    summonLilD: 'Summon LIL D.',
+    rankShowcase: 'Rank showcase ♀/♂',
+    restart: 'Restart save',
   },
 
   closing: {
@@ -190,6 +210,26 @@ export const en = {
       'Wages come out at the close of every day. Anybody who goes unpaid does not turn up the next morning.',
   },
 
+  upgrades: {
+    title: 'Upgrades',
+    hint:
+      'Everything here sharpens what you do yourself, and none of it wears off. Your staff are unaffected — a cleaner you pay a wage to mops at their own speed.',
+    level: (level: number, max: number) => `Level ${level} / ${max}`,
+    current: (value: string) => `Now ${value}`,
+    step: (from: string, to: string) => `${from} → ${to}`,
+    maxed: 'Fully upgraded',
+    buy: (price: string) => price,
+    seconds: (value: string) => `${value}s`,
+    mult: (value: string) => `×${value}`,
+    blurb: {
+      cleaning: 'How long you hold to wipe a stain off the floor.',
+      repair: 'How long you hold to bring a dead machine back into service.',
+      earnings: 'Multiplies every door fee you take. Passes are priced by gym class and stay out of it.',
+      luck: 'Better clients through the door, and more of them buying a pass on the way out.',
+      patience: 'How long somebody waits at the desk before giving up and walking out.',
+    } satisfies Record<UpgradeId, string>,
+  },
+
   stats: {
     gym: 'Gym',
     reputation: 'Reputation',
@@ -284,6 +324,14 @@ export const en = {
       wing: 'New wing',
       hall: 'Main hall',
     } satisfies Record<ExpansionId, string>,
+
+    upgrades: {
+      cleaning: 'Cleaning',
+      repair: 'Repairs',
+      earnings: 'Earnings',
+      luck: 'Luck',
+      patience: 'Patience',
+    } satisfies Record<UpgradeId, string>,
 
     /**
      * The tier words on the tags over clients' heads stay English in both

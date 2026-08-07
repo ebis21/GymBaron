@@ -1,7 +1,7 @@
 {
   "name": "gymbaron",
   "version": "1.0.0",
-  "description": "GYMBARON - symulator prowadzenia siłowni",
+  "description": "GYMBARON - gym management simulator",
   "private": true,
   "type": "module",
   "scripts": {
