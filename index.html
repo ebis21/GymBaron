@@ -15,16 +15,15 @@
 
     <!--
       Absolute URLs on purpose: scrapers fetch these out of context and a
-      relative path resolves against whatever host they happened to crawl.
-      The domain is still the original one — renaming the Vercel project is a
-      dashboard job, not a repo change.
+      relative path resolves against whatever host they happened to crawl, so
+      these must name the canonical host explicitly.
     -->
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="GYMBARON" />
     <meta property="og:title" content="GYMBARON" />
     <meta property="og:description" content="A gym management simulator. Start with an empty floor and $500." />
-    <meta property="og:url" content="https://iron-empire-ochre.vercel.app/" />
-    <meta property="og:image" content="https://iron-empire-ochre.vercel.app/assets/og.png" />
+    <meta property="og:url" content="https://gymbaron.com/" />
+    <meta property="og:image" content="https://gymbaron.com/assets/og.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta property="og:locale" content="en_GB" />
@@ -32,7 +31,7 @@
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="GYMBARON" />
     <meta name="twitter:description" content="A gym management simulator. Start with an empty floor and $500." />
-    <meta name="twitter:image" content="https://iron-empire-ochre.vercel.app/assets/og.png" />
+    <meta name="twitter:image" content="https://gymbaron.com/assets/og.png" />
   </head>
   <body>
     <div id="root"></div>
