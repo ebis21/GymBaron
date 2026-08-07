@@ -552,7 +552,7 @@ export default function App() {
             <>
               <span className="build-hint">{t.build.pickEdge}</span>
               <button className="btn ghost tiny" onClick={() => setMovingWall(null)}>
-                Anuluj
+                {t.build.cancel}
               </button>
             </>
           ) : carrying ? (
@@ -563,14 +563,14 @@ export default function App() {
                   : t.build.pickTileForItem}
               </span>
               <button className="btn ghost tiny" onClick={() => setCarrying(null)}>
-                Anuluj
+                {t.build.cancel}
               </button>
             </>
           ) : selectedWall ? (
             <>
               <span className="build-hint">{t.build.wall}</span>
               <button className="btn tiny" onClick={() => setMovingWall(selectedWall)}>
-                Przestaw
+                {t.build.move}
               </button>
               <button
                 className="btn tiny"
@@ -579,7 +579,7 @@ export default function App() {
                   setSelectedWall(null)
                 }}
               >
-                Schowaj{HAS_KEYBOARD && <kbd className="btn-key">X</kbd>}
+                {t.build.store}{HAS_KEYBOARD && <kbd className="btn-key">X</kbd>}
               </button>
               <button className="btn ghost tiny" onClick={() => setSelectedWall(null)}>
                 ✕
@@ -601,7 +601,7 @@ export default function App() {
                   setSelected(null)
                 }}
               >
-                Przestaw
+                {t.build.move}
               </button>
               <button
                 className="btn tiny"
@@ -611,7 +611,7 @@ export default function App() {
                   setSelected(null)
                 }}
               >
-                Schowaj{HAS_KEYBOARD && <kbd className="btn-key">X</kbd>}
+                {t.build.store}{HAS_KEYBOARD && <kbd className="btn-key">X</kbd>}
               </button>
               <button className="btn ghost tiny" onClick={() => setSelected(null)}>
                 ✕
@@ -621,13 +621,13 @@ export default function App() {
             <>
               <span className="build-hint">{t.build.idle}</span>
               <button className="btn tiny" onClick={() => setBag({ tile: null })}>
-                Ekwipunek ({state.inventory.length})
+                {t.build.inventory(state.inventory.length)}
               </button>
               <button className="btn tiny" onClick={() => setTab('shop')}>
-                Sklep
+                {t.build.shop}
               </button>
               <button className="btn primary tiny" onClick={leaveBuildMode}>
-                ✓ Gotowe
+                {t.build.done}
               </button>
             </>
           )}
@@ -636,7 +636,7 @@ export default function App() {
 
       {tab !== 'gym' && (
         <div className="panel">
-          <button className="panel-close" onClick={() => setTab('gym')} aria-label="Zamknij">
+          <button className="panel-close" onClick={() => setTab('gym')} aria-label={t.settings.close}>
             ✕
           </button>
           {tab === 'shop' ? (
@@ -708,14 +708,16 @@ export default function App() {
           <span className="action-label">{action.label}</span>
           {holdPct > 0 ? (
             <span className="action-hint">
-              jeszcze {Math.max(0, ((1 - holdPct) * action.key.ms) / 1000).toFixed(1)}s
+              {t.action.remaining(
+                Math.max(0, ((1 - holdPct) * action.key.ms) / 1000).toFixed(1),
+              )}
             </span>
           ) : (
             <span className="action-hint">
               {action.hint}
               {HAS_KEYBOARD && (
                 <span className="action-key">
-                  <kbd>E</kbd> {action.key.ms > 0 ? 'przytrzymaj' : ''}
+                  <kbd>E</kbd> {action.key.ms > 0 ? t.action.hold : ''}
                 </span>
               )}
             </span>

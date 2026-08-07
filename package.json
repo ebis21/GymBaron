@@ -1,7 +1,7 @@
 {
   "name": "iron-empire",
   "version": "1.0.0",
-  "description": "IRON EMPIRE - symulator prowadzenia siłowni",
+  "description": "IRON EMPIRE - gym management simulator",
   "private": true,
   "type": "module",
   "scripts": {

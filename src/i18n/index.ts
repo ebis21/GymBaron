@@ -21,6 +21,11 @@ const DICTIONARIES: Record<Language, Strings> = { en, pl }
  */
 const LOCALES: Record<Language, string> = { en: 'en-GB', pl: 'pl-PL' }
 
+/** Keep assistive technology and browser language tools in step with the UI. */
+const setDocumentLanguage = (language: Language): void => {
+  if (typeof document !== 'undefined') document.documentElement.lang = language
+}
+
 const isLanguage = (v: unknown): v is Language =>
   typeof v === 'string' && (LANGUAGES as string[]).includes(v)
 
@@ -37,6 +42,7 @@ export const useI18nStore = create<I18nStore>(set => ({
   ready: false,
   t: DICTIONARIES[DEFAULT_LANGUAGE],
   setLanguage: next => {
+    setDocumentLanguage(next)
     set({ language: next, t: DICTIONARIES[next] })
     void saveRaw(LANG_KEY, next)
   },
@@ -50,6 +56,7 @@ export const useI18nStore = create<I18nStore>(set => ({
 export async function hydrateLanguage(): Promise<void> {
   const stored = await loadRaw(LANG_KEY)
   const language = isLanguage(stored) ? stored : DEFAULT_LANGUAGE
+  setDocumentLanguage(language)
   useI18nStore.setState({ language, t: DICTIONARIES[language], ready: true })
 }
 

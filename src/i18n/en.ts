@@ -69,6 +69,18 @@ export const en = {
     passerby: 'Passer-by',
     floorPick: 'Pick a floor',
     floorUnlock: 'Unlock floor',
+    remaining: (seconds: string) => `${seconds}s left`,
+    hold: 'hold',
+  },
+
+  dev: {
+    levelUp: 'Level +1',
+    staffLevel: (level: number) => `Level ${level} (staff)`,
+    teleport: 'Teleport to reception',
+    closingTime: 'Skip to 20:00',
+    summonLilD: 'Summon LIL D.',
+    rankShowcase: 'Rank showcase ♀/♂',
+    restart: 'Restart save',
   },
 
   closing: {

@@ -61,6 +61,18 @@ export const pl: Strings = {
     passerby: 'Przechodzień',
     floorPick: 'Wybierz piętro',
     floorUnlock: 'Odblokuj piętro',
+    remaining: seconds => `jeszcze ${seconds}s`,
+    hold: 'przytrzymaj',
+  },
+
+  dev: {
+    levelUp: 'Poziom +1',
+    staffLevel: level => `Poziom ${level} (personel)`,
+    teleport: 'Teleport do recepcji',
+    closingTime: 'Przewiń na 20:00',
+    summonLilD: 'Przywołaj LIL D.',
+    rankShowcase: 'Parada rang ♀/♂',
+    restart: 'Restart zapisu',
   },
 
   closing: {
