@@ -201,6 +201,10 @@ export class ActorLayer {
   }
 
   private place(view: ActorView, client: Client, state: GameState, elapsed: number): void {
+    for (const prop of view.rig.stowDuringWorkout ?? []) {
+      prop.visible = client.phase !== 'workout'
+    }
+
     // On a machine the pose is the machine's business: on the saddle, on the
     // belt, flat on the bench, turned with the equipment.
     if (client.phase === 'workout') {
