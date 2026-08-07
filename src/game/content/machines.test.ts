@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { MACHINE_TYPES, machineType } from './machines'
 import { START_CASH } from '../constants'
+import { en } from '../../i18n/en'
+import { pl } from '../../i18n/pl'
 
 describe('machine catalogue', () => {
   it('has a machine affordable with the starting cash', () => {
@@ -13,7 +15,14 @@ describe('machine catalogue', () => {
   })
 
   it('looks a machine up by id', () => {
-    expect(machineType('dumbbells').name).toBe('Hantle')
+    expect(machineType('dumbbells').price).toBe(350)
+  })
+
+  it('names every machine in both languages', () => {
+    for (const m of MACHINE_TYPES) {
+      expect(en.content.machines[m.id]).toBeTruthy()
+      expect(pl.content.machines[m.id]).toBeTruthy()
+    }
   })
 
   it('throws on an unknown id', () => {

@@ -1,10 +1,17 @@
+import { strings } from '../i18n'
 import { FLOOR_UNLOCK_COST, MAX_FLOORS } from './constants'
 import { MAX_EXPANSION } from './content/expansion'
 import type { Client, FloorPlan, GameState, Machine } from './types'
 
-/** Human-readable 0-based floor number used consistently by the HUD. */
-export const floorName = (floor: number): string =>
-  floor === 0 ? 'Parter' : `${floor}. piętro`
+/**
+ * Human-readable 0-based floor number used consistently by the HUD. Reads the
+ * language from the store rather than taking it as an argument: every caller
+ * is a render path that would otherwise have to thread it through untouched.
+ */
+export const floorName = (floor: number): string => {
+  const t = strings()
+  return floor === 0 ? t.floors.ground : t.floors.numbered(floor)
+}
 
 export function floorPlanFrom(state: GameState): FloorPlan {
   return {

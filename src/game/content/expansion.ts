@@ -7,13 +7,16 @@ import { GRID_H, GRID_W } from '../constants'
  * no such thing as an invalid gym: `GameState.expansion` is a single index,
  * which is also all a save has to carry.
  */
+/** Names the rung for translation; the save still carries only the index. */
+export type ExpansionId = 'start' | 'annex' | 'wing' | 'hall'
+
 export interface Expansion {
+  id: ExpansionId
   /** Equipment-grid width and depth once this rung is paid for. */
   w: number
   h: number
   /** Cost of moving up to this rung. Zero on the floor everyone starts with. */
   price: number
-  name: string
   /** Room to grow into has to be earned; a bigger floor alone earns nothing. */
   minLevel: number
 }
@@ -24,10 +27,10 @@ export interface Expansion {
  * worth it only once the kit to fill it is already paying for itself.
  */
 export const EXPANSIONS: Expansion[] = [
-  { w: GRID_W,     h: GRID_H,     price: 0,      name: 'Sala startowa', minLevel: 1 },
-  { w: GRID_W + 2, h: GRID_H,     price: 4_000,  name: 'Przybudówka',   minLevel: 4 },
-  { w: GRID_W + 2, h: GRID_H + 2, price: 15_000, name: 'Nowe skrzydło', minLevel: 8 },
-  { w: GRID_W + 4, h: GRID_H + 2, price: 45_000, name: 'Hala główna',   minLevel: 12 },
+  { id: 'start', w: GRID_W,     h: GRID_H,     price: 0,      minLevel: 1 },
+  { id: 'annex', w: GRID_W + 2, h: GRID_H,     price: 4_000,  minLevel: 4 },
+  { id: 'wing',  w: GRID_W + 2, h: GRID_H + 2, price: 15_000, minLevel: 8 },
+  { id: 'hall',  w: GRID_W + 4, h: GRID_H + 2, price: 45_000, minLevel: 12 },
 ]
 
 /** Highest rung there is. Past it the shop has nothing left to sell. */

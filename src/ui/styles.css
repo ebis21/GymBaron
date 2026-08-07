@@ -135,6 +135,30 @@ body {
   border-left: 2px dashed rgba(168, 106, 61, 0.3);
 }
 
+/*
+ * Deliberately outside the dashed run of stat cells: the five to its left are
+ * numbers to read, and a button sitting inside that rhythm gets read as one.
+ */
+.topbar-settings {
+  flex: 0 0 auto;
+  align-self: stretch;
+  margin-left: 4px;
+  padding: 0 8px;
+  font: inherit;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--ink-soft);
+  background: transparent;
+  border: none;
+  border-left: 2px dashed rgba(168, 106, 61, 0.3);
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.topbar-settings:active {
+  transform: translateY(1px);
+}
+
 .topbar-label {
   font-size: 10px;
   letter-spacing: 0.04em;
@@ -1080,6 +1104,59 @@ body {
   border: 3px solid rgba(168, 106, 61, 0.4);
   border-radius: 50%;
   cursor: pointer;
+}
+
+/* --- settings ------------------------------------------------------------ */
+
+.settings-modal {
+  position: relative;
+  max-width: 360px;
+}
+
+.settings-label {
+  margin: 18px 0 8px;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.settings-langs {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+/* A list of two, so each option is a full-width row rather than a segmented
+   control — the language name is what the player is scanning for, and it
+   should sit at the left edge where reading starts. */
+.settings-lang {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 14px;
+  font: inherit;
+  font-size: 15px;
+  color: var(--ink);
+  background: var(--cream);
+  border: 3px solid rgba(168, 106, 61, 0.35);
+  border-radius: 14px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.settings-lang.current {
+  color: var(--leaf-dark);
+  background: #eef8ea;
+  border-color: var(--leaf);
+}
+
+.settings-lang-mark {
+  font-size: 16px;
+  color: var(--leaf-dark);
 }
 
 /* --- floor access ------------------------------------------------------- */

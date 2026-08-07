@@ -2,7 +2,7 @@ import type { DecorTypeId } from '../types'
 
 export interface DecorType {
   id: DecorTypeId
-  name: string
+  // Display name lives in `src/i18n`, keyed by this id.
   price: number
 }
 
@@ -11,10 +11,10 @@ export interface DecorType {
  * prices are low — this is spending money on a nicer room, not an investment.
  */
 export const DECOR_TYPES: DecorType[] = [
-  { id: 'plant', name: 'Roślina doniczkowa', price: 60 },
-  { id: 'locker', name: 'Szafka', price: 120 },
-  { id: 'watercooler', name: 'Dystrybutor wody', price: 150 },
-  { id: 'reception', name: 'Recepcja', price: 400 },
+  { id: 'plant', price: 60 },
+  { id: 'locker', price: 120 },
+  { id: 'watercooler', price: 150 },
+  { id: 'reception', price: 400 },
 ]
 
 const BY_ID = new Map<DecorTypeId, DecorType>(DECOR_TYPES.map(d => [d.id, d]))

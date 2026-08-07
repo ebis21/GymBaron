@@ -4,7 +4,7 @@ import { DECOR_TYPES, WALL_PRICE } from '../game/content/decor'
 import { ENTRY_FEE_BASE } from '../game/constants'
 import { expansionAt, nextExpansion } from '../game/content/expansion'
 import { assetFor } from '../assets/assetFor'
-import { money } from './format'
+import { useI18n } from '../i18n'
 
 interface Props {
   state: GameState
@@ -27,8 +27,10 @@ export default function ShopScreen({
   onBuyWall,
   onBuyExpansion,
 }: Props) {
+  const { t, money } = useI18n()
+
   const shortfall = (price: number) =>
-    state.cash < price ? `Brakuje ${money(price - state.cash)}` : null
+    state.cash < price ? t.shop.short(money(price - state.cash)) : null
 
   const wallReason = shortfall(WALL_PRICE)
 
@@ -37,37 +39,38 @@ export default function ShopScreen({
   const roomReason = !nextRoom
     ? null
     : state.level < nextRoom.minLevel
-      ? `Wymaga poziomu ${nextRoom.minLevel}`
+      ? t.shop.needsLevel(nextRoom.minLevel)
       : shortfall(nextRoom.price)
 
   return (
     <div className="screen">
-      <h2 className="section-title">Sprzęt</h2>
-      <p className="hint">
-        Mnożnik podbija wejściówkę na danej maszynie, a jego nadwyżka ponad 1,0
-        dokłada się do klasy siłowni, czyli do ceny każdego karnetu. Kupione
-        rzeczy trafiają do ekwipunku.
-      </p>
+      <h2 className="section-title">{t.shop.equipment}</h2>
+      <p className="hint">{t.shop.equipmentHint}</p>
 
       <div className="shop-list">
         {MACHINE_TYPES.map(m => {
           const reason =
-            state.level < m.minLevel ? `Wymaga poziomu ${m.minLevel}` : shortfall(m.price)
+            state.level < m.minLevel ? t.shop.needsLevel(m.minLevel) : shortfall(m.price)
           const Icon = assetFor(m.id)
 
           return (
             <div className={`shop-row${reason ? ' locked' : ''}`} key={m.id}>
               <Icon />
               <div className="shop-info">
-                <div className="shop-name">{m.name}</div>
+                <div className="shop-name">{t.content.machines[m.id]}</div>
                 <div className="shop-meta">
-                  Prąd {money(m.powerPerDay)}/dzień · Trening {Math.round(m.workoutMs / 1000)} s ·
-                  Naprawa {money(m.repairCost)}
+                  {t.shop.machineMeta(
+                    money(m.powerPerDay),
+                    Math.round(m.workoutMs / 1000),
+                    money(m.repairCost),
+                  )}
                 </div>
                 <div className="shop-mult">
-                  ×{m.revenueMultiplier.toFixed(2)} · wejściówka{' '}
-                  {money(ENTRY_FEE_BASE * m.revenueMultiplier)} · klasa +
-                  {(m.revenueMultiplier - 1).toFixed(2)}
+                  {t.shop.machineMult(
+                    m.revenueMultiplier.toFixed(2),
+                    money(ENTRY_FEE_BASE * m.revenueMultiplier),
+                    (m.revenueMultiplier - 1).toFixed(2),
+                  )}
                 </div>
                 {reason && <div className="shop-reason">{reason}</div>}
               </div>
@@ -80,18 +83,19 @@ export default function ShopScreen({
       </div>
 
       <h2 className="section-title" style={{ marginTop: 20 }}>
-        Meble
+        {t.shop.furniture}
       </h2>
-      <p className="hint">Nic nie zarabiają i zajmują pole w sali — kupujesz je dla wyglądu.</p>
+      <p className="hint">{t.shop.furnitureHint}</p>
 
       <div className="shop-list">
         {DECOR_TYPES.map(d => {
           const reason = shortfall(d.price)
+          const name = t.content.decor[d.id]
           return (
             <div className={`shop-row${reason ? ' locked' : ''}`} key={d.id}>
-              <div className="inv-glyph">{d.name.charAt(0)}</div>
+              <div className="inv-glyph">{name.charAt(0)}</div>
               <div className="shop-info">
-                <div className="shop-name">{d.name}</div>
+                <div className="shop-name">{name}</div>
                 {reason && <div className="shop-reason">{reason}</div>}
               </div>
               <button className="btn" disabled={reason !== null} onClick={() => onBuyDecor(d.id)}>
@@ -103,21 +107,16 @@ export default function ShopScreen({
       </div>
 
       <h2 className="section-title" style={{ marginTop: 20 }}>
-        Ścianki
+        {t.shop.partitions}
       </h2>
-      <p className="hint">
-        Stają na krawędziach kafli, więc nie zabierają miejsca pod sprzęt. W
-        trybie budowania weź ściankę z ekwipunku i kliknij krawędź kafla.
-        Kliknięcie postawionej ścianki wybiera ją — wtedy możesz ją przestawić
-        albo schować z powrotem do ekwipunku.
-      </p>
+      <p className="hint">{t.shop.partitionsHint}</p>
 
       <div className="shop-list">
         <div className={`shop-row${wallReason ? ' locked' : ''}`}>
-          <div className="inv-glyph">Ś</div>
+          <div className="inv-glyph">{t.shop.partitionName.charAt(0)}</div>
           <div className="shop-info">
-            <div className="shop-name">Ścianka działowa</div>
-            <div className="shop-meta">Jeden odcinek na jedną krawędź</div>
+            <div className="shop-name">{t.shop.partitionName}</div>
+            <div className="shop-meta">{t.shop.partitionMeta}</div>
             {wallReason && <div className="shop-reason">{wallReason}</div>}
           </div>
           <button className="btn" disabled={wallReason !== null} onClick={onBuyWall}>
@@ -127,22 +126,22 @@ export default function ShopScreen({
       </div>
 
       <h2 className="section-title" style={{ marginTop: 20 }}>
-        Rozbudowa
+        {t.shop.expansion}
       </h2>
-      <p className="hint">
-        Więcej pól pod sprzęt. Wszystko, co już stoi, zostaje na swoim polu —
-        sala rozrasta się dookoła. Teraz masz {room.w} × {room.h} pól.
-      </p>
+      <p className="hint">{t.shop.expansionHint(room.w, room.h)}</p>
 
       <div className="shop-list">
         {nextRoom ? (
           <div className={`shop-row${roomReason ? ' locked' : ''}`}>
             <div className="inv-glyph">+</div>
             <div className="shop-info">
-              <div className="shop-name">{nextRoom.name}</div>
+              <div className="shop-name">{t.content.expansions[nextRoom.id]}</div>
               <div className="shop-meta">
-                {nextRoom.w} × {nextRoom.h} pól · o {nextRoom.w * nextRoom.h - room.w * room.h} pól
-                więcej
+                {t.shop.expansionMeta(
+                  nextRoom.w,
+                  nextRoom.h,
+                  nextRoom.w * nextRoom.h - room.w * room.h,
+                )}
               </div>
               {roomReason && <div className="shop-reason">{roomReason}</div>}
             </div>
@@ -154,8 +153,8 @@ export default function ShopScreen({
           <div className="shop-row">
             <div className="inv-glyph">✓</div>
             <div className="shop-info">
-              <div className="shop-name">{room.name}</div>
-              <div className="shop-meta">Największa sala — nie ma czego dokupić</div>
+              <div className="shop-name">{t.content.expansions[room.id]}</div>
+              <div className="shop-meta">{t.shop.biggest}</div>
             </div>
           </div>
         )}

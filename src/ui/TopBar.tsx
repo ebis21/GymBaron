@@ -2,7 +2,7 @@ import type { GameState } from '../game/types'
 import { dayProgress, formatClock, isClosingTime } from '../game/clock'
 import { gymClass } from '../game/economy'
 import { BILLING_PERIOD_DAYS } from '../game/constants'
-import { money } from './format'
+import { useI18n } from '../i18n'
 import { floorName } from '../game/floors'
 
 const cashClass = (cash: number) =>
@@ -21,7 +21,13 @@ function daysToNextRenewal(state: GameState): number | null {
   }, BILLING_PERIOD_DAYS)
 }
 
-export default function TopBar({ state }: { state: GameState }) {
+interface Props {
+  state: GameState
+  onOpenSettings: () => void
+}
+
+export default function TopBar({ state, onOpenSettings }: Props) {
+  const { t, money } = useI18n()
   const renewal = daysToNextRenewal(state)
   const closing = isClosingTime(state.dayMs) && !state.dayEnded
 
@@ -29,7 +35,9 @@ export default function TopBar({ state }: { state: GameState }) {
     <div className="topbar-wrap">
       <div className="topbar">
         <div className={`topbar-cell clock-cell${closing ? ' closing' : ''}`}>
-          <span className="topbar-label">{closing ? 'Po godzinach' : `Dzień ${state.day}`}</span>
+          <span className="topbar-label">
+            {closing ? t.topbar.afterHours : t.topbar.day(state.day)}
+          </span>
           <span className="topbar-value clock">
             {formatClock(state.dayMs)}
             {state.floorPlans.length > 1 && (
@@ -38,35 +46,45 @@ export default function TopBar({ state }: { state: GameState }) {
           </span>
         </div>
         <div className="topbar-cell">
-          <span className="topbar-label">Kasa</span>
+          <span className="topbar-label">{t.topbar.cash}</span>
           <span className={`topbar-value ${cashClass(state.cash)}`}>{money(state.cash)}</span>
         </div>
         <div className="topbar-cell">
-          <span className="topbar-label">Członkowie</span>
+          <span className="topbar-label">{t.topbar.members}</span>
           <span className="topbar-value">
             {state.members.length}
-            {renewal !== null && <span className="topbar-sub">karnet za {renewal} dni</span>}
+            {renewal !== null && <span className="topbar-sub">{t.topbar.renewal(renewal)}</span>}
           </span>
         </div>
         <div className="topbar-cell">
-          <span className="topbar-label">Klasa</span>
+          <span className="topbar-label">{t.topbar.gymClass}</span>
           <span className="topbar-value">×{gymClass(state).toFixed(2)}</span>
         </div>
         <div className="topbar-cell">
-          <span className="topbar-label">Renoma</span>
+          <span className="topbar-label">{t.topbar.reputation}</span>
           <span className="topbar-value">{Math.round(state.reputation)}</span>
         </div>
+
+        {/*
+          Its own cell rather than a sixth stat: the five to its left are
+          numbers the player reads at a glance, and a button among them would
+          be read as one too.
+        */}
+        <button
+          className="topbar-settings"
+          onClick={onOpenSettings}
+          aria-label={t.topbar.settings}
+          title={t.topbar.settings}
+        >
+          ⚙
+        </button>
       </div>
 
-      <div className="day-bar" title="8:00 → 20:00">
+      <div className="day-bar" title={t.topbar.hours}>
         <div className="day-bar-fill" style={{ width: `${dayProgress(state.dayMs) * 100}%` }} />
       </div>
 
-      {state.cash < 0 && (
-        <div className="debt-banner">
-          Jesteś na minusie. Poniżej −20 000 wchodzi komornik.
-        </div>
-      )}
+      {state.cash < 0 && <div className="debt-banner">{t.topbar.debt}</div>}
     </div>
   )
 }

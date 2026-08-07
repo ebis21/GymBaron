@@ -1,9 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useGameStore } from './store/gameStore'
 import type { PlacedKind } from './game/build'
-import type { ClientRarity } from './game/types'
 import { machineType } from './game/content/machines'
-import { decorType } from './game/content/decor'
 import { FLOOR_UNLOCK_COST, HIRING_UNLOCK_LEVEL, STAFF_UNLOCK_LEVEL } from './game/constants'
 import { isClosingTime } from './game/clock'
 import GymScene3D from './three/GymScene3D'
@@ -20,21 +18,13 @@ import InventoryPanel from './ui/InventoryPanel'
 import ClientCard from './ui/ClientCard'
 import WelcomeBack from './ui/WelcomeBack'
 import DevPanel from './ui/DevPanel'
-import { money } from './ui/format'
+import SettingsModal from './ui/SettingsModal'
+import { useI18n, useI18nStore } from './i18n'
 import FloorAccessModal from './ui/FloorAccessModal'
 import { floorName } from './game/floors'
 
 /** Which full-screen panel is over the room, if any. */
 type Tab = 'gym' | 'shop' | 'stats' | 'staff'
-
-const RARITY_NAME: Record<ClientRarity, string> = {
-  common: 'Zwykły',
-  rare: 'Rzadki',
-  epic: 'Epicki',
-  legend: 'Legendarny',
-  influencer: 'Influencer',
-  secret: 'Tajny',
-}
 
 interface Selection {
   kind: PlacedKind
@@ -101,6 +91,9 @@ interface Action {
 }
 
 export default function App() {
+  const { t, money } = useI18n()
+  const langReady = useI18nStore(s => s.ready)
+
   const state = useGameStore(s => s.state)
   const welcomeBack = useGameStore(s => s.welcomeBack)
   const ready = useGameStore(s => s.ready)
@@ -139,6 +132,7 @@ export default function App() {
   const [focus, setFocus] = useState<Focus>(null)
   const [recruiting, setRecruiting] = useState(false)
   const [floorAccessOpen, setFloorAccessOpen] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
 
   const [buildMode, setBuildMode] = useState(false)
   /** Bumped by the dev panel to drop the player at the front counter. */
@@ -285,7 +279,7 @@ export default function App() {
     }
   }, [beginHold, cancelHold])
 
-  // R turns whatever is selected in build mode — the same thing the "Obróć"
+  // R turns whatever is selected in build mode — the same thing the rotate
   // button does, without making the player reach for it between every piece.
   useEffect(() => {
     if (!buildMode || !selected) return
@@ -431,11 +425,14 @@ export default function App() {
     [moving, movingWall, carrying, state.inventory, moveObject, moveWallEdge, placeWallEdge, placeItem],
   )
 
-  if (!ready) {
+  // The language is read back from storage asynchronously, so the loading
+  // screen also covers that — otherwise a Polish player would watch the game
+  // paint in English and then switch under them.
+  if (!ready || !langReady) {
     return (
       <div className="app">
         <div className="screen">
-          <p className="hint">Otwieranie siłowni…</p>
+          <p className="hint">{t.loading}</p>
         </div>
       </div>
     )
@@ -447,9 +444,9 @@ export default function App() {
     selected?.kind === 'decor' ? state.decor.find(d => d.uid === selected.uid) : undefined
 
   const selectedName = selectedMachine
-    ? machineType(selectedMachine.type).name
+    ? t.content.machines[selectedMachine.type]
     : selectedDecor
-      ? decorType(selectedDecor.type).name
+      ? t.content.decor[selectedDecor.type]
       : null
 
   const carried = carrying ? state.inventory.find(i => i.uid === carrying) : undefined
@@ -468,7 +465,7 @@ export default function App() {
     if (focus.kind === 'floorAccess') {
       const unlocked = state.floorPlans.length > 1
       return {
-        label: unlocked ? 'Wybierz piętro' : 'Odblokuj piętro',
+        label: unlocked ? t.action.floorPick : t.action.floorUnlock,
         hint: unlocked ? floorName(state.activeFloor) : money(FLOOR_UNLOCK_COST),
         run: () => setFloorAccessOpen(true),
         enabled: true,
@@ -482,8 +479,8 @@ export default function App() {
       if (!machine) return null
       const spec = machineType(machine.type)
       return {
-        label: `Napraw ${money(spec.repairCost)}`,
-        hint: spec.name,
+        label: t.action.repair(money(spec.repairCost)),
+        hint: t.content.machines[machine.type],
         enabled: state.cash >= spec.repairCost,
         run: () => repair(focus.machineUid),
         hold: { ms: REPAIR_HOLD_MS, uid: focus.machineUid },
@@ -493,7 +490,7 @@ export default function App() {
 
     if (focus.kind === 'wipe') {
       return {
-        label: 'Posprzątaj',
+        label: t.action.clean,
         hint: '',
         enabled: true,
         run: () => wipe(focus.stainUid),
@@ -509,8 +506,8 @@ export default function App() {
     // that follows is where the pass is actually charged. A tap on the button
     // is enough; E holds for two seconds, because that hand is also driving.
     return {
-      label: 'Obsłuż klienta',
-      hint: `${client.kind === 'member' ? 'Członek' : 'Przechodzień'} · ${RARITY_NAME[client.rarity]}`,
+      label: t.action.serve,
+      hint: `${client.kind === 'member' ? t.action.member : t.action.passerby} · ${t.content.rarity[client.rarity]}`,
       enabled: true,
       run: () => setTalking(focus.clientUid),
       hold: null,
@@ -535,7 +532,7 @@ export default function App() {
         onFloorAccess={() => setFloorAccessOpen(true)}
       />
 
-      <TopBar state={state} />
+      <TopBar state={state} onOpenSettings={() => setSettingsOpen(true)} />
       {import.meta.env.DEV && (
         <DevPanel
           onTeleportToReception={() => {
@@ -550,10 +547,10 @@ export default function App() {
       {buildMode && tab === 'gym' && (
         <div className="build-bar">
           {moving ? (
-            <span className="build-hint">Wskaż nowe pole…</span>
+            <span className="build-hint">{t.build.pickTile}</span>
           ) : movingWall ? (
             <>
-              <span className="build-hint">Wskaż nową krawędź…</span>
+              <span className="build-hint">{t.build.pickEdge}</span>
               <button className="btn ghost tiny" onClick={() => setMovingWall(null)}>
                 Anuluj
               </button>
@@ -562,8 +559,8 @@ export default function App() {
             <>
               <span className="build-hint">
                 {carried?.kind === 'wall'
-                  ? 'Kliknij krawędź kafla…'
-                  : 'Wskaż pole dla przedmiotu…'}
+                  ? t.build.pickEdgeForWall
+                  : t.build.pickTileForItem}
               </span>
               <button className="btn ghost tiny" onClick={() => setCarrying(null)}>
                 Anuluj
@@ -571,7 +568,7 @@ export default function App() {
             </>
           ) : selectedWall ? (
             <>
-              <span className="build-hint">Ścianka</span>
+              <span className="build-hint">{t.build.wall}</span>
               <button className="btn tiny" onClick={() => setMovingWall(selectedWall)}>
                 Przestaw
               </button>
@@ -595,7 +592,7 @@ export default function App() {
                 className="btn tiny"
                 onClick={() => rotateObject(selected.kind, selected.uid)}
               >
-                Obróć{HAS_KEYBOARD && <kbd className="btn-key">R</kbd>}
+                {t.build.rotate}{HAS_KEYBOARD && <kbd className="btn-key">R</kbd>}
               </button>
               <button
                 className="btn tiny"
@@ -622,7 +619,7 @@ export default function App() {
             </>
           ) : (
             <>
-              <span className="build-hint">Kliknij sprzęt, ściankę albo puste pole</span>
+              <span className="build-hint">{t.build.idle}</span>
               <button className="btn tiny" onClick={() => setBag({ tile: null })}>
                 Ekwipunek ({state.inventory.length})
               </button>
@@ -654,12 +651,10 @@ export default function App() {
             state.level < HIRING_UNLOCK_LEVEL ? (
               <div className="screen">
                 <header className="screen-head">
-                  <h2>Personel</h2>
+                  <h2>{t.staff.title}</h2>
                 </header>
                 <p className="hint">
-                  Zatrudnianie odblokowuje się na poziomie {HIRING_UNLOCK_LEVEL} (trenerzy
-                  personalni), a pozostałe role na poziomie {STAFF_UNLOCK_LEVEL}. Obecny
-                  poziom: {state.level}.
+                  {t.staff.locked(HIRING_UNLOCK_LEVEL, STAFF_UNLOCK_LEVEL, state.level)}
                 </p>
               </div>
             ) : recruiting ? (
@@ -731,15 +726,13 @@ export default function App() {
       {tab === 'gym' && afterHours && (
         <div className="closing-bar">
           <div className="closing-text">
-            <strong>Po godzinach</strong>
+            <strong>{t.closing.title}</strong>
             <small>
-              {stillInside > 0
-                ? `Nikt już nie wejdzie — ${stillInside} ${stillInside === 1 ? 'osoba kończy' : 'osób kończy'} trening.`
-                : 'Sala pusta. Rozbuduj siłownię, posprzątaj — zamknij, kiedy skończysz.'}
+              {stillInside > 0 ? t.closing.stillInside(stillInside) : t.closing.empty}
             </small>
           </div>
           <button className="btn primary tiny" onClick={endDay}>
-            Zamknij dzień
+            {t.closing.closeDay}
           </button>
         </div>
       )}
@@ -757,8 +750,8 @@ export default function App() {
           items={state.inventory}
           hint={
             bag.tile
-              ? 'Ścianki stawia się na krawędzi — wybierz ją, a potem kliknij krawędź kafla.'
-              : 'Wybierz przedmiot, potem wskaż mu miejsce na sali.'
+              ? t.build.bagOnEdge
+              : t.build.bagOnTile
           }
           onChoose={itemUid => {
             const tile = bag.tile
@@ -785,6 +778,8 @@ export default function App() {
           onClose={() => setTalking(null)}
         />
       )}
+
+      {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
 
       {floorAccessOpen && (
         <FloorAccessModal
