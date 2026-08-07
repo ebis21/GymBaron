@@ -3,6 +3,7 @@ import { initialState } from './economy'
 import { SAVE_VERSION } from './constants'
 import { DOOR_QUEUE_Z, doorX } from './layout'
 import { floorPlanFrom, snapshotActiveFloor } from './floors'
+import { emptyUpgrades, UPGRADE_IDS } from './content/upgrades'
 
 export function serialize(state: GameState): string {
   // The engine works on a top-level mirror of the active room. Refresh its
@@ -179,6 +180,31 @@ function looksLikeV7(s: Record<string, unknown>): boolean {
 }
 
 /**
+ * Version 8 adds the upgrade tracks. Every one starts at zero, which is by
+ * definition the game as it was before they existed — an old gym resumes with
+ * nothing bought and nothing changed.
+ */
+function migrateV7(raw: Record<string, unknown>): Record<string, unknown> {
+  return { ...raw, version: 8, upgrades: emptyUpgrades() }
+}
+
+/**
+ * A save claiming v8 must carry a whole-number level for every track. Missing
+ * or fractional entries are not an old save awaiting migration — that is what
+ * `migrateV7` is for — but corrupt data, and handing it to the engine would put
+ * `undefined` into the fee multiplier.
+ */
+function looksLikeV8(s: Record<string, unknown>): boolean {
+  const upgrades = s.upgrades
+  if (typeof upgrades !== 'object' || upgrades === null) return false
+  const levels = upgrades as Record<string, unknown>
+  return UPGRADE_IDS.every(id => {
+    const level = levels[id]
+    return typeof level === 'number' && Number.isInteger(level) && level >= 0
+  })
+}
+
+/**
  * Returns a fresh state on unparseable, malformed, or future-version input
  * rather than throwing — a corrupt save must never brick the app.
  */
@@ -202,6 +228,8 @@ export function deserialize(raw: string, now: number): GameState {
     if (!looksLikeV6(state)) return initialState(now, now)
     if (state.version === 6) state = migrateV6(state)
     if (!looksLikeV7(state)) return initialState(now, now)
+    if (state.version === 7) state = migrateV7(state)
+    if (!looksLikeV8(state)) return initialState(now, now)
 
     return state as unknown as GameState
   } catch {

@@ -14,6 +14,7 @@ import {
   SAVE_VERSION,
 } from './constants'
 import { machinesAcrossFloors } from './floors'
+import { emptyUpgrades } from './content/upgrades'
 
 export const emptyLedger = (): DayLedger => ({
   entryFees: 0,
@@ -55,6 +56,7 @@ export function initialState(seed: number, now: number): GameState {
     stains: [],
     candidates: [],
     candidatesDay: 0,
+    upgrades: emptyUpgrades(),
     seed,
     expansion: 0,
     activeFloor: 0,
@@ -126,8 +128,12 @@ export function reputationBonus(reputation: number): number {
  * the multiplier, which is why the fee is charged at scan time rather than on
  * arrival — that is the moment the assignment is known.
  *
- * `reputation` and `withTrainer` default to the neutral case so the fee of a
- * plain visit at an unknown gym is still a two-line call.
+ * `reputation`, `withTrainer` and `earnings` all default to the neutral case so
+ * the fee of a plain visit at an unknown gym is still a two-line call.
+ *
+ * `earnings` is the player's own upgrade track. It lands last, on top of
+ * everything else, and touches only the door — a pass is priced by the gym
+ * class alone and never sees this multiplier.
  */
 export function entryFee(
   typeId: MachineTypeId,
@@ -135,11 +141,12 @@ export function entryFee(
   rarity: ClientRarity,
   reputation = 0,
   withTrainer = false,
+  earnings = 1,
 ): number {
   const base = ENTRY_FEE_BASE * machineType(typeId).revenueMultiplier * RARITY_MULTIPLIER[rarity]
   const discounted = kind === 'member' ? base * MEMBER_DISCOUNT : base
   const coached = withTrainer ? discounted * TRAINER_FEE_MULT : discounted
-  return coached * reputationBonus(reputation)
+  return coached * reputationBonus(reputation) * earnings
 }
 
 /** Face value of a pass at the gym's current class. */

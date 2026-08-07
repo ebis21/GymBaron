@@ -4,7 +4,7 @@ import { HIRING_UNLOCK_LEVEL } from '../game/constants'
 import { useI18n } from '../i18n'
 
 /** Everything reachable from the phone. */
-export type PhoneApp = 'gym' | 'build' | 'shop' | 'stats' | 'staff'
+export type PhoneApp = 'gym' | 'build' | 'shop' | 'stats' | 'staff' | 'upgrades'
 
 interface Props {
   state: GameState
@@ -28,6 +28,9 @@ const APPS: Tile[] = [
   { id: 'gym', glyph: '🏋️', tint: 'coral' },
   { id: 'build', glyph: '🔨', tint: 'gold' },
   { id: 'shop', glyph: '🛒', tint: 'leaf' },
+  // No `minLevel`: the price of the first rung is the only gate, which is the
+  // whole design of the track — see `buyUpgrade`.
+  { id: 'upgrades', glyph: '⬆️', tint: 'sky' },
   { id: 'stats', glyph: '📊', tint: 'sky' },
   // Trainers unlock long before the automation roles, and they are hired from
   // this same screen — so the app opens at the earliest level that can hire

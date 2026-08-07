@@ -24,6 +24,8 @@ import { advance } from '../game/tick'
 import { serialize, deserialize } from '../game/save'
 import { settleOffline } from '../game/offline'
 import { hire, fire, payArrears } from '../game/staff'
+import { buyUpgrade } from '../game/upgrades'
+import type { UpgradeId } from '../game/content/upgrades'
 import { refreshPool, ensurePool } from '../game/recruit'
 import { loadRaw, saveRaw } from './storage'
 import { AUTOSAVE_MS, SAVE_KEY } from '../game/constants'
@@ -51,6 +53,8 @@ interface GameStore {
   /** `trainerUid` books a personal trainer for this visit; null is the plain fee. */
   scan: (clientUid: string, trainerUid?: string | null) => void
   buyExpansion: () => void
+  /** Buys the next rung of one upgrade track; ignored at the top of the ladder. */
+  buyUpgrade: (id: UpgradeId) => void
   buyNextFloor: () => void
   switchFloor: (floor: number) => void
   /** Cashes up the day. Only offered once the clock has run out. */
@@ -242,6 +246,11 @@ export const useGameStore = create<GameStore>((set, get) => {
       syncRoomSize(grown)
       commit(grown)
     },
+
+    // `buyUpgrade` already charges the price and books the spend, so it does
+    // not go through `charge` — unlike the shop, where the purchase and the
+    // payment are two separate steps.
+    buyUpgrade: id => commit(buyUpgrade(get().state, id)),
 
     buyNextFloor: () => commit(unlockNextFloor(get().state)),
 

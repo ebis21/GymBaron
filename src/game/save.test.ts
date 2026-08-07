@@ -134,3 +134,38 @@ describe('migration to version 7', () => {
     expect(loaded.cash).toBe(500)
   })
 })
+
+describe('migration to version 8', () => {
+  it('loads a version 7 save with every track unbought', () => {
+    const { upgrades: _dropped, ...v7 } = initialState(7, 0)
+    const raw = JSON.stringify({ ...v7, version: 7, cash: 8765, day: 12 })
+
+    const loaded = deserialize(raw, 0)
+
+    expect(loaded.version).toBe(SAVE_VERSION)
+    expect(loaded.cash).toBe(8765)
+    expect(loaded.day).toBe(12)
+    expect(loaded.upgrades).toEqual({
+      cleaning: 0,
+      repair: 0,
+      earnings: 0,
+      luck: 0,
+      patience: 0,
+    })
+  })
+
+  it('keeps levels a version 8 save already carries', () => {
+    const bought = { ...initialState(7, 0), upgrades: { cleaning: 3, repair: 1, earnings: 5, luck: 2, patience: 4 } }
+    expect(deserialize(serialize(bought), 0).upgrades).toEqual(bought.upgrades)
+  })
+
+  it('rejects a version 8 save whose tracks are missing or malformed', () => {
+    const fresh = initialState(0, 0)
+
+    for (const upgrades of [undefined, null, {}, { cleaning: 1 }, { cleaning: 1.5, repair: 0, earnings: 0, luck: 0, patience: 0 }, { cleaning: -1, repair: 0, earnings: 0, luck: 0, patience: 0 }]) {
+      const raw = JSON.stringify({ ...initialState(7, 0), version: SAVE_VERSION, cash: 999, upgrades })
+      // Corrupt, not old — a fresh gym beats handing undefined to the economy.
+      expect(deserialize(raw, 0).cash).toBe(fresh.cash)
+    }
+  })
+})

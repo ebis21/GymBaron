@@ -32,7 +32,14 @@ export const pl: Strings = {
     show: 'Pokaż telefon',
     hide: 'Schowaj telefon',
     day: n => `Dzień ${n}`,
-    apps: { gym: 'Sala', build: 'Buduj', shop: 'Sklep', stats: 'Statystyki', staff: 'Personel' },
+    apps: {
+      gym: 'Sala',
+      build: 'Buduj',
+      shop: 'Sklep',
+      stats: 'Statystyki',
+      staff: 'Personel',
+      upgrades: 'Ulepszenia',
+    },
   },
 
   build: {
@@ -179,6 +186,26 @@ export const pl: Strings = {
       'Pensja schodzi codziennie na zamknięciu dnia. Kto nie dostanie wypłaty, ten nie przyjdzie następnego dnia do pracy.',
   },
 
+  upgrades: {
+    title: 'Ulepszenia',
+    hint:
+      'Wszystko tutaj usprawnia to, co robisz własnymi rękami, i zostaje na zawsze. Personelu to nie dotyczy — sprzątacz na wypłacie myje podłogę własnym tempem.',
+    level: (level, max) => `Poziom ${level} / ${max}`,
+    current: value => `Teraz ${value}`,
+    step: (from, to) => `${from} → ${to}`,
+    maxed: 'Ulepszone do końca',
+    buy: price => price,
+    seconds: value => `${value}s`,
+    mult: value => `×${value}`,
+    blurb: {
+      cleaning: 'Jak długo trzymasz, żeby zetrzeć plamę z podłogi.',
+      repair: 'Jak długo trzymasz, żeby postawić zepsutą maszynę z powrotem na nogi.',
+      earnings: 'Mnoży każdą wejściówkę, którą przyjmiesz. Karnety wycenia klasa siłowni i zostają poza tym.',
+      luck: 'Lepsi klienci w drzwiach i więcej takich, którzy przy wyjściu kupują karnet.',
+      patience: 'Jak długo ktoś czeka przy biurku, zanim odpuści i wyjdzie.',
+    },
+  },
+
   stats: {
     gym: 'Siłownia',
     reputation: 'Renoma',
@@ -280,6 +307,14 @@ export const pl: Strings = {
       legend: 'Legendarny',
       influencer: 'Influencer',
       secret: 'Tajny',
+    },
+
+    upgrades: {
+      cleaning: 'Sprzątanie',
+      repair: 'Naprawa',
+      earnings: 'Zarabianie',
+      luck: 'Szczęście',
+      patience: 'Cierpliwość',
     },
   },
 }
