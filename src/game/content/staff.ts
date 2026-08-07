@@ -7,12 +7,8 @@ export const STAFF_RANKS: StaffRank[] = ['rare', 'epic', 'legend']
 /** Most the player may have on the payroll at once. */
 export const STAFF_LIMIT = 5
 
-export const ROLE_LABEL: Record<StaffRole, string> = {
-  reception: 'Recepcjonista',
-  cleaner: 'Sprzątacz',
-  repair: 'Naprawa',
-  trainer: 'Trener personalny',
-}
+// Job titles live in `src/i18n` under `content.roles` — the panel and the tag
+// over the employee's head print the same word, and both follow the language.
 
 /**
  * Automation unlocks late — see `STAFF_UNLOCK_LEVEL`. The trainer is the one

@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { ensurePool, refreshPool, rollPool, unlockedRoles, POOL_SIZE, REFRESH_PRICE } from './recruit'
+import {
+  ensurePool, refreshPool, rollPool, unlockedRoles, displayName, POOL_SIZE, REFRESH_PRICE,
+} from './recruit'
 import { initialState } from './economy'
 import { STAFF_ROLES } from './content/staff'
 import { STAFF_UNLOCK_LEVEL, TRAINER_UNLOCK_LEVEL } from './constants'
@@ -126,5 +128,21 @@ describe('refreshPool', () => {
   it('refuses when the player cannot afford it', () => {
     const before = gym({ cash: 10 })
     expect(refreshPool(before)).toBe(before)
+  })
+})
+
+describe('displayName', () => {
+  it('reads a name drawn in one language out of the other', () => {
+    expect(displayName('Cameron W.', 'pl')).toBe('Kamil W.')
+    expect(displayName('Kamil W.', 'en')).toBe('Cameron W.')
+  })
+
+  it('leaves the name alone in the language it was drawn in', () => {
+    expect(displayName('Kamil W.', 'pl')).toBe('Kamil W.')
+  })
+
+  it('passes through a name from neither pool, so old saves survive', () => {
+    expect(displayName('Grzegorz B.', 'en')).toBe('Grzegorz B.')
+    expect(displayName('', 'en')).toBe('')
   })
 })

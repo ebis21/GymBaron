@@ -1,10 +1,8 @@
 import type { GameState, StaffRole } from '../game/types'
-import {
-  ROLE_LABEL, RANK_LABEL, wageFor, workMsFor, roleUnlockLevel, STAFF_LIMIT,
-} from '../game/content/staff'
-import { REFRESH_PRICE } from '../game/recruit'
+import { RANK_LABEL, wageFor, workMsFor, roleUnlockLevel, STAFF_LIMIT } from '../game/content/staff'
+import { REFRESH_PRICE, displayName } from '../game/recruit'
 import { TRAINER_FEE_MULT } from '../game/constants'
-import { money } from './format'
+import { useI18n, type I18n } from '../i18n'
 
 interface Props {
   state: GameState
@@ -18,14 +16,16 @@ interface Props {
  * such clock — they are booked per visit, not per task — so theirs is the fee
  * the booking earns instead.
  */
-const JOB_HINT: Record<StaffRole, (ms: number) => string> = {
-  reception: ms => `skan co ${(ms / 1000).toFixed(1)} s`,
-  cleaner: ms => `plama w ${(ms / 1000).toFixed(1)} s`,
-  repair: ms => `naprawa w ${(ms / 1000).toFixed(0)} s`,
-  trainer: () => `trening 1:1 — ×${TRAINER_FEE_MULT} za wejście`,
+function jobHint(role: StaffRole, ms: number, t: I18n['t']): string {
+  const hints = t.recruit.jobHint
+  if (role === 'reception') return hints.reception((ms / 1000).toFixed(1))
+  if (role === 'cleaner') return hints.cleaner((ms / 1000).toFixed(1))
+  if (role === 'repair') return hints.repair((ms / 1000).toFixed(0))
+  return hints.trainer(TRAINER_FEE_MULT)
 }
 
 export default function RecruitScreen({ state, onHire, onReroll, onBack }: Props) {
+  const { t, money, language } = useI18n()
   const full = state.staff.length >= STAFF_LIMIT
   const hasDesk = state.decor.some(d => d.type === 'reception')
 
@@ -33,9 +33,9 @@ export default function RecruitScreen({ state, onHire, onReroll, onBack }: Props
     <div className="screen recruit">
       <header className="screen-head">
         <button className="btn ghost tiny" onClick={onBack}>‹</button>
-        <h2>Rekrutacja</h2>
+        <h2>{t.recruit.title}</h2>
         <button className="btn ghost tiny" onClick={onReroll} disabled={state.cash < REFRESH_PRICE}>
-          Odśwież {money(REFRESH_PRICE)}
+          {t.recruit.refresh(money(REFRESH_PRICE))}
         </button>
       </header>
 
@@ -48,18 +48,18 @@ export default function RecruitScreen({ state, onHire, onReroll, onBack }: Props
           return (
             <li key={c.uid} className="candidate">
               <div className="candidate-id">
-                <strong>{c.name}</strong>
-                <span className="staff-role">{ROLE_LABEL[c.role]}</span>
+                <strong>{displayName(c.name, language)}</strong>
+                <span className="staff-role">{t.content.roles[c.role]}</span>
                 <span className={`rank rank-${c.rank}`}>{RANK_LABEL[c.rank]}</span>
               </div>
 
               <div className="candidate-stats">
-                <span>{JOB_HINT[c.role]!(workMsFor(c.role, c.rank))}</span>
-                <span>{money(wageFor(c.role, c.rank))} / dzień</span>
+                <span>{jobHint(c.role, workMsFor(c.role, c.rank), t)}</span>
+                <span>{t.recruit.perDay(money(wageFor(c.role, c.rank)))}</span>
               </div>
 
               {!afford && !full && !needsDesk && !locked && (
-                <div className="shop-reason">Za mało gotówki — brakuje {money(c.price - state.cash)}</div>
+                <div className="shop-reason">{t.recruit.tooPoor(money(c.price - state.cash))}</div>
               )}
 
               <button
@@ -68,20 +68,17 @@ export default function RecruitScreen({ state, onHire, onReroll, onBack }: Props
                 disabled={full || needsDesk || locked || !afford}
               >
                 {locked
-                  ? `Od poziomu ${needsLevel}`
-                  : needsDesk ? 'Brak biurka'
-                  : full ? 'Komplet'
-                  : `Zatrudnij za ${money(c.price)}`}
+                  ? t.recruit.fromLevel(needsLevel)
+                  : needsDesk ? t.recruit.needsDesk
+                  : full ? t.recruit.full
+                  : t.recruit.hire(money(c.price))}
               </button>
             </li>
           )
         })}
       </ul>
 
-      <p className="muted">
-        Pensja schodzi codziennie na zamknięciu dnia. Kto nie dostanie wypłaty,
-        ten nie przyjdzie następnego dnia do pracy.
-      </p>
+      <p className="muted">{t.recruit.footer}</p>
     </div>
   )
 }

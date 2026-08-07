@@ -5,7 +5,8 @@ export type MachineTypeId =
 
 export interface MachineType {
   id: MachineTypeId
-  name: string          // Polish, shown in the shop
+  // The display name lives in `src/i18n`, keyed by this id — the shop and the
+  // tags in the room have to agree on it, and both follow the chosen language.
   price: number
   powerPerDay: number   // dollars per game day while owned
   workoutMs: number     // game ms a client spends on it

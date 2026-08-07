@@ -1,7 +1,8 @@
 import type { GameState, Staff } from '../game/types'
-import { ROLE_LABEL, RANK_LABEL, wageFor, STAFF_LIMIT } from '../game/content/staff'
+import { RANK_LABEL, wageFor, STAFF_LIMIT } from '../game/content/staff'
 import { isTrainerFree } from '../game/staff'
-import { money } from './format'
+import { displayName } from '../game/recruit'
+import { useI18n, type I18n } from '../i18n'
 
 interface Props {
   state: GameState
@@ -15,9 +16,9 @@ interface Props {
  * trainer has a state the player chose and can change — everybody else works
  * whatever the floor throws at them — so only the trainer says anything.
  */
-function activity(state: GameState, s: Staff): string | null {
+function activity(state: GameState, s: Staff, t: I18n['t']): string | null {
   if (s.role !== 'trainer') return null
-  return isTrainerFree(state, s.uid) ? 'Wolny — do wzięcia przy recepcji' : 'Prowadzi trening'
+  return isTrainerFree(state, s.uid) ? t.staff.trainerFree : t.staff.trainerBusy
 }
 
 /**
@@ -25,41 +26,36 @@ function activity(state: GameState, s: Staff): string | null {
  * they are still costing a slot and doing nothing, and the way out is a button.
  */
 export default function StaffPanel({ state, onFire, onSettle, onOpenRecruit }: Props) {
+  const { t, money, language } = useI18n()
   const arrears = state.staff.reduce((sum, s) => sum + s.owed, 0)
 
   return (
     <div className="screen staff-panel">
       <header className="screen-head">
-        <h2>Personel</h2>
+        <h2>{t.staff.title}</h2>
         <span className="muted">{state.staff.length} / {STAFF_LIMIT}</span>
       </header>
 
-      {arrears > 0 && (
-        <p className="warn">
-          Zaległe wypłaty: {money(arrears)}. Nikt z zaległością nie przyjdzie do pracy.
-        </p>
-      )}
+      {arrears > 0 && <p className="warn">{t.staff.arrears(money(arrears))}</p>}
 
-      {state.staff.length === 0 && (
-        <p className="muted">Nikogo jeszcze nie zatrudniłeś. Wszystko robisz sam.</p>
-      )}
+      {state.staff.length === 0 && <p className="muted">{t.staff.none}</p>}
 
       <ul className="staff-list">
         {state.staff.map(s => {
           const striking = s.owed > 0
-          const doing = striking ? null : activity(state, s)
+          const doing = striking ? null : activity(state, s, t)
           return (
             <li key={s.uid} className={`staff-row${striking ? ' striking' : ''}`}>
               <div className="staff-id">
-                <strong>{s.name}</strong>
-                <span className="staff-role">{ROLE_LABEL[s.role]}</span>
+                <strong>{displayName(s.name, language)}</strong>
+                <span className="staff-role">{t.content.roles[s.role]}</span>
                 <span className={`rank rank-${s.rank}`}>{RANK_LABEL[s.rank]}</span>
               </div>
 
               <div className="staff-state">
                 {striking
-                  ? <span className="warn">Strajk — zalega {money(s.owed)}</span>
-                  : <span className="muted">{money(wageFor(s.role, s.rank))} / dzień</span>}
+                  ? <span className="warn">{t.staff.striking(money(s.owed))}</span>
+                  : <span className="muted">{t.staff.perDay(money(wageFor(s.role, s.rank)))}</span>}
                 {doing && <span className="muted">{doing}</span>}
               </div>
 
@@ -70,10 +66,12 @@ export default function StaffPanel({ state, onFire, onSettle, onOpenRecruit }: P
                     onClick={() => onSettle(s.uid)}
                     disabled={state.cash < s.owed}
                   >
-                    Zapłać {money(s.owed)}
+                    {t.staff.pay(money(s.owed))}
                   </button>
                 ) : (
-                  <button className="btn danger" onClick={() => onFire(s.uid)}>Zwolnij</button>
+                  <button className="btn danger" onClick={() => onFire(s.uid)}>
+                    {t.staff.fire}
+                  </button>
                 )}
               </div>
             </li>
@@ -86,7 +84,7 @@ export default function StaffPanel({ state, onFire, onSettle, onOpenRecruit }: P
         onClick={onOpenRecruit}
         disabled={state.staff.length >= STAFF_LIMIT}
       >
-        {state.staff.length >= STAFF_LIMIT ? 'Komplet' : 'Rekrutacja'}
+        {state.staff.length >= STAFF_LIMIT ? t.staff.full : t.staff.recruit}
       </button>
     </div>
   )

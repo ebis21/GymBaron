@@ -1,7 +1,7 @@
 import type { GameState } from '../game/types'
 import { XP_PER_LEVEL } from '../game/constants'
 import { dailyCosts, gymClass } from '../game/economy'
-import { money } from './format'
+import { useI18n } from '../i18n'
 
 function Card({ k, v }: { k: string; v: string }) {
   return (
@@ -25,36 +25,38 @@ function Meter({ k, value }: { k: string; value: number }) {
 }
 
 export default function StatsScreen({ state }: { state: GameState }) {
+  const { t, money } = useI18n()
+
   return (
     <div className="screen">
-      <h2 className="section-title">Siłownia</h2>
+      <h2 className="section-title">{t.stats.gym}</h2>
       <div className="stat-grid">
-        <Meter k="Renoma" value={state.reputation} />
-        <Meter k="Zadowolenie" value={state.satisfaction} />
-        <Card k="Maszyny" v={String(state.machines.length)} />
-        <Card k="Klasa" v={`×${gymClass(state).toFixed(2)}`} />
-        <Card k="Członkowie" v={String(state.members.length)} />
-        <Card k="Rachunek dzienny" v={money(dailyCosts(state).total)} />
+        <Meter k={t.stats.reputation} value={state.reputation} />
+        <Meter k={t.stats.satisfaction} value={state.satisfaction} />
+        <Card k={t.stats.machines} v={String(state.machines.length)} />
+        <Card k={t.stats.gymClass} v={`×${gymClass(state).toFixed(2)}`} />
+        <Card k={t.stats.members} v={String(state.members.length)} />
+        <Card k={t.stats.dailyBill} v={money(dailyCosts(state).total)} />
       </div>
 
       <h2 className="section-title" style={{ marginTop: 16 }}>
-        Bilans
+        {t.stats.balance}
       </h2>
       <div className="stat-grid">
-        <Card k="Zarobiono" v={money(state.stats.totalEarned)} />
-        <Card k="Wydano" v={money(state.stats.totalSpent)} />
-        <Card k="Obsłużeni" v={String(state.stats.clientsServed)} />
-        <Card k="Straceni" v={String(state.stats.clientsLost)} />
+        <Card k={t.stats.earned} v={money(state.stats.totalEarned)} />
+        <Card k={t.stats.spent} v={money(state.stats.totalSpent)} />
+        <Card k={t.stats.served} v={String(state.stats.clientsServed)} />
+        <Card k={t.stats.lost} v={String(state.stats.clientsLost)} />
       </div>
 
       <h2 className="section-title" style={{ marginTop: 16 }}>
-        Postęp
+        {t.stats.progress}
       </h2>
       <div className="stat-grid">
-        <Card k="Poziom" v={String(state.level)} />
-        <Card k="XP" v={`${Math.floor(state.xp)} / ${XP_PER_LEVEL}`} />
-        <Card k="Dni" v={String(state.day)} />
-        <Card k="Kasa" v={money(state.cash)} />
+        <Card k={t.stats.level} v={String(state.level)} />
+        <Card k={t.stats.xp} v={`${Math.floor(state.xp)} / ${XP_PER_LEVEL}`} />
+        <Card k={t.stats.days} v={String(state.day)} />
+        <Card k={t.stats.cash} v={money(state.cash)} />
       </div>
     </div>
   )

@@ -1,9 +1,9 @@
 import type { GameState } from '../game/types'
 import { formatClock } from '../game/clock'
 import { HIRING_UNLOCK_LEVEL } from '../game/constants'
-import { money } from './format'
+import { useI18n } from '../i18n'
 
-/** Everything reachable from the phone. `staff` is a placeholder for now. */
+/** Everything reachable from the phone. */
 export type PhoneApp = 'gym' | 'build' | 'shop' | 'stats' | 'staff'
 
 interface Props {
@@ -16,7 +16,6 @@ interface Props {
 
 interface Tile {
   id: PhoneApp
-  label: string
   glyph: string
   tint: string
   /** Listed, but not built yet. Shows a badge and cannot be opened. */
@@ -26,14 +25,14 @@ interface Tile {
 }
 
 const APPS: Tile[] = [
-  { id: 'gym', label: 'Sala', glyph: '🏋️', tint: 'coral' },
-  { id: 'build', label: 'Buduj', glyph: '🔨', tint: 'gold' },
-  { id: 'shop', label: 'Sklep', glyph: '🛒', tint: 'leaf' },
-  { id: 'stats', label: 'Statystyki', glyph: '📊', tint: 'sky' },
+  { id: 'gym', glyph: '🏋️', tint: 'coral' },
+  { id: 'build', glyph: '🔨', tint: 'gold' },
+  { id: 'shop', glyph: '🛒', tint: 'leaf' },
+  { id: 'stats', glyph: '📊', tint: 'sky' },
   // Trainers unlock long before the automation roles, and they are hired from
   // this same screen — so the app opens at the earliest level that can hire
   // anybody at all, and the panel itself explains what is still locked.
-  { id: 'staff', label: 'Personel', glyph: '👔', tint: 'plum', minLevel: HIRING_UNLOCK_LEVEL },
+  { id: 'staff', glyph: '👔', tint: 'plum', minLevel: HIRING_UNLOCK_LEVEL },
 ]
 
 /**
@@ -43,12 +42,14 @@ const APPS: Tile[] = [
  * another row of tabs appearing from nowhere.
  */
 export default function Phone({ state, open, active, onToggle, onOpen }: Props) {
+  const { t, money } = useI18n()
+
   return (
     <div className={`phone${open ? ' open' : ''}`}>
       <button
         className="phone-handle"
         onClick={onToggle}
-        aria-label={open ? 'Schowaj telefon' : 'Pokaż telefon'}
+        aria-label={open ? t.phone.hide : t.phone.show}
       >
         {open ? '›' : '📱'}
       </button>
@@ -58,7 +59,7 @@ export default function Phone({ state, open, active, onToggle, onOpen }: Props) 
 
         <div className="phone-status">
           <span>{formatClock(state.dayMs)}</span>
-          <span>Dzień {state.day}</span>
+          <span>{t.phone.day(state.day)}</span>
           <span>{money(state.cash)}</span>
         </div>
 
@@ -73,7 +74,7 @@ export default function Phone({ state, open, active, onToggle, onOpen }: Props) 
                 onClick={() => onOpen(app.id)}
               >
                 <span className={`phone-icon ${app.tint}`}>{app.glyph}</span>
-                <span className="phone-label">{app.label}</span>
+                <span className="phone-label">{t.phone.apps[app.id]}</span>
                 {app.soon && <span className="phone-soon">SOON</span>}
                 {locked && <span className="phone-lock">🔒 Lv {app.minLevel}</span>}
               </button>

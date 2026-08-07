@@ -1,5 +1,5 @@
 import type { GameState } from '../game/types'
-import { money } from './format'
+import { useI18n } from '../i18n'
 
 interface Props {
   state: GameState
@@ -7,35 +7,35 @@ interface Props {
 }
 
 export default function GameOverScreen({ state, onRestart }: Props) {
+  const { t, money } = useI18n()
+
   return (
     <div className="overlay">
       <div className="modal">
-        <h2>Komornik wbił</h2>
-        <p>
-          Dług przekroczył −20 000. Sprzęt pojechał na licytację, a sala stoi pusta.
-        </p>
+        <h2>{t.gameOver.title}</h2>
+        <p>{t.gameOver.copy}</p>
 
         <div className="stat-grid">
           <div className="stat-card">
-            <div className="k">Przetrwałeś</div>
-            <div className="v">{state.day} dni</div>
+            <div className="k">{t.gameOver.survived}</div>
+            <div className="v">{t.gameOver.days(state.day)}</div>
           </div>
           <div className="stat-card">
-            <div className="k">Saldo</div>
+            <div className="k">{t.gameOver.balance}</div>
             <div className="v">{money(state.cash)}</div>
           </div>
           <div className="stat-card">
-            <div className="k">Obsłużeni</div>
+            <div className="k">{t.gameOver.served}</div>
             <div className="v">{state.stats.clientsServed}</div>
           </div>
           <div className="stat-card">
-            <div className="k">Zarobiono</div>
+            <div className="k">{t.gameOver.earned}</div>
             <div className="v">{money(state.stats.totalEarned)}</div>
           </div>
         </div>
 
         <button className="btn block" onClick={onRestart}>
-          Zacznij od nowa
+          {t.gameOver.restart}
         </button>
       </div>
     </div>

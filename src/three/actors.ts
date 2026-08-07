@@ -6,6 +6,7 @@ import { buildStain } from './models/stain'
 import { isAtStaffDoor, tileToWorld } from '../game/layout'
 import { PATIENCE_MS } from '../game/constants'
 import { STAIN_OLD_MS } from '../game/stains'
+import { currentLanguage } from '../i18n'
 import { queueAnchorFor } from '../game/clientMove'
 import { bookingFor } from '../game/staff'
 import { PALETTE, blockAt, sphere } from './style'
@@ -97,10 +98,34 @@ function disposeSubtree(root: THREE.Object3D, ownMaterial: boolean): void {
 export class ActorLayer {
   private readonly views = new Map<string, ActorView>()
   private readonly stains = new Map<string, THREE.Mesh>()
+  /** Language the current rigs were built in; see `dropViews`. */
+  private builtLanguage = currentLanguage()
 
   constructor(private readonly scene: THREE.Scene) {}
 
+  /**
+   * Throws every rig away so the next `sync` rebuilds them. Only the language
+   * switch needs this: job titles are painted into a sprite when the employee
+   * is first drawn, so an employee already on the floor would otherwise keep
+   * the old language over their head for as long as they stay hired.
+   */
+  private dropViews(): void {
+    for (const view of this.views.values()) {
+      this.scene.remove(view.rig.root)
+      this.scene.remove(view.bar)
+      disposeSubtree(view.rig.root, false)
+      disposeSubtree(view.bar, true)
+    }
+    this.views.clear()
+  }
+
   sync(state: GameState, elapsed: number): void {
+    const language = currentLanguage()
+    if (language !== this.builtLanguage) {
+      this.dropViews()
+      this.builtLanguage = language
+    }
+
     const seen = new Set<string>()
 
     for (const client of state.clients) {

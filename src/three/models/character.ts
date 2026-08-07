@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import type { ClientKind, ClientRarity, StaffRank, StaffRole } from '../../game/types'
 import { RARITY_LABEL } from '../../game/content/rarity'
-import { ROLE_LABEL } from '../../game/content/staff'
+import { currentLanguage, strings } from '../../i18n'
 import { PALETTE, blockAt, cylinder, sphere, toon } from '../style'
 
 /**
@@ -343,11 +343,18 @@ export function buildNpc(kind: ClientKind, rarity: ClientRarity, variant: number
   return figure(look, badge, rarity, details)
 }
 
-const roleTagTextures = new Map<StaffRole, THREE.Texture>()
+/**
+ * Keyed by language as well as role: the job title is painted into the bitmap,
+ * so a cache keyed on the role alone would leave the old language floating
+ * over everybody's head until the page reloaded.
+ */
+const roleTagTextures = new Map<string, THREE.Texture>()
 
-/** Painted once per role and shared, same as `rarityTexture` below it. */
+/** Painted once per role and language, then shared, same as `rarityTexture`. */
 function roleTexture(role: StaffRole): THREE.Texture {
-  const cached = roleTagTextures.get(role)
+  const language = currentLanguage()
+  const key = `${language}:${role}`
+  const cached = roleTagTextures.get(key)
   if (cached) return cached
 
   const canvas = document.createElement('canvas')
@@ -369,11 +376,11 @@ function roleTexture(role: StaffRole): THREE.Texture {
   ctx.font = '800 40px Nunito, "Baloo 2", system-ui, sans-serif'
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
-  ctx.fillText(ROLE_LABEL[role], TAG_WIDTH / 2, TAG_HEIGHT / 2 + 2)
+  ctx.fillText(strings().content.roles[role], TAG_WIDTH / 2, TAG_HEIGHT / 2 + 2)
 
   const texture = new THREE.CanvasTexture(canvas)
   texture.colorSpace = THREE.SRGBColorSpace
-  roleTagTextures.set(role, texture)
+  roleTagTextures.set(key, texture)
   return texture
 }
 
