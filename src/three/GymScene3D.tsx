@@ -104,6 +104,9 @@ export default function GymScene3D({
 
     const onResize = () => scene.resize()
     window.addEventListener('resize', onResize)
+    window.visualViewport?.addEventListener('resize', onResize)
+    const resizeObserver = new ResizeObserver(onResize)
+    resizeObserver.observe(canvas)
 
     // A drag is the camera or a stray swipe, not a placement, so only a click
     // that barely moved counts as pointing at a tile.
@@ -132,6 +135,8 @@ export default function GymScene3D({
     return () => {
       cancelAnimationFrame(raf)
       window.removeEventListener('resize', onResize)
+      window.visualViewport?.removeEventListener('resize', onResize)
+      resizeObserver.disconnect()
       canvas.removeEventListener('pointerdown', onPointerDown)
       canvas.removeEventListener('pointerup', onPointerUp)
       scene.dispose()

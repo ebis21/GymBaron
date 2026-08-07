@@ -72,6 +72,7 @@ export default function Phone({ state, open, active, onToggle, onOpen }: Props) 
                 className={`phone-app${active === app.id ? ' active' : ''}${app.soon ? ' soon' : ''}${locked ? ' locked' : ''}`}
                 disabled={app.soon || locked}
                 onClick={() => onOpen(app.id)}
+                aria-label={t.phone.apps[app.id]}
               >
                 <span className={`phone-icon ${app.tint}`}>{app.glyph}</span>
                 <span className="phone-label">{t.phone.apps[app.id]}</span>
