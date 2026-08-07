@@ -7,7 +7,7 @@ import { hydrateLanguage } from './i18n'
 import './ui/styles.css'
 
 const root = document.getElementById('root')
-if (!root) throw new Error('Brak elementu #root')
+if (!root) throw new Error('Missing #root element')
 
 // Kicked off before the first render; App holds its loading screen until this
 // lands, so nobody sees the default language flash past their own.
