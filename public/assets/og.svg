@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <!--
+    The link-preview card. 1200×630 is what Open Graph and Twitter both crop
+    to, so the layout is landscape rather than a blown-up app icon.
+
+    Text is set in a plain system stack on purpose: this renders once, on the
+    machine that runs `npm run icons`, and the PNG is what ships — so there is
+    no webfont to load and nothing to go wrong in a scraper.
+  -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#6b3f20"/>
+      <stop offset="1" stop-color="#33220f"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffd071"/>
+      <stop offset="1" stop-color="#f6b73c"/>
+    </linearGradient>
+    <linearGradient id="steel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fffdf7"/>
+      <stop offset="1" stop-color="#e6d5b8"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <circle cx="300" cy="315" r="250" fill="#f6b73c" opacity="0.07"/>
+
+  <!-- The app mark, lifted from icon.svg and dropped into the left third. -->
+  <g transform="translate(75, 90) scale(0.88)">
+    <g stroke="#2c1c10" stroke-width="14" stroke-linejoin="round" stroke-linecap="round">
+      <path d="M136 232 L136 120 L196 180 L256 102 L316 180 L376 120 L376 232 Z" fill="url(#gold)"/>
+      <rect x="126" y="230" width="260" height="46" rx="14" fill="url(#gold)"/>
+      <rect x="142" y="344" width="228" height="30" rx="15" fill="url(#steel)"/>
+      <rect x="166" y="316" width="42" height="86" rx="16" fill="url(#steel)"/>
+      <rect x="304" y="316" width="42" height="86" rx="16" fill="url(#steel)"/>
+      <rect x="124" y="330" width="32" height="58" rx="13" fill="url(#steel)"/>
+      <rect x="356" y="330" width="32" height="58" rx="13" fill="url(#steel)"/>
+    </g>
+    <circle cx="256" cy="253" r="15" fill="#f2664c" stroke="#2c1c10" stroke-width="10"/>
+    <circle cx="196" cy="253" r="11" fill="#61b954" stroke="#2c1c10" stroke-width="10"/>
+    <circle cx="316" cy="253" r="11" fill="#62c1e8" stroke="#2c1c10" stroke-width="10"/>
+  </g>
+
+  <g font-family="Avenir Next, Helvetica Neue, Arial, sans-serif">
+    <!-- Sized to clear the right edge: the wordmark is the widest thing on the
+         card and Avenir Next Heavy runs wider than its point size suggests. -->
+    <text x="545" y="296" font-size="84" font-weight="800" fill="#fff6e3" letter-spacing="1">
+      GYMBARON
+    </text>
+    <text x="549" y="354" font-size="33" font-weight="600" fill="#e0c295">
+      Symulator prowadzenia siłowni
+    </text>
+    <text x="549" y="412" font-size="27" font-weight="500" fill="#b99a72">
+      Pusta sala, 500 kr i jeden klient w drzwiach.
+    </text>
+  </g>
+</svg>

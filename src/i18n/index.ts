@@ -10,6 +10,7 @@ export const LANGUAGES: Language[] = ['en', 'pl']
 
 export const DEFAULT_LANGUAGE: Language = 'en'
 
+/** Kept under the old name for the same reason as `SAVE_KEY` — see there. */
 const LANG_KEY = 'iron-empire.language'
 
 const DICTIONARIES: Record<Language, Strings> = { en, pl }

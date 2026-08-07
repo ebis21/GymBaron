@@ -1,7 +1,7 @@
 {
-  "name": "IRON EMPIRE",
-  "short_name": "IRON EMPIRE",
-  "description": "Symulator prowadzenia siłowni. Zaczynasz z pustą salą i $500.",
+  "name": "GYMBARON",
+  "short_name": "GYMBARON",
+  "description": "Symulator prowadzenia siłowni. Pusta sala, 500 kr i jeden klient w drzwiach.",
   "lang": "pl",
   "start_url": "/",
   "display": "standalone",

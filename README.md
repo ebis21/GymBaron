@@ -1,4 +1,4 @@
-# IRON EMPIRE
+# GYMBARON
 
 Symulator prowadzenia siłowni na iOS, Androida i przeglądarkę. Zaczynasz
 z pustą salą i **$500** — akurat tyle, żeby kupić pierwszą maszynę i mieć
