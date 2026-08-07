@@ -60,6 +60,9 @@ const CLIENT_KEY_HOLD_MS = 0
 /** Rotates the selected fixture in build mode. */
 const ROTATE_KEY = 'r'
 
+/** Puts the selected fixture or partition back in the bag, in build mode. */
+const STORE_KEY = 'x'
+
 /** The key bound to the proximity action. */
 const ACTION_KEY = 'e'
 
@@ -293,6 +296,44 @@ export default function App() {
     return () => window.removeEventListener('keydown', onRotate)
   }, [buildMode, selected, rotateObject])
 
+  // X packs the selection away — the same "Schowaj" the bar offers, for the
+  // fixture or the partition, whichever one is selected. It stays quiet while
+  // something is mid-move or in hand, because the button is gone in those
+  // states and the key must not do what the bar is not offering.
+  useEffect(() => {
+    if (!buildMode || moving || movingWall || carrying) return
+    if (!selected && !selectedWall) return
+
+    const onStore = (e: KeyboardEvent) => {
+      if (e.key.toLowerCase() !== STORE_KEY) return
+      if (e.altKey || e.ctrlKey || e.metaKey) return
+      e.preventDefault()
+
+      if (selectedWall) {
+        demolishWall(selectedWall)
+        setSelectedWall(null)
+        return
+      }
+      if (!selected) return
+
+      // A machine with someone on it cannot be packed: the button is disabled
+      // in that state, and the key has to agree with it. Read at press time
+      // rather than from a dep — the clock rewrites `state` every tick, and
+      // this listener has no reason to be torn down and rebound that often.
+      const machine =
+        selected.kind === 'machine'
+          ? useGameStore.getState().state.machines.find(m => m.uid === selected.uid)
+          : undefined
+      if (machine?.occupiedBy != null) return
+
+      storeObject(selected.kind, selected.uid)
+      setSelected(null)
+    }
+
+    window.addEventListener('keydown', onStore)
+    return () => window.removeEventListener('keydown', onStore)
+  }, [buildMode, moving, movingWall, carrying, selected, selectedWall, storeObject, demolishWall])
+
   const clearBuildState = () => {
     setSelected(null)
     setSelectedWall(null)
@@ -522,7 +563,7 @@ export default function App() {
                   setSelectedWall(null)
                 }}
               >
-                Schowaj
+                Schowaj{HAS_KEYBOARD && <kbd className="btn-key">X</kbd>}
               </button>
               <button className="btn ghost tiny" onClick={() => setSelectedWall(null)}>
                 ✕
@@ -554,7 +595,7 @@ export default function App() {
                   setSelected(null)
                 }}
               >
-                Schowaj
+                Schowaj{HAS_KEYBOARD && <kbd className="btn-key">X</kbd>}
               </button>
               <button className="btn ghost tiny" onClick={() => setSelected(null)}>
                 ✕
