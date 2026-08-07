@@ -103,3 +103,34 @@ describe('migration to version 4', () => {
     expect(loaded.staff).toEqual([])
   })
 })
+
+describe('migration to version 7', () => {
+  it('wraps a version 6 room in the ground-floor plan', () => {
+    const current = initialState(12, 0)
+    const v6 = JSON.stringify({
+      ...current,
+      version: 6,
+      activeFloor: undefined,
+      floorPlans: undefined,
+      cash: 123_456,
+      expansion: 2,
+    })
+
+    const loaded = deserialize(v6, 0)
+
+    expect(loaded.version).toBe(SAVE_VERSION)
+    expect(loaded.cash).toBe(123_456)
+    expect(loaded.activeFloor).toBe(0)
+    expect(loaded.floorPlans).toHaveLength(1)
+    expect(loaded.floorPlans[0]!.expansion).toBe(2)
+    expect(loaded.floorPlans[0]!.decor).toEqual(loaded.decor)
+  })
+
+  it('rejects a version 7 save with an invalid active floor', () => {
+    const corrupt = JSON.stringify({ ...initialState(4, 0), activeFloor: 99 })
+    const loaded = deserialize(corrupt, 0)
+
+    expect(loaded.activeFloor).toBe(0)
+    expect(loaded.cash).toBe(500)
+  })
+})

@@ -119,5 +119,12 @@ export function nextDay(state: GameState): GameState {
     // Everyone left at closing time; the floor is clear in the morning.
     clients: [],
     machines: state.machines.map(m => (m.occupiedBy === null ? m : { ...m, occupiedBy: null })),
+    floorPlans: state.floorPlans.map(plan => ({
+      ...plan,
+      clients: [],
+      machines: plan.machines.map(machine => (
+        machine.occupiedBy === null ? machine : { ...machine, occupiedBy: null }
+      )),
+    })),
   })
 }

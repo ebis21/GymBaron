@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { advanceClients, scanClient, spawnLilD, summonLilD } from './clients'
 import { closeDay } from './dayClose'
 import { initialState } from './economy'
-import { DAY_MS, LIL_D_EXTRA_WORKOUT_MS, LIL_D_FAKE_PAYMENT } from './constants'
+import { DAY_MS, LIL_D_EXTRA_WORKOUT_MS, LIL_D_FAKE_PAYMENT, SAVE_VERSION } from './constants'
 import { machineType } from './content/machines'
 import { deserialize } from './save'
 import type { Client, GameState, Machine } from './types'
@@ -48,7 +48,7 @@ describe('LIL D. secret visitor', () => {
     delete (legacy.today as Record<string, unknown>).counterfeitLoss
 
     const loaded = deserialize(JSON.stringify(legacy), 0)
-    expect(loaded.version).toBe(6)
+    expect(loaded.version).toBe(SAVE_VERSION)
     expect(loaded.lilDSeenDay).toBe(0)
     expect(loaded.today.counterfeitLoss).toBe(0)
   })

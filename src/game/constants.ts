@@ -25,11 +25,18 @@ export const DEBT_LIMIT = -20_000
  */
 export const PATIENCE_MS = 26_000
 export const OFFLINE_CAP_MS = 8 * 60 * 60 * 1000
-export const SAVE_VERSION = 6
+export const SAVE_VERSION = 7
 export const SAVE_KEY = 'iron-empire-save'
 export const XP_PER_LEVEL = 100
 export const MAX_STEP_MS = 1_000
 export const AUTOSAVE_MS = 5_000
+
+// --- Floors ----------------------------------------------------------------
+
+/** Price of turning the wall lock into access to the next storey. */
+export const FLOOR_UNLOCK_COST = 100_000
+/** Ground floor plus the first upper floor; the data model is ready for more. */
+export const MAX_FLOORS = 2
 
 /** Longest queue the gym will grow before newcomers stop showing up. */
 export const MAX_QUEUE = 10

@@ -27,12 +27,19 @@ import { queueAnchorFor } from '../game/clientMove'
 import { blockingSight } from './sight'
 import { PALETTE, ownMaterials, toon } from './style'
 import { ActorLayer } from './actors'
+import { floorAccessVisible } from '../game/floors'
+import {
+  buildFloorAccess,
+  setFloorAccessUnlocked,
+  type FloorAccessView,
+} from './models/floorAccess'
 
 /** What the player is close enough to act on right now. */
 export type Focus =
   | { kind: 'scan'; clientUid: string }
   | { kind: 'repair'; machineUid: string }
   | { kind: 'wipe'; stainUid: string }
+  | { kind: 'floorAccess' }
   | null
 
 export type EdgeSide = 'n' | 's' | 'e' | 'w'
@@ -72,6 +79,7 @@ const sameFocus = (a: Focus, b: Focus): boolean => {
   if (a.kind === 'scan' && b.kind === 'scan') return a.clientUid === b.clientUid
   if (a.kind === 'repair' && b.kind === 'repair') return a.machineUid === b.machineUid
   if (a.kind === 'wipe' && b.kind === 'wipe') return a.stainUid === b.stainUid
+  if (a.kind === 'floorAccess' && b.kind === 'floorAccess') return true
   return false
 }
 
@@ -139,6 +147,7 @@ export class GymScene {
 
   private readonly decorViews = new Map<string, THREE.Group>()
   private readonly wallViews = new Map<string, WallView>()
+  private readonly floorAccess: FloorAccessView
 
   private readonly gridOverlay = new THREE.Group()
   private readonly marker: THREE.Mesh
@@ -182,6 +191,10 @@ export class GymScene {
     this.camera = new THREE.PerspectiveCamera(35, 1, 0.1, 200)
     this.hall = buildHall(this.roomW, this.roomH)
     this.scene.add(this.hall)
+    this.floorAccess = buildFloorAccess()
+    this.placeFloorAccess()
+    this.floorAccess.root.visible = false
+    this.scene.add(this.floorAccess.root)
     this.sun = this.addLights()
     this.fitToRoom()
 
@@ -292,6 +305,17 @@ export class GymScene {
     this.fog.far = FOG_FAR * scale
   }
 
+  /** Centres the fixture on the inside face of the right-hand wall. */
+  private placeFloorAccess(): void {
+    this.floorAccess.root.position.set(hallW() / 2 - 0.08, 0, 0)
+    this.floorAccess.root.rotation.y = -Math.PI / 2
+  }
+
+  /** The place on the floor the player has to reach to use the wall lock. */
+  private floorAccessPoint(): { x: number; z: number } {
+    return { x: hallW() / 2 - 1.05, z: 0 }
+  }
+
   /**
    * Rebuilds the shell for a room of a different size. The hall and the grid
    * overlay are the only two things built for one floor plan and no other, so
@@ -318,6 +342,7 @@ export class GymScene {
     disposeHall(this.hall)
     this.hall = buildHall(w, h)
     this.scene.add(this.hall)
+    this.placeFloorAccess()
 
     this.clearGridOverlay()
     this.buildGridOverlay()
@@ -355,7 +380,13 @@ export class GymScene {
     this.syncMachines(state.machines)
     this.syncDecor(state.decor)
     this.syncWalls(state.walls)
+    this.syncFloorAccess(state)
     this.actors.sync(state, this.elapsed)
+  }
+
+  private syncFloorAccess(state: GameState): void {
+    this.floorAccess.root.visible = floorAccessVisible(state)
+    setFloorAccessUnlocked(this.floorAccess, state.floorPlans.length > 1)
   }
 
   /** Records an object's collision box, turned to match how it was placed. */
@@ -674,6 +705,19 @@ export class GymScene {
     }
   }
 
+  /** Direct taps on the model work alongside the proximity action button. */
+  pickFloorAccess(clientX: number, clientY: number): boolean {
+    if (!this.floorAccess.root.visible || this.focus?.kind !== 'floorAccess') return false
+
+    const rect = this.canvas.getBoundingClientRect()
+    const ndc = new THREE.Vector2(
+      ((clientX - rect.left) / rect.width) * 2 - 1,
+      -((clientY - rect.top) / rect.height) * 2 + 1,
+    )
+    this.raycaster.setFromCamera(ndc, this.camera)
+    return this.raycaster.intersectObject(this.floorAccess.root, true).length > 0
+  }
+
   /** Shows the ghost or the selection halo on one tile. */
   private updateMarker(): void {
     const state = this.state
@@ -928,6 +972,15 @@ export class GymScene {
         if (d < best) {
           best = d
           next = { kind: 'wipe', stainUid: stain.uid }
+        }
+      }
+
+      if (floorAccessVisible(state)) {
+        const at = this.floorAccessPoint()
+        const d = Math.hypot(at.x - this.playerPos.x, at.z - this.playerPos.z)
+        if (d < best) {
+          best = d
+          next = { kind: 'floorAccess' }
         }
       }
     }

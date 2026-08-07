@@ -13,6 +13,7 @@ import {
   XP_PER_LEVEL,
   SAVE_VERSION,
 } from './constants'
+import { machinesAcrossFloors } from './floors'
 
 export const emptyLedger = (): DayLedger => ({
   entryFees: 0,
@@ -25,6 +26,16 @@ export const emptyLedger = (): DayLedger => ({
 })
 
 export function initialState(seed: number, now: number): GameState {
+  const decor: GameState['decor'] = [
+    // One row down from the corner on purpose: the attendant stands on the
+    // tile *behind* the desk, and at y=0 facing north that tile is off the
+    // grid — the receptionist could never reach their own counter.
+    { uid: 'd-reception', type: 'reception', x: 0, y: 1, rotation: 0 },
+    { uid: 'd-plant-a', type: 'plant', x: 7, y: 0, rotation: 0 },
+    { uid: 'd-plant-b', type: 'plant', x: 7, y: 5, rotation: 0 },
+    { uid: 'd-plant-c', type: 'plant', x: 0, y: 5, rotation: 0 },
+  ]
+
   return {
     version: SAVE_VERSION,
     cash: START_CASH,
@@ -35,15 +46,7 @@ export function initialState(seed: number, now: number): GameState {
     machines: [],
     // The room starts furnished but nothing is nailed down — every one of
     // these can be turned, shifted, or packed away in build mode.
-    decor: [
-      // One row down from the corner on purpose: the attendant stands on the
-      // tile *behind* the desk, and at y=0 facing north that tile is off the
-      // grid — the receptionist could never reach their own counter.
-      { uid: 'd-reception', type: 'reception', x: 0, y: 1, rotation: 0 },
-      { uid: 'd-plant-a', type: 'plant', x: 7, y: 0, rotation: 0 },
-      { uid: 'd-plant-b', type: 'plant', x: 7, y: 5, rotation: 0 },
-      { uid: 'd-plant-c', type: 'plant', x: 0, y: 5, rotation: 0 },
-    ],
+    decor,
     walls: [],
     inventory: [],
     clients: [],
@@ -54,6 +57,8 @@ export function initialState(seed: number, now: number): GameState {
     candidatesDay: 0,
     seed,
     expansion: 0,
+    activeFloor: 0,
+    floorPlans: [{ expansion: 0, machines: [], decor, walls: [], stains: [], clients: [] }],
     day: 1,
     dayMs: 0,
     dayEnded: false,
@@ -95,7 +100,7 @@ const GYM_CLASS_CEILING = 8
  * from a purchase.
  */
 export function gymClass(state: GameState): number {
-  const raw = state.machines.reduce(
+  const raw = machinesAcrossFloors(state).reduce(
     (acc, m) => acc + (machineType(m.type).revenueMultiplier - 1),
     0,
   )
@@ -156,7 +161,8 @@ export interface DailyCosts {
  */
 export function dailyCosts(state: GameState): DailyCosts {
   const rent = DAILY_RENT
-  const power = state.machines.reduce((sum, m) => sum + machineType(m.type).powerPerDay, 0)
+  const power = machinesAcrossFloors(state)
+    .reduce((sum, m) => sum + machineType(m.type).powerPerDay, 0)
   const memberUpkeep = MEMBER_UPKEEP * state.members.length
   return { rent, power, memberUpkeep, total: rent + power + memberUpkeep }
 }

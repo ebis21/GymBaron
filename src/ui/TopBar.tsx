@@ -3,6 +3,7 @@ import { dayProgress, formatClock, isClosingTime } from '../game/clock'
 import { gymClass } from '../game/economy'
 import { BILLING_PERIOD_DAYS } from '../game/constants'
 import { money } from './format'
+import { floorName } from '../game/floors'
 
 const cashClass = (cash: number) =>
   cash < -10_000 ? 'cash-bad' : cash < 0 ? 'cash-warn' : 'cash-ok'
@@ -29,7 +30,12 @@ export default function TopBar({ state }: { state: GameState }) {
       <div className="topbar">
         <div className={`topbar-cell clock-cell${closing ? ' closing' : ''}`}>
           <span className="topbar-label">{closing ? 'Po godzinach' : `Dzień ${state.day}`}</span>
-          <span className="topbar-value clock">{formatClock(state.dayMs)}</span>
+          <span className="topbar-value clock">
+            {formatClock(state.dayMs)}
+            {state.floorPlans.length > 1 && (
+              <span className="topbar-sub">{floorName(state.activeFloor)}</span>
+            )}
+          </span>
         </div>
         <div className="topbar-cell">
           <span className="topbar-label">Kasa</span>

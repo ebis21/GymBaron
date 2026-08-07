@@ -4,7 +4,7 @@ import type { PlacedKind } from './game/build'
 import type { ClientRarity } from './game/types'
 import { machineType } from './game/content/machines'
 import { decorType } from './game/content/decor'
-import { HIRING_UNLOCK_LEVEL, STAFF_UNLOCK_LEVEL } from './game/constants'
+import { FLOOR_UNLOCK_COST, HIRING_UNLOCK_LEVEL, STAFF_UNLOCK_LEVEL } from './game/constants'
 import { isClosingTime } from './game/clock'
 import GymScene3D from './three/GymScene3D'
 import type { Focus, PickResult } from './three/scene'
@@ -21,6 +21,8 @@ import ClientCard from './ui/ClientCard'
 import WelcomeBack from './ui/WelcomeBack'
 import DevPanel from './ui/DevPanel'
 import { money } from './ui/format'
+import FloorAccessModal from './ui/FloorAccessModal'
+import { floorName } from './game/floors'
 
 /** Which full-screen panel is over the room, if any. */
 type Tab = 'gym' | 'shop' | 'stats' | 'staff'
@@ -59,6 +61,9 @@ const CLIENT_KEY_HOLD_MS = 0
 
 /** Rotates the selected fixture in build mode. */
 const ROTATE_KEY = 'r'
+
+/** Puts the selected fixture or partition back in the bag, in build mode. */
+const STORE_KEY = 'x'
 
 /** The key bound to the proximity action. */
 const ACTION_KEY = 'e'
@@ -120,6 +125,8 @@ export default function App() {
   const demolishWall = useGameStore(s => s.demolishWall)
 
   const buyExpansion = useGameStore(s => s.buyExpansion)
+  const buyNextFloor = useGameStore(s => s.buyNextFloor)
+  const switchFloor = useGameStore(s => s.switchFloor)
   const endDay = useGameStore(s => s.endDay)
 
   const hireCandidate = useGameStore(s => s.hireCandidate)
@@ -131,6 +138,7 @@ export default function App() {
   const [phoneOpen, setPhoneOpen] = useState(false)
   const [focus, setFocus] = useState<Focus>(null)
   const [recruiting, setRecruiting] = useState(false)
+  const [floorAccessOpen, setFloorAccessOpen] = useState(false)
 
   const [buildMode, setBuildMode] = useState(false)
   /** Bumped by the dev panel to drop the player at the front counter. */
@@ -233,7 +241,7 @@ export default function App() {
   // hide the button outright and should clear any hold the same way.
   useEffect(() => {
     cancelHold()
-  }, [focus, buildMode, talking, tab, state.dayEnded, cancelHold])
+  }, [focus, buildMode, talking, tab, state.dayEnded, floorAccessOpen, cancelHold])
 
   // Belt-and-braces: drop any in-flight rAF if the component ever unmounts.
   useEffect(() => () => cancelHold(), [cancelHold])
@@ -292,6 +300,44 @@ export default function App() {
     window.addEventListener('keydown', onRotate)
     return () => window.removeEventListener('keydown', onRotate)
   }, [buildMode, selected, rotateObject])
+
+  // X packs the selection away — the same "Schowaj" the bar offers, for the
+  // fixture or the partition, whichever one is selected. It stays quiet while
+  // something is mid-move or in hand, because the button is gone in those
+  // states and the key must not do what the bar is not offering.
+  useEffect(() => {
+    if (!buildMode || moving || movingWall || carrying) return
+    if (!selected && !selectedWall) return
+
+    const onStore = (e: KeyboardEvent) => {
+      if (e.key.toLowerCase() !== STORE_KEY) return
+      if (e.altKey || e.ctrlKey || e.metaKey) return
+      e.preventDefault()
+
+      if (selectedWall) {
+        demolishWall(selectedWall)
+        setSelectedWall(null)
+        return
+      }
+      if (!selected) return
+
+      // A machine with someone on it cannot be packed: the button is disabled
+      // in that state, and the key has to agree with it. Read at press time
+      // rather than from a dep — the clock rewrites `state` every tick, and
+      // this listener has no reason to be torn down and rebound that often.
+      const machine =
+        selected.kind === 'machine'
+          ? useGameStore.getState().state.machines.find(m => m.uid === selected.uid)
+          : undefined
+      if (machine?.occupiedBy != null) return
+
+      storeObject(selected.kind, selected.uid)
+      setSelected(null)
+    }
+
+    window.addEventListener('keydown', onStore)
+    return () => window.removeEventListener('keydown', onStore)
+  }, [buildMode, moving, movingWall, carrying, selected, selectedWall, storeObject, demolishWall])
 
   const clearBuildState = () => {
     setSelected(null)
@@ -419,6 +465,18 @@ export default function App() {
   const action = ((): Action | null => {
     if (!focus || state.dayEnded || buildMode || talking) return null
 
+    if (focus.kind === 'floorAccess') {
+      const unlocked = state.floorPlans.length > 1
+      return {
+        label: unlocked ? 'Wybierz piętro' : 'Odblokuj piętro',
+        hint: unlocked ? floorName(state.activeFloor) : money(FLOOR_UNLOCK_COST),
+        run: () => setFloorAccessOpen(true),
+        enabled: true,
+        hold: null,
+        key: { ms: 0, uid: 'floor-access' },
+      }
+    }
+
     if (focus.kind === 'repair') {
       const machine = state.machines.find(m => m.uid === focus.machineUid)
       if (!machine) return null
@@ -470,9 +528,11 @@ export default function App() {
         selected={selected}
         preview={null}
         facing={talking}
+        paused={floorAccessOpen}
         teleport={teleport}
         onFocus={onFocus}
         onPick={onPick}
+        onFloorAccess={() => setFloorAccessOpen(true)}
       />
 
       <TopBar state={state} />
@@ -522,7 +582,7 @@ export default function App() {
                   setSelectedWall(null)
                 }}
               >
-                Schowaj
+                Schowaj{HAS_KEYBOARD && <kbd className="btn-key">X</kbd>}
               </button>
               <button className="btn ghost tiny" onClick={() => setSelectedWall(null)}>
                 ✕
@@ -554,7 +614,7 @@ export default function App() {
                   setSelected(null)
                 }}
               >
-                Schowaj
+                Schowaj{HAS_KEYBOARD && <kbd className="btn-key">X</kbd>}
               </button>
               <button className="btn ghost tiny" onClick={() => setSelected(null)}>
                 ✕
@@ -723,6 +783,19 @@ export default function App() {
             setTalking(null)
           }}
           onClose={() => setTalking(null)}
+        />
+      )}
+
+      {floorAccessOpen && (
+        <FloorAccessModal
+          state={state}
+          onBuy={buyNextFloor}
+          onSwitch={floor => {
+            leaveBuildMode()
+            setTalking(null)
+            switchFloor(floor)
+          }}
+          onClose={() => setFloorAccessOpen(false)}
         />
       )}
 

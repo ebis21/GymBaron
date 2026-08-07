@@ -10,6 +10,8 @@ interface Props {
   preview: MachineTypeId | null
   /** Client the player is face to face with, or null for the usual camera. */
   facing: string | null
+  /** A modal interaction freezes movement without pretending to face a client. */
+  paused: boolean
   /**
    * Bumped to drop the player at the front counter. A counter rather than a
    * boolean so that asking for it twice in a row still moves them twice.
@@ -18,6 +20,7 @@ interface Props {
   onFocus: (focus: Focus) => void
   /** Fires only in build mode, when the player clicks the floor. */
   onPick: (pick: PickResult) => void
+  onFloorAccess: () => void
 }
 
 const STICK_RADIUS = 52
@@ -33,9 +36,11 @@ export default function GymScene3D({
   selected,
   preview,
   facing,
+  paused,
   teleport,
   onFocus,
   onPick,
+  onFloorAccess,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const sceneRef = useRef<GymScene | null>(null)
@@ -43,8 +48,8 @@ export default function GymScene3D({
   const knobRef = useRef<HTMLDivElement>(null)
 
   // Read through a ref inside the loop so the effect never needs to re-run.
-  const latest = useRef({ state, buildMode, onPick, onFocus })
-  latest.current = { state, buildMode, onPick, onFocus }
+  const latest = useRef({ state, buildMode, onPick, onFocus, onFloorAccess })
+  latest.current = { state, buildMode, onPick, onFocus, onFloorAccess }
 
   // Mode, selection, and preview are cheap setters, pushed on every render.
   useEffect(() => {
@@ -54,10 +59,10 @@ export default function GymScene3D({
   // The stick is about to disappear from under the player's thumb; leaving its
   // last value behind would walk the character off on its own.
   useEffect(() => {
-    if (!buildMode && !facing) return
+    if (!buildMode && !facing && !paused) return
     sceneRef.current?.setStick(0, 0)
     if (knobRef.current) knobRef.current.style.transform = 'translate(0px, 0px)'
-  }, [buildMode, facing])
+  }, [buildMode, facing, paused])
 
   useEffect(() => {
     sceneRef.current?.setSelection(selected)
@@ -111,10 +116,14 @@ export default function GymScene3D({
     const onPointerUp = (e: PointerEvent) => {
       const start = downAt
       downAt = null
-      if (!start || !latest.current.buildMode) return
+      if (!start) return
       if (Math.hypot(e.clientX - start.x, e.clientY - start.y) > 8) return
 
-      latest.current.onPick(scene.pick(e.clientX, e.clientY))
+      if (latest.current.buildMode) {
+        latest.current.onPick(scene.pick(e.clientX, e.clientY))
+      } else if (scene.pickFloorAccess(e.clientX, e.clientY)) {
+        latest.current.onFloorAccess()
+      }
     }
 
     canvas.addEventListener('pointerdown', onPointerDown)
@@ -192,7 +201,7 @@ export default function GymScene3D({
       {/* Build mode looks down on the room from overhead and a conversation
           holds the player still — neither has any use for a walk stick. */}
       <div
-        className={`joystick${buildMode || facing ? ' hidden' : ''}`}
+        className={`joystick${buildMode || facing || paused ? ' hidden' : ''}`}
         ref={stickRef}
         aria-hidden="true"
       >
