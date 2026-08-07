@@ -1,7 +1,7 @@
 {
-  "name": "iron-empire",
+  "name": "gymbaron",
   "version": "1.0.0",
-  "description": "IRON EMPIRE - gym management simulator",
+  "description": "GYMBARON - gym management simulator",
   "private": true,
   "type": "module",
   "scripts": {
@@ -9,6 +9,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
+    "icons": "bash scripts/make-icons.sh",
     "typecheck": "tsc --noEmit"
   },
   "keywords": [],

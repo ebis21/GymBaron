@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!--
+    Source of truth for every raster icon in the project. The PNGs beside it
+    are generated from this file — see `npm run icons`.
+
+    A crown over a dumbbell: the two halves of the name. Palette is lifted
+    straight from `src/ui/styles.css` so the icon and the game are visibly the
+    same product rather than two things that happen to ship together.
+  -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#6b3f20"/>
+      <stop offset="1" stop-color="#3a2718"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffd071"/>
+      <stop offset="1" stop-color="#f6b73c"/>
+    </linearGradient>
+    <linearGradient id="steel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fffdf7"/>
+      <stop offset="1" stop-color="#e6d5b8"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Full bleed: the launcher supplies its own rounding, and a mask that
+       crops into a transparent margin looks like a mistake.
+
+       Grouped under an id so the icon generator can switch the plate off and
+       render the mark alone for Android's adaptive foreground layer, which
+       supplies its own background. -->
+  <g id="plate">
+    <rect width="512" height="512" fill="url(#bg)"/>
+    <!-- A warm halo so the mark does not sit flat on the background. -->
+    <circle cx="256" cy="248" r="196" fill="#f6b73c" opacity="0.07"/>
+  </g>
+
+  <g id="mark" stroke="#2c1c10" stroke-width="14" stroke-linejoin="round" stroke-linecap="round">
+    <!-- Crown: three peaks, two valleys, one band. -->
+    <path d="M136 232 L136 120 L196 180 L256 102 L316 180 L376 120 L376 232 Z" fill="url(#gold)"/>
+    <rect x="126" y="230" width="260" height="46" rx="14" fill="url(#gold)"/>
+
+    <!-- Dumbbell: bar, inner plates, outer plates. -->
+    <rect x="142" y="344" width="228" height="30" rx="15" fill="url(#steel)"/>
+    <rect x="166" y="316" width="42" height="86" rx="16" fill="url(#steel)"/>
+    <rect x="304" y="316" width="42" height="86" rx="16" fill="url(#steel)"/>
+    <rect x="124" y="330" width="32" height="58" rx="13" fill="url(#steel)"/>
+    <rect x="356" y="330" width="32" height="58" rx="13" fill="url(#steel)"/>
+  </g>
+
+  <!-- Jewels sit on the band, where a crown actually carries them. On the
+       peaks they read as stray dots half-off the edge. -->
+  <circle cx="256" cy="253" r="15" fill="#f2664c" stroke="#2c1c10" stroke-width="10"/>
+  <circle cx="196" cy="253" r="11" fill="#61b954" stroke="#2c1c10" stroke-width="10"/>
+  <circle cx="316" cy="253" r="11" fill="#62c1e8" stroke="#2c1c10" stroke-width="10"/>
+</svg>

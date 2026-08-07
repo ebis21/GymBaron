@@ -29,6 +29,12 @@ export const DEBT_LIMIT = -20_000
 export const PATIENCE_MS = 26_000
 export const OFFLINE_CAP_MS = 8 * 60 * 60 * 1000
 export const SAVE_VERSION = 8
+/**
+ * Deliberately still the old name. This is a storage key, not a label — nobody
+ * ever sees it, and renaming it would orphan the save of every player who
+ * already has one. It stays `iron-empire-save` for as long as those saves are
+ * worth keeping.
+ */
 export const SAVE_KEY = 'iron-empire-save'
 export const XP_PER_LEVEL = 100
 export const MAX_STEP_MS = 1_000
