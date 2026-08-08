@@ -1,5 +1,11 @@
 import type { GameState } from './types'
-import { CAMPAIGNS } from './content/campaigns'
+import { DAY_MS } from './constants'
+import {
+  CAMPAIGNS,
+  type CampaignId,
+  campaignById,
+  isCampaignId,
+} from './content/campaigns'
 
 /**
  * Advertising: what the player pays to bring more people through the door.
@@ -15,15 +21,21 @@ import { CAMPAIGNS } from './content/campaigns'
  * nobody has to touch twice.
  */
 export interface MarketingState {
+  activeCampaignId: CampaignId | null
+  /** Open-gym milliseconds until the final advertised closing time. */
+  remainingMs: number
   /**
-   * Extended by the owner. Everything the feature remembers lives in here —
-   * never as a new field on `GameState`, which is the one file all three
-   * branches would otherwise collide in.
+   * Kept separately because the campaign expires at 20:00 just before the
+   * till settles. The final day's invoice must survive that last tick.
    */
-  readonly placeholder?: never
+  billableCampaignId: CampaignId | null
 }
 
-export const initialMarketing = (): MarketingState => ({})
+export const initialMarketing = (): MarketingState => ({
+  activeCampaignId: null,
+  remainingMs: 0,
+  billableCampaignId: null,
+})
 
 /**
  * Fills in whatever a stored sub-state is missing. This is why the feature
@@ -34,7 +46,25 @@ export const initialMarketing = (): MarketingState => ({})
 export function normalizeMarketing(raw: unknown): MarketingState {
   const base = initialMarketing()
   if (typeof raw !== 'object' || raw === null) return base
-  return { ...base, ...(raw as MarketingState) }
+
+  const stored = raw as Record<string, unknown>
+  const activeCampaignId = isCampaignId(stored.activeCampaignId)
+    ? stored.activeCampaignId
+    : null
+  const billableCampaignId = isCampaignId(stored.billableCampaignId)
+    ? stored.billableCampaignId
+    : null
+  const storedRemaining = stored.remainingMs
+  const remainingMs = activeCampaignId !== null &&
+      typeof storedRemaining === 'number' && Number.isFinite(storedRemaining)
+    ? Math.max(0, storedRemaining)
+    : 0
+
+  return {
+    activeCampaignId: remainingMs > 0 ? activeCampaignId : null,
+    remainingMs,
+    billableCampaignId,
+  }
 }
 
 /**
@@ -42,18 +72,57 @@ export function normalizeMarketing(raw: unknown): MarketingState {
  * dispatches it blind, so adding a campaign type is a change to this file and
  * to the screen — never to `gameStore.ts`.
  */
-export type MarketingAction = { type: 'noop' }
+export type MarketingAction = { type: 'start'; campaignId: CampaignId }
 
 export function applyMarketing(state: GameState, action: MarketingAction): GameState {
   switch (action.type) {
-    case 'noop':
-      return state
+    case 'start': {
+      if (
+        state.gameOver ||
+        state.dayEnded ||
+        state.dayMs >= DAY_MS ||
+        state.marketing.activeCampaignId !== null
+      ) return state
+
+      const campaign = campaignById(action.campaignId)
+      // No up-front fee, but the first invoice must be credible when the ad is
+      // ordered. Later bills may still put the gym into debt, just like rent.
+      if (state.cash < campaign.dailyCost) return state
+
+      return {
+        ...state,
+        marketing: {
+          activeCampaignId: campaign.id,
+          // Starting at noon still buys the advertised number of calendar
+          // days: what remains today, then whole days up to the final close.
+          remainingMs: campaign.durationDays * DAY_MS - state.dayMs,
+          billableCampaignId: campaign.id,
+        },
+      }
+    }
   }
 }
 
 /** Per-tick advance. Runs inside the simulation's system list. */
-export function advanceMarketing(state: GameState, _dtMs: number): GameState {
-  return state
+export function advanceMarketing(state: GameState, dtMs: number): GameState {
+  const activeId = state.marketing.activeCampaignId
+  if (activeId === null || state.gameOver || state.dayEnded || dtMs <= 0) return state
+
+  // The floor may keep draining after 20:00, but advertising buys open-door
+  // time. Letting the after-hours tail consume it would make a busy gym lose
+  // more of a campaign than an empty one.
+  const openMs = Math.min(dtMs, Math.max(0, DAY_MS - state.dayMs))
+  if (openMs <= 0) return state
+
+  const remainingMs = Math.max(0, state.marketing.remainingMs - openMs)
+  return {
+    ...state,
+    marketing: {
+      activeCampaignId: remainingMs > 0 ? activeId : null,
+      remainingMs,
+      billableCampaignId: activeId,
+    },
+  }
 }
 
 /**
@@ -61,15 +130,26 @@ export function advanceMarketing(state: GameState, _dtMs: number): GameState {
  * spent in `today.marketingSpend`, which is what the receipt prints.
  */
 export function settleMarketing(state: GameState): GameState {
-  return state
+  const billableId = state.marketing.billableCampaignId
+  if (billableId === null) return state
+
+  const cost = campaignById(billableId).dailyCost
+  return {
+    ...state,
+    cash: state.cash - cost,
+    marketing: { ...state.marketing, billableCampaignId: null },
+    today: { ...state.today, marketingSpend: state.today.marketingSpend + cost },
+    stats: { ...state.stats, totalSpent: state.stats.totalSpent + cost },
+  }
 }
 
 /**
  * How much advertising multiplies walk-in arrivals. 1 is the game with no
  * campaign running, and the spawner treats it as a plain factor on the rate.
  */
-export function spawnRateMultiplier(_state: GameState): number {
-  return 1
+export function spawnRateMultiplier(state: GameState): number {
+  const activeId = state.marketing.activeCampaignId
+  return activeId === null ? 1 : campaignById(activeId).spawnMultiplier
 }
 
 /** Every campaign the player could ever buy, in the order the screen lists them. */
