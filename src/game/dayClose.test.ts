@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { closeDay, nextDay } from './dayClose'
-import { initialState, dailyCosts, passPrice } from './economy'
+import { initialState, dailyCosts, emptyLedger, passPrice } from './economy'
 import { DAILY_RENT, DAY_MS, DEBT_LIMIT, MEMBER_UPKEEP } from './constants'
 import type { GameState, Machine, Member, Staff } from './types'
 
@@ -135,24 +135,19 @@ describe('nextDay', () => {
     const s = nextDay({
       ...closed(),
       today: {
+        ...emptyLedger(),
         entryFees: 90,
         subscriptions: 200,
         signups: 1,
         clientsServed: 4,
         clientsLost: 1,
         trainerFees: 30,
-        counterfeitLoss: 0,
       },
     })
-    expect(s.today).toEqual({
-      entryFees: 0,
-      subscriptions: 0,
-      signups: 0,
-      clientsServed: 0,
-      clientsLost: 0,
-      trainerFees: 0,
-      counterfeitLoss: 0,
-    })
+    // Compared against the empty ledger itself rather than a copy of its
+    // fields: a line added to the day's takings must not need this test
+    // rewritten to keep meaning "everything is back to zero".
+    expect(s.today).toEqual(emptyLedger())
   })
 
   it('keeps the receipt so the player can still read it', () => {

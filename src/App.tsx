@@ -11,6 +11,9 @@ import Phone, { type PhoneApp } from './ui/Phone'
 import ShopScreen from './ui/ShopScreen'
 import StatsScreen from './ui/StatsScreen'
 import UpgradesScreen from './ui/UpgradesScreen'
+import MarketingScreen from './ui/MarketingScreen'
+import ContractsScreen from './ui/ContractsScreen'
+import SponsorsScreen from './ui/SponsorsScreen'
 import { cleanHoldMs, repairHoldMs } from './game/upgrades'
 import StaffPanel from './ui/StaffPanel'
 import RecruitScreen from './ui/RecruitScreen'
@@ -26,7 +29,9 @@ import FloorAccessModal from './ui/FloorAccessModal'
 import { floorName } from './game/floors'
 
 /** Which full-screen panel is over the room, if any. */
-type Tab = 'gym' | 'shop' | 'stats' | 'staff' | 'upgrades'
+type Tab =
+  | 'gym' | 'shop' | 'stats' | 'staff' | 'upgrades'
+  | 'marketing' | 'contracts' | 'sponsors'
 
 interface Selection {
   kind: PlacedKind
@@ -121,6 +126,9 @@ export default function App() {
 
   const buyExpansion = useGameStore(s => s.buyExpansion)
   const buyUpgrade = useGameStore(s => s.buyUpgrade)
+  const marketing = useGameStore(s => s.marketing)
+  const contracts = useGameStore(s => s.contracts)
+  const sponsors = useGameStore(s => s.sponsors)
   const buyNextFloor = useGameStore(s => s.buyNextFloor)
   const switchFloor = useGameStore(s => s.switchFloor)
   const endDay = useGameStore(s => s.endDay)
@@ -685,6 +693,12 @@ export default function App() {
             )
           ) : tab === 'upgrades' ? (
             <UpgradesScreen state={state} onBuy={buyUpgrade} />
+          ) : tab === 'marketing' ? (
+            <MarketingScreen state={state} onMarketing={marketing} />
+          ) : tab === 'contracts' ? (
+            <ContractsScreen state={state} onContract={contracts} />
+          ) : tab === 'sponsors' ? (
+            <SponsorsScreen state={state} onSponsor={sponsors} />
           ) : (
             <StatsScreen state={state} />
           )}

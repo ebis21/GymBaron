@@ -22,8 +22,10 @@ function Row({ label, value, tone }: { label: string; value: string; tone?: 'in'
  */
 export default function DayReportModal({ report, onNextDay }: Props) {
   const { t, money } = useI18n()
-  const income = report.entryFees + report.subscriptions
-  const totalDue = report.bill + report.wages
+  // Both totals have to add up the rows actually printed above them, or the
+  // receipt contradicts itself the first day a campaign runs.
+  const income = report.entryFees + report.subscriptions + report.sponsorIncome
+  const totalDue = report.bill + report.wages + report.marketingSpend + report.contractFees
   const profit = report.net >= 0
 
   return (
@@ -41,6 +43,13 @@ export default function DayReportModal({ report, onNextDay }: Props) {
             <Row label={t.report.trainerFees} value={money(report.trainerFees)} tone="in" />
           )}
           <Row label={t.report.passes} value={money(report.subscriptions)} tone="in" />
+          {/* Sponsorship is income like any other, so it belongs in this block
+              rather than in a section of its own. It is only printed on a day
+              a deal actually paid — an unsigned gym sees the receipt it always
+              saw. The same holds for the two outgoings below. */}
+          {report.sponsorIncome > 0 && (
+            <Row label={t.sponsors.reportLine} value={money(report.sponsorIncome)} tone="in" />
+          )}
           <div className="receipt-row total">
             <span>{t.report.total}</span>
             <span className="receipt-in">{money(income)}</span>
@@ -65,6 +74,20 @@ export default function DayReportModal({ report, onNextDay }: Props) {
           <Row label={t.report.power} value={`−${money(report.power)}`} tone="out" />
           <Row label={t.report.memberUpkeep} value={`−${money(report.memberUpkeep)}`} tone="out" />
           <Row label={t.report.wages} value={`−${money(report.wages)}`} tone="out" />
+          {report.marketingSpend > 0 && (
+            <Row
+              label={t.marketing.reportLine}
+              value={`−${money(report.marketingSpend)}`}
+              tone="out"
+            />
+          )}
+          {report.contractFees > 0 && (
+            <Row
+              label={t.contracts.reportLine}
+              value={`−${money(report.contractFees)}`}
+              tone="out"
+            />
+          )}
           <div className="receipt-row total">
             <span>{t.report.bill}</span>
             <span className="receipt-out">−{money(totalDue)}</span>

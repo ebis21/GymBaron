@@ -1,6 +1,9 @@
 import type { ClientRarity, DecorTypeId, MachineTypeId, StaffRole } from '../game/types'
 import type { ExpansionId } from '../game/content/expansion'
 import type { UpgradeId } from '../game/content/upgrades'
+import { marketingEn } from './marketing'
+import { contractsEn } from './contracts'
+import { sponsorsEn } from './sponsors'
 
 /**
  * English is the source of truth: `Strings` is inferred from this object, so
@@ -48,6 +51,9 @@ export const en = {
       stats: 'Stats',
       staff: 'Staff',
       upgrades: 'Upgrades',
+      marketing: 'Marketing',
+      contracts: 'Contracts',
+      sponsors: 'Sponsors',
     },
   },
 
@@ -293,6 +299,12 @@ export const en = {
     balance: 'While you were away',
     dismiss: 'Back to work',
   },
+
+  // The three v2 systems keep their own dictionaries, so the branch
+  // building one never has to open this file. See `i18n/marketing.ts`.
+  marketing: marketingEn,
+  contracts: contractsEn,
+  sponsors: sponsorsEn,
 
   content: {
     machines: {
