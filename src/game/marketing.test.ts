@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { DAY_MS } from './constants'
 import { campaignById } from './content/campaigns'
+import { closeDay, nextDay } from './dayClose'
 import { initialState } from './economy'
+import { advance } from './tick'
 import {
   advanceMarketing,
   applyMarketing,
@@ -125,6 +127,22 @@ describe('daily settlement', () => {
 
     expect(nextDay.marketing.billableCampaignId).toBe('social')
   })
+
+  it('bills every advertised closing and then disappears from the receipt', () => {
+    const cost = campaignById('flyers').dailyCost
+    let state = start('flyers')
+
+    for (let day = 0; day < 2; day += 1) {
+      state = advance(state, DAY_MS)
+      state = closeDay(state)
+      expect(state.dayReport?.marketingSpend).toBe(cost)
+      state = nextDay(state)
+    }
+
+    state = closeDay(advance(state, DAY_MS))
+    expect(state.dayReport?.marketingSpend).toBe(0)
+    expect(spawnRateMultiplier(state)).toBe(1)
+  })
 })
 
 describe('reading stored marketing state', () => {
@@ -160,6 +178,19 @@ describe('reading stored marketing state', () => {
       activeCampaignId: null,
       remainingMs: 0,
       billableCampaignId: 'flyers',
+    })
+  })
+
+  it('caps runaway clocks and drops an invoice for the wrong live offer', () => {
+    const max = campaignById('social').durationDays * DAY_MS
+    expect(normalizeMarketing({
+      activeCampaignId: 'social',
+      remainingMs: max * 99,
+      billableCampaignId: 'billboards',
+    })).toEqual({
+      activeCampaignId: 'social',
+      remainingMs: max,
+      billableCampaignId: null,
     })
   })
 })

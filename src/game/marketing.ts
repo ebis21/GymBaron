@@ -57,13 +57,25 @@ export function normalizeMarketing(raw: unknown): MarketingState {
   const storedRemaining = stored.remainingMs
   const remainingMs = activeCampaignId !== null &&
       typeof storedRemaining === 'number' && Number.isFinite(storedRemaining)
-    ? Math.max(0, storedRemaining)
+    ? Math.max(
+        0,
+        Math.min(storedRemaining, campaignById(activeCampaignId).durationDays * DAY_MS),
+      )
     : 0
+  const normalizedActiveId = remainingMs > 0 ? activeCampaignId : null
+
+  // A pending bill may outlive an expired campaign, but it can never name a
+  // different offer from one that is still live. Dropping that impossible
+  // pair is safer than charging a corrupt save the more expensive fee.
+  const normalizedBillableId = normalizedActiveId !== null &&
+      billableCampaignId !== null && billableCampaignId !== normalizedActiveId
+    ? null
+    : billableCampaignId
 
   return {
-    activeCampaignId: remainingMs > 0 ? activeCampaignId : null,
+    activeCampaignId: normalizedActiveId,
     remainingMs,
-    billableCampaignId,
+    billableCampaignId: normalizedBillableId,
   }
 }
 
