@@ -43,7 +43,7 @@ const APPS: Tile[] = [
   // exactly one flag on one line — three edits that can never collide.
   { id: 'marketing', glyph: '📣', tint: 'coral' },
   { id: 'contracts', glyph: '📝', tint: 'gold' },
-  { id: 'sponsors', glyph: '🤝', tint: 'leaf', soon: true },
+  { id: 'sponsors', glyph: '🤝', tint: 'leaf' },
 ]
 
 /**
