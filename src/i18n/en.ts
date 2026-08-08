@@ -314,6 +314,19 @@ export const en = {
       latpulldown: 'Lat pulldown',
       bike: 'Spin bike',
       cable: 'Cable crossover',
+      // Everything below is unlocked by an equipment contract — see
+      // `content/suppliers.ts`. Names are the one thing a supplier's kit
+      // cannot inherit from the machine it is a better version of.
+      'ferrum-rack': 'Ferrum rack',
+      'ferrum-bench': 'Ferrum bench',
+      'ferrum-bike': 'Ferrum bike',
+      'ferrum-pulldown': 'Ferrum pulldown',
+      'ferrum-cable': 'Ferrum crossover',
+      'apex-bench': 'Apex bench',
+      'apex-treadmill': 'Apex treadmill',
+      'apex-pulldown': 'Apex pulldown',
+      'apex-cable': 'Apex crossover',
+      'apex-rig': 'Apex rig',
     } satisfies Record<MachineTypeId, string>,
 
     decor: {

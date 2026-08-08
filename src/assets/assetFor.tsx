@@ -1,5 +1,6 @@
 import type { FC } from 'react'
-import type { MachineTypeId } from '../game/types'
+import type { BaseMachineTypeId, MachineTypeId } from '../game/types'
+import { bySupplierMachine } from '../game/content/suppliers'
 
 export type AssetId = MachineTypeId | 'client' | 'floor' | 'logo'
 
@@ -112,13 +113,23 @@ const Logo = svg(
   </>,
 )
 
-const ASSETS: Record<AssetId, FC<AssetProps>> = {
+const BASE_MACHINE_ASSETS: Record<BaseMachineTypeId, FC<AssetProps>> = {
   dumbbells: Dumbbells,
   bench: Bench,
   treadmill: Treadmill,
   latpulldown: LatPulldown,
   bike: Bike,
   cable: Cable,
+}
+
+/**
+ * Supplier kit borrows its archetype's icon, exactly as it borrows the model:
+ * the shop row already carries the name and the tier's numbers, and a second
+ * silhouette for the same machine would say less than either.
+ */
+const ASSETS: Record<AssetId, FC<AssetProps>> = {
+  ...BASE_MACHINE_ASSETS,
+  ...bySupplierMachine(archetype => BASE_MACHINE_ASSETS[archetype]),
   client: Client,
   floor: Floor,
   logo: Logo,

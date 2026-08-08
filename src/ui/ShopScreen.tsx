@@ -1,5 +1,6 @@
 import type { DecorTypeId, GameState, MachineTypeId } from '../game/types'
-import { MACHINE_TYPES } from '../game/content/machines'
+import { machineType } from '../game/content/machines'
+import { availableMachines } from '../game/contracts'
 import { DECOR_TYPES, WALL_PRICE } from '../game/content/decor'
 import { ENTRY_FEE_BASE } from '../game/constants'
 import { expansionAt, nextExpansion } from '../game/content/expansion'
@@ -48,7 +49,11 @@ export default function ShopScreen({
       <p className="hint">{t.shop.equipmentHint}</p>
 
       <div className="shop-list">
-        {MACHINE_TYPES.map(m => {
+        {/* Only what the gym may actually buy today. Kit behind an unsigned
+            contract is absent rather than greyed out — a locked row the player
+            has no way to unlock from here would be an advert, not a shop. The
+            contracts screen is where that ladder is sold. */}
+        {availableMachines(state).map(machineType).map(m => {
           const reason =
             state.level < m.minLevel ? t.shop.needsLevel(m.minLevel) : shortfall(m.price)
           const Icon = assetFor(m.id)
