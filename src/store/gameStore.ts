@@ -28,7 +28,7 @@ import { buyUpgrade } from '../game/upgrades'
 import type { UpgradeId } from '../game/content/upgrades'
 import { refreshPool, ensurePool } from '../game/recruit'
 import { applyMarketing, type MarketingAction } from '../game/marketing'
-import { applyContracts, type ContractAction } from '../game/contracts'
+import { applyContracts, machineUnlocked, type ContractAction } from '../game/contracts'
 import { applySponsors, type SponsorAction } from '../game/sponsors'
 import { loadRaw, saveRaw } from './storage'
 import { AUTOSAVE_MS, SAVE_KEY } from '../game/constants'
@@ -206,6 +206,12 @@ export const useGameStore = create<GameStore>((set, get) => {
       const state = get().state
       const spec = machineType(type)
       if (state.gameOver || state.level < spec.minLevel || state.cash < spec.price) return
+      // The shop already hides kit behind an unsigned contract, but the shop
+      // is a view. This is where a purchase is actually decided, so this is
+      // where the gate has to be — see `contracts.ts`. With no contracts in
+      // the game yet the predicate passes everything, which is why the branch
+      // that adds them is also the one that tests it.
+      if (!machineUnlocked(state, type)) return
 
       commit(addToInventory(charge(state, spec.price), { kind: 'machine', type }))
     },
