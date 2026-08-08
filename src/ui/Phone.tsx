@@ -41,7 +41,7 @@ const APPS: Tile[] = [
   // The three v2 apps. Each ships listed but marked `soon`, so the home screen
   // already has its final shape and the branch that finishes a feature clears
   // exactly one flag on one line — three edits that can never collide.
-  { id: 'marketing', glyph: '📣', tint: 'coral', soon: true },
+  { id: 'marketing', glyph: '📣', tint: 'coral' },
   { id: 'contracts', glyph: '📝', tint: 'gold' },
   { id: 'sponsors', glyph: '🤝', tint: 'leaf', soon: true },
 ]
