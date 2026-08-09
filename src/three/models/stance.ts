@@ -1,4 +1,5 @@
-import type { MachineTypeId } from '../../game/types'
+import type { BaseMachineTypeId, MachineTypeId } from '../../game/types'
+import { bySupplierMachine } from '../../game/content/suppliers'
 import {
   poseBenchPress,
   poseCablePull,
@@ -30,7 +31,7 @@ export interface Stance {
   pose: Pose
 }
 
-export const STANCES: Record<MachineTypeId, Stance> = {
+const BASE_STANCES: Record<BaseMachineTypeId, Stance> = {
   // In front of the rack, facing the shelves.
   dumbbells: { x: 0, z: 0.86, lift: 0, facing: Math.PI, pose: poseCurl },
 
@@ -51,6 +52,17 @@ export const STANCES: Record<MachineTypeId, Stance> = {
 
   // Between the two towers, a handle in each hand.
   cable: { x: 0, z: 0.62, lift: 0, facing: Math.PI, pose: poseCablePull },
+}
+
+/**
+ * A supplier's version of a machine is used the same way as the one it
+ * replaces — same saddle height, same bar, same place to put your feet — so
+ * the stance is the archetype's. Every number here was read off a model, and
+ * these are the same models.
+ */
+export const STANCES: Record<MachineTypeId, Stance> = {
+  ...BASE_STANCES,
+  ...bySupplierMachine(archetype => BASE_STANCES[archetype]),
 }
 
 export const stanceFor = (type: MachineTypeId): Stance => STANCES[type]

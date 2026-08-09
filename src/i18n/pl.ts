@@ -301,6 +301,19 @@ export const pl: Strings = {
       latpulldown: 'Wyciąg górny',
       bike: 'Rower spinningowy',
       cable: 'Brama wielofunkcyjna',
+      // Wszystko poniżej odblokowuje kontrakt sprzętowy — patrz
+      // `content/suppliers.ts`. Nazwa to jedyna rzecz, której sprzęt dostawcy
+      // nie dziedziczy po maszynie, której jest lepszą wersją.
+      'ferrum-rack': 'Stojak Ferrum',
+      'ferrum-bench': 'Ławka Ferrum',
+      'ferrum-bike': 'Rower Ferrum',
+      'ferrum-pulldown': 'Wyciąg Ferrum',
+      'ferrum-cable': 'Brama Ferrum',
+      'apex-bench': 'Ławka Apex',
+      'apex-treadmill': 'Bieżnia Apex',
+      'apex-pulldown': 'Wyciąg Apex',
+      'apex-cable': 'Brama Apex',
+      'apex-rig': 'Klatka Apex',
     },
 
     decor: {

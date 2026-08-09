@@ -42,7 +42,7 @@ const APPS: Tile[] = [
   // already has its final shape and the branch that finishes a feature clears
   // exactly one flag on one line — three edits that can never collide.
   { id: 'marketing', glyph: '📣', tint: 'coral', soon: true },
-  { id: 'contracts', glyph: '📝', tint: 'gold', soon: true },
+  { id: 'contracts', glyph: '📝', tint: 'gold' },
   { id: 'sponsors', glyph: '🤝', tint: 'leaf', soon: true },
 ]
 
