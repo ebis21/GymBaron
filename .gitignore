@@ -1,4 +1,6 @@
-node_modules/
+# No trailing slash: the parallel v2 worktrees reach the packages through a
+# symlink of this name, and `node_modules/` would not match one.
+node_modules
 dist/
 .DS_Store
 *.local
@@ -17,3 +19,6 @@ ios/App/Pods/
 ios/App/build/
 ios/App/App/public/
 ios/DerivedData/
+
+# Claude Code worktrees live inside the repo; never commit them.
+.claude/worktrees/

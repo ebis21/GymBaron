@@ -1,4 +1,7 @@
 import type { Strings } from './en'
+import { marketingPl } from './marketing'
+import { contractsPl } from './contracts'
+import { sponsorsPl } from './sponsors'
 
 /**
  * The original wording, kept as it was written rather than translated back
@@ -39,6 +42,9 @@ export const pl: Strings = {
       stats: 'Statystyki',
       staff: 'Personel',
       upgrades: 'Ulepszenia',
+      marketing: 'Marketing',
+      contracts: 'Kontrakty',
+      sponsors: 'Sponsorzy',
     },
   },
 
@@ -280,6 +286,12 @@ export const pl: Strings = {
     balance: 'Bilans nieobecności',
     dismiss: 'Wracam do roboty',
   },
+
+  // The three v2 systems keep their own dictionaries, so the branch
+  // building one never has to open this file. See `i18n/marketing.ts`.
+  marketing: marketingPl,
+  contracts: contractsPl,
+  sponsors: sponsorsPl,
 
   content: {
     machines: {

@@ -27,6 +27,9 @@ import { hire, fire, payArrears } from '../game/staff'
 import { buyUpgrade } from '../game/upgrades'
 import type { UpgradeId } from '../game/content/upgrades'
 import { refreshPool, ensurePool } from '../game/recruit'
+import { applyMarketing, type MarketingAction } from '../game/marketing'
+import { applyContracts, machineUnlocked, type ContractAction } from '../game/contracts'
+import { applySponsors, type SponsorAction } from '../game/sponsors'
 import { loadRaw, saveRaw } from './storage'
 import { AUTOSAVE_MS, SAVE_KEY } from '../game/constants'
 import { switchActiveFloor, unlockNextFloor } from '../game/floors'
@@ -65,6 +68,16 @@ interface GameStore {
   fireStaff: (staffUid: string) => void
   settleArrears: (staffUid: string) => void
   rerollCandidates: () => void
+  /**
+   * The three v2 systems each get exactly one action, carrying a union the
+   * feature owns. A new campaign type or a new kind of deal is a change to
+   * that union and to the screen that dispatches it — never to this file,
+   * which is why three branches can grow three feature sets without ever
+   * meeting here.
+   */
+  marketing: (action: MarketingAction) => void
+  contracts: (action: ContractAction) => void
+  sponsors: (action: SponsorAction) => void
   advanceDay: () => void
   dismissWelcome: () => void
   restart: () => void
@@ -193,6 +206,12 @@ export const useGameStore = create<GameStore>((set, get) => {
       const state = get().state
       const spec = machineType(type)
       if (state.gameOver || state.level < spec.minLevel || state.cash < spec.price) return
+      // The shop already hides kit behind an unsigned contract, but the shop
+      // is a view. This is where a purchase is actually decided, so this is
+      // where the gate has to be — see `contracts.ts`. With no contracts in
+      // the game yet the predicate passes everything, which is why the branch
+      // that adds them is also the one that tests it.
+      if (!machineUnlocked(state, type)) return
 
       commit(addToInventory(charge(state, spec.price), { kind: 'machine', type }))
     },
@@ -326,6 +345,28 @@ export const useGameStore = create<GameStore>((set, get) => {
       const state = get().state
       if (state.gameOver) return
       commit(refreshPool(state))
+    },
+
+    // Each dispatcher is deliberately identical and deliberately thin: the
+    // guard, then the feature's own reducer, then `commit`. A reducer that
+    // refuses an action returns the state it was given, and `commit` skips the
+    // render and the write on identity — same contract as the build functions.
+    marketing: action => {
+      const state = get().state
+      if (state.gameOver) return
+      commit(applyMarketing(state, action))
+    },
+
+    contracts: action => {
+      const state = get().state
+      if (state.gameOver) return
+      commit(applyContracts(state, action))
+    },
+
+    sponsors: action => {
+      const state = get().state
+      if (state.gameOver) return
+      commit(applySponsors(state, action))
     },
 
     advanceDay: () => {

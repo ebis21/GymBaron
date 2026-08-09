@@ -4,7 +4,9 @@ import { HIRING_UNLOCK_LEVEL } from '../game/constants'
 import { useI18n } from '../i18n'
 
 /** Everything reachable from the phone. */
-export type PhoneApp = 'gym' | 'build' | 'shop' | 'stats' | 'staff' | 'upgrades'
+export type PhoneApp =
+  | 'gym' | 'build' | 'shop' | 'stats' | 'staff' | 'upgrades'
+  | 'marketing' | 'contracts' | 'sponsors'
 
 interface Props {
   state: GameState
@@ -36,6 +38,12 @@ const APPS: Tile[] = [
   // this same screen — so the app opens at the earliest level that can hire
   // anybody at all, and the panel itself explains what is still locked.
   { id: 'staff', glyph: '👔', tint: 'plum', minLevel: HIRING_UNLOCK_LEVEL },
+  // The three v2 apps. Each ships listed but marked `soon`, so the home screen
+  // already has its final shape and the branch that finishes a feature clears
+  // exactly one flag on one line — three edits that can never collide.
+  { id: 'marketing', glyph: '📣', tint: 'coral', soon: true },
+  { id: 'contracts', glyph: '📝', tint: 'gold', soon: true },
+  { id: 'sponsors', glyph: '🤝', tint: 'leaf', soon: true },
 ]
 
 /**

@@ -15,6 +15,9 @@ import {
 } from './constants'
 import { machinesAcrossFloors } from './floors'
 import { emptyUpgrades } from './content/upgrades'
+import { initialMarketing } from './marketing'
+import { initialContracts } from './contracts'
+import { initialSponsors } from './sponsors'
 
 export const emptyLedger = (): DayLedger => ({
   entryFees: 0,
@@ -24,6 +27,9 @@ export const emptyLedger = (): DayLedger => ({
   clientsServed: 0,
   clientsLost: 0,
   trainerFees: 0,
+  marketingSpend: 0,
+  contractFees: 0,
+  sponsorIncome: 0,
 })
 
 export function initialState(seed: number, now: number): GameState {
@@ -57,6 +63,11 @@ export function initialState(seed: number, now: number): GameState {
     candidates: [],
     candidatesDay: 0,
     upgrades: emptyUpgrades(),
+    // Each v2 system seeds its own sub-state. This file never learns what is
+    // inside one, which is what keeps three branches out of each other's way.
+    marketing: initialMarketing(),
+    contracts: initialContracts(),
+    sponsors: initialSponsors(),
     seed,
     expansion: 0,
     activeFloor: 0,

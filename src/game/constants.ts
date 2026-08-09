@@ -28,7 +28,7 @@ export const DEBT_LIMIT = -20_000
  */
 export const PATIENCE_MS = 26_000
 export const OFFLINE_CAP_MS = 8 * 60 * 60 * 1000
-export const SAVE_VERSION = 8
+export const SAVE_VERSION = 9
 /**
  * Deliberately still the old name. This is a storage key, not a label — nobody
  * ever sees it, and renaming it would orphan the save of every player who

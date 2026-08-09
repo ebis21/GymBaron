@@ -8,6 +8,9 @@ import { ageStains, spawnAmbientDirt } from './stains'
 import { ageBrokenMachines } from './wear'
 import { assignStaff, workStaff } from './staff'
 import { moveStaff } from './staffMove'
+import { advanceMarketing } from './marketing'
+import { advanceContracts } from './contracts'
+import { advanceSponsors } from './sponsors'
 
 type System = (state: GameState, dtMs: number) => GameState
 
@@ -32,6 +35,12 @@ const SYSTEMS: System[] = [
   assign,
   moveStaff,
   workStaff,
+  // The three v2 systems run last, after the floor has settled for this slice,
+  // so a campaign or a deal always reads the room as it actually ended up.
+  // Each is one line here and a whole file of its own — see `marketing.ts`.
+  advanceMarketing,
+  advanceContracts,
+  advanceSponsors,
 ]
 
 function step(state: GameState, dtMs: number): GameState {

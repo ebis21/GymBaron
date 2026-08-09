@@ -6,6 +6,21 @@ import { applyChurn, chargeRenewals } from './members'
 import { wageFor } from './content/staff'
 import { onDuty } from './staff'
 import { ensurePool } from './recruit'
+import { settleMarketing } from './marketing'
+import { settleContracts } from './contracts'
+import { settleSponsors } from './sponsors'
+
+/**
+ * The v2 systems' turn at the till, in order. Each moves its own money and
+ * writes its own line into `today`; none of them may touch another's. Adding a
+ * fourth is one entry here — which is the only reason three branches can build
+ * three economies at once without meeting in this file.
+ */
+const DAY_SETTLERS: ((state: GameState) => GameState)[] = [
+  settleMarketing,
+  settleContracts,
+  settleSponsors,
+]
 
 /**
  * Settles the payroll out of whatever is left after the bill, in hiring order,
@@ -63,10 +78,16 @@ export function closeDay(state: GameState): GameState {
   const costs = dailyCosts(renewed)
   const { state: churnedState, churn } = applyChurn(renewed)
 
-  const cash = churnedState.cash - costs.total
-  const payroll = payWages(churnedState, cash)
+  // Campaigns, contracts and sponsors all settle before the bill, so their
+  // money is in the till when the rent is taken and — crucially — when the
+  // payroll is met out of whatever survives it. A sponsor's cheque can save a
+  // wage; a campaign's invoice can cost one.
+  const settled = DAY_SETTLERS.reduce((s, settle) => settle(s), churnedState)
+
+  const cash = settled.cash - costs.total
+  const payroll = payWages(settled, cash)
   const cashAfterWages = cash - payroll.paid
-  const ledger = churnedState.today
+  const ledger = settled.today
 
   const report: DayReport = {
     day: state.day,
@@ -74,6 +95,9 @@ export function closeDay(state: GameState): GameState {
     trainerFees: ledger.trainerFees,
     subscriptions: ledger.subscriptions,
     counterfeitLoss: ledger.counterfeitLoss,
+    marketingSpend: ledger.marketingSpend,
+    contractFees: ledger.contractFees,
+    sponsorIncome: ledger.sponsorIncome,
     signups: ledger.signups,
     churn,
     rent: costs.rent,
@@ -81,7 +105,15 @@ export function closeDay(state: GameState): GameState {
     memberUpkeep: costs.memberUpkeep,
     wages: payroll.paid,
     bill: costs.total,
-    net: ledger.entryFees + ledger.subscriptions - ledger.counterfeitLoss - costs.total - payroll.paid,
+    net:
+      ledger.entryFees +
+      ledger.subscriptions +
+      ledger.sponsorIncome -
+      ledger.counterfeitLoss -
+      ledger.marketingSpend -
+      ledger.contractFees -
+      costs.total -
+      payroll.paid,
     cashBefore,
     cashAfter: cashAfterWages,
     clientsServed: ledger.clientsServed,
@@ -89,7 +121,7 @@ export function closeDay(state: GameState): GameState {
   }
 
   return {
-    ...churnedState,
+    ...settled,
     cash: cashAfterWages,
     staff: payroll.staff,
     dayMs: DAY_MS,
@@ -97,8 +129,11 @@ export function closeDay(state: GameState): GameState {
     dayReport: report,
     gameOver: state.gameOver || cashAfterWages < DEBT_LIMIT,
     stats: {
-      ...churnedState.stats,
-      totalSpent: churnedState.stats.totalSpent + costs.total + payroll.paid,
+      // Read off `settled`: a settler that spent money has already booked its
+      // own `totalSpent`, and reading the pre-settlement stats here would
+      // throw that away.
+      ...settled.stats,
+      totalSpent: settled.stats.totalSpent + costs.total + payroll.paid,
     },
   }
 }

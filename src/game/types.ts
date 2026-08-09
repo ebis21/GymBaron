@@ -1,8 +1,20 @@
 import type { Point, Tile } from './layout'
 import type { UpgradeId } from './content/upgrades'
+import type { SupplierMachineTypeId } from './content/suppliers'
+import type { MarketingState } from './marketing'
+import type { ContractState } from './contracts'
+import type { SponsorState } from './sponsors'
 
-export type MachineTypeId =
+/** The six the gym opened with. Available without signing anything. */
+export type BaseMachineTypeId =
   | 'dumbbells' | 'bench' | 'treadmill' | 'latpulldown' | 'bike' | 'cable'
+
+/**
+ * Every machine in the game. The second half of the union is owned by
+ * `content/suppliers.ts`, so adding a supplier's kit widens this type without
+ * anyone editing this file — see the note there.
+ */
+export type MachineTypeId = BaseMachineTypeId | SupplierMachineTypeId
 
 export interface MachineType {
   id: MachineTypeId
@@ -138,6 +150,12 @@ export interface DayLedger {
   trainerFees: number
   /** Cash lost at the desk to banknotes that only looked real. */
   counterfeitLoss: number
+  /** Paid out to advertising by `settleMarketing`. */
+  marketingSpend: number
+  /** Paid out to equipment suppliers by `settleContracts`. */
+  contractFees: number
+  /** Taken in from sponsorship deals by `settleSponsors`. */
+  sponsorIncome: number
 }
 
 /** The receipt shown at 20:00. Written once by `closeDay`. */
@@ -148,6 +166,11 @@ export interface DayReport {
   trainerFees: number
   subscriptions: number
   counterfeitLoss: number
+  /** The three v2 lines. Zero means the feature did nothing today, and the
+   * receipt leaves the row out rather than printing a nought. */
+  marketingSpend: number
+  contractFees: number
+  sponsorIncome: number
   signups: number
   churn: number
   rent: number
@@ -211,6 +234,15 @@ export interface GameState {
    * stale numbers behind in anybody's gym.
    */
   upgrades: Record<UpgradeId, number>
+  /**
+   * The three v2 systems, each a sealed sub-state owned by one module. They
+   * are deliberately opaque here: a feature that needs to remember one more
+   * thing grows its own interface, and this file — which every branch would
+   * otherwise be editing at once — stays still.
+   */
+  marketing: MarketingState
+  contracts: ContractState
+  sponsors: SponsorState
   seed: number
   /**
    * How many floor expansions the player has bought — an index into

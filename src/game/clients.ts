@@ -17,6 +17,7 @@ import { earningsMult, luckMult, patienceMs } from './upgrades'
 import { DOOR_QUEUE_Z, doorX } from './layout'
 import { spawnStain, STAIN_CHANCE } from './stains'
 import { clientsAcrossFloors } from './floors'
+import { spawnRateMultiplier } from './marketing'
 
 /**
  * Chance per second that a client walks in, at zero and at full reputation.
@@ -143,7 +144,12 @@ export function spawnLilD(state: GameState, dtMs: number): GameState {
 export function spawnWalkins(state: GameState, dtMs: number): GameState {
   if (!acceptingArrivals(state)) return state
 
-  const perSecond = SPAWN_BASE + (clamp(state.reputation, 0, 100) / 100) * SPAWN_PER_REP
+  // Reputation is what the gym earned; advertising is what it paid for. They
+  // multiply rather than add, so a campaign is worth more to a place people
+  // already like — which is the shape the marketing design wants.
+  const perSecond =
+    (SPAWN_BASE + (clamp(state.reputation, 0, 100) / 100) * SPAWN_PER_REP) *
+    spawnRateMultiplier(state)
   const chance = perSecond * (dtMs / 1000)
 
   const [roll, seed] = nextRandom(state.seed)

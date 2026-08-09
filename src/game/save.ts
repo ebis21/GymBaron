@@ -4,6 +4,9 @@ import { SAVE_VERSION } from './constants'
 import { DOOR_QUEUE_Z, doorX } from './layout'
 import { floorPlanFrom, snapshotActiveFloor } from './floors'
 import { emptyUpgrades, UPGRADE_IDS } from './content/upgrades'
+import { initialMarketing, normalizeMarketing } from './marketing'
+import { initialContracts, normalizeContracts } from './contracts'
+import { initialSponsors, normalizeSponsors } from './sponsors'
 
 export function serialize(state: GameState): string {
   // The engine works on a top-level mirror of the active room. Refresh its
@@ -205,6 +208,62 @@ function looksLikeV8(s: Record<string, unknown>): boolean {
 }
 
 /**
+ * Version 9 opens the three v2 systems — advertising, equipment contracts and
+ * sponsors. Each starts from its own module's empty state, which is by
+ * definition the game as it was before they existed.
+ *
+ * This is the last migration any of the three will ever need. Their state is
+ * sealed inside one sub-object apiece, and `hydrateFeatures` below rebuilds
+ * every missing field from the module's own defaults on *every* load — so a
+ * field added to a feature next week lands on a save written today without a
+ * version bump, and without three branches queuing up to edit this file.
+ */
+function migrateV8(raw: Record<string, unknown>): Record<string, unknown> {
+  const today = raw.today as Record<string, unknown>
+  const previousReport = raw.dayReport
+  const zeroed = { marketingSpend: 0, contractFees: 0, sponsorIncome: 0 }
+
+  return {
+    ...raw,
+    version: 9,
+    marketing: initialMarketing(),
+    contracts: initialContracts(),
+    sponsors: initialSponsors(),
+    today: { ...today, ...zeroed },
+    dayReport:
+      typeof previousReport === 'object' && previousReport !== null
+        ? { ...previousReport, ...zeroed }
+        : previousReport,
+  }
+}
+
+/**
+ * Re-seats the three feature sub-states over their current defaults. Runs on
+ * every load, not only on migration — that is what makes a feature's own
+ * schema changes free.
+ */
+function hydrateFeatures(s: Record<string, unknown>): Record<string, unknown> {
+  const today = s.today as Record<string, unknown>
+  const number = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) ? v : 0)
+
+  return {
+    ...s,
+    marketing: normalizeMarketing(s.marketing),
+    contracts: normalizeContracts(s.contracts),
+    sponsors: normalizeSponsors(s.sponsors),
+    // The ledger's three v2 lines get the same treatment for the same reason:
+    // a missing number here would print `NaN` on the receipt rather than fail
+    // loudly, which is the worst of both worlds.
+    today: {
+      ...today,
+      marketingSpend: number(today.marketingSpend),
+      contractFees: number(today.contractFees),
+      sponsorIncome: number(today.sponsorIncome),
+    },
+  }
+}
+
+/**
  * Returns a fresh state on unparseable, malformed, or future-version input
  * rather than throwing — a corrupt save must never brick the app.
  */
@@ -230,8 +289,9 @@ export function deserialize(raw: string, now: number): GameState {
     if (!looksLikeV7(state)) return initialState(now, now)
     if (state.version === 7) state = migrateV7(state)
     if (!looksLikeV8(state)) return initialState(now, now)
+    if (state.version === 8) state = migrateV8(state)
 
-    return state as unknown as GameState
+    return hydrateFeatures(state) as unknown as GameState
   } catch {
     return initialState(now, now)
   }
