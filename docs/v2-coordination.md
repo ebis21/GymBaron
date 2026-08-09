@@ -118,8 +118,16 @@ under `src/three/` not listed above, `src/ui/styles.css`, `package.json`.
 
 One exception, and it is deliberately a single line: when your feature is ready
 to be reachable, delete the `soon: true` from *your* entry in `APPS` in
-`Phone.tsx`. Three people editing three different lines of one array is the
-rare shared edit git merges without complaint.
+`Phone.tsx`.
+
+Expect that one to conflict, and do not read it as a failure. The three entries
+are adjacent lines of one array, and git's three-way merge treats a run of
+touched neighbours as a single contested region — so the first two branches
+merge clean and the third arrives to a conflict spanning all three lines. The
+resolution is always the same and always obvious: keep every line, drop every
+`soon`. It is ten seconds of work on whichever PR lands last, which is why the
+alternative — a fourth file per feature, or a registry nobody would otherwise
+need — was not worth building to avoid it.
 
 ## Rules
 
