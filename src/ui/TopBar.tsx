@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef } from 'react'
 import type { GameState } from '../game/types'
 import { dayProgress, formatClock, isClosingTime } from '../game/clock'
 import { gymClass, passPrice } from '../game/economy'
@@ -25,9 +26,30 @@ export default function TopBar({ state, onOpenSettings }: Props) {
   // number is what is missing, not the date.
   const duePasses = state.members.filter(m => m.joinedDay < state.day).length
   const closing = isClosingTime(state.dayMs) && !state.dayEnded
+  const wrapRef = useRef<HTMLDivElement>(null)
+
+  /*
+   * This bar is not a fixed height: going into the red adds a debt banner, and
+   * a second floor adds a line under the clock. Everything pinned below it —
+   * the phone rail, the panels — used to hardcode 86px and was simply wrong
+   * whenever the gym was in debt, so the measured height is published instead
+   * and `--below-topbar` in the stylesheet does the arithmetic.
+   */
+  useLayoutEffect(() => {
+    const wrap = wrapRef.current
+    if (!wrap) return
+
+    const publish = () =>
+      document.documentElement.style.setProperty('--topbar-h', `${wrap.offsetHeight}px`)
+
+    publish()
+    const observer = new ResizeObserver(publish)
+    observer.observe(wrap)
+    return () => observer.disconnect()
+  }, [])
 
   return (
-    <div className="topbar-wrap">
+    <div className="topbar-wrap" ref={wrapRef}>
       <div className="topbar">
         <div className={`topbar-cell clock-cell${closing ? ' closing' : ''}`}>
           <span className="topbar-label">

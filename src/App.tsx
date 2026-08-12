@@ -72,6 +72,19 @@ const ACTION_KEY = 'e'
 const HAS_KEYBOARD =
   typeof window !== 'undefined' && window.matchMedia?.('(hover: hover)').matches === true
 
+/**
+ * The touch layout from `styles.css`, where the phone is a rail down the left
+ * edge rather than a handset parked in the right one. It decides only where the
+ * phone starts: folded on desktop, because the grip is obvious and the room
+ * matters more, and open on touch, because a collapsed rail is a single small
+ * chevron and a first-time player would never find the game behind it. The
+ * player's own toggle wins from then on, and nothing persists across a reload.
+ */
+const TOUCH_LAYOUT =
+  typeof window !== 'undefined' &&
+  window.matchMedia?.('(max-width: 719px), (hover: none) and (pointer: coarse)').matches ===
+    true
+
 /** One in-progress hold, whichever input started it. */
 interface Hold {
   ms: number
@@ -139,7 +152,7 @@ export default function App() {
   const rerollCandidates = useGameStore(s => s.rerollCandidates)
 
   const [tab, setTab] = useState<Tab>('gym')
-  const [phoneOpen, setPhoneOpen] = useState(false)
+  const [phoneOpen, setPhoneOpen] = useState(TOUCH_LAYOUT)
   const [focus, setFocus] = useState<Focus>(null)
   const [recruiting, setRecruiting] = useState(false)
   const [floorAccessOpen, setFloorAccessOpen] = useState(false)

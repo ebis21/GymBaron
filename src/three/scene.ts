@@ -72,6 +72,16 @@ const FOG_FAR = 66
 /** Corner-to-corner of that same hall — the yardstick a bigger room scales by. */
 const BASE_REACH = Math.hypot(HALL_W, HALL_D)
 
+/**
+ * How far above and behind the player the follow camera rides. The two are a
+ * locked pair: 10.6 / 11.5 is the same ratio as the 12.5 / 13.5 they replaced,
+ * so the room comes ~15% closer at the identical 42.8° pitch. Nudge one without
+ * the other and the whole game tilts — the machines were modelled for this
+ * angle, and `blockingSight` is tuned to which partitions it can see over.
+ */
+export const FOLLOW_HEIGHT = 10.6
+export const FOLLOW_DEPTH = 11.5
+
 const DEFAULT_UP = new THREE.Vector3(0, 1, 0)
 
 const sameFocus = (a: Focus, b: Focus): boolean => {
@@ -1006,7 +1016,11 @@ export class GymScene {
       eye = this.buildEye
       aim = new THREE.Vector3(0, 0, 0)
     } else {
-      eye = new THREE.Vector3(this.playerPos.x - 1.5, 12.5, this.playerPos.z + 13.5)
+      eye = new THREE.Vector3(
+        this.playerPos.x - 1.5,
+        FOLLOW_HEIGHT,
+        this.playerPos.z + FOLLOW_DEPTH,
+      )
       aim = new THREE.Vector3(this.playerPos.x, 1.1, this.playerPos.z - 0.5)
     }
 
