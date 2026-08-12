@@ -169,3 +169,59 @@ describe('migration to version 8', () => {
     }
   })
 })
+
+/**
+ * The weekly pass collection was split out of the receipt's single pass line
+ * after some saves had already been written. It rides on `hydrateFeatures`
+ * rather than a version of its own, for the reason that pass exists: a
+ * receipt missing a number prints `NaN` instead of failing loudly.
+ */
+describe('payday breakdown on a stored receipt', () => {
+  const oldReport = {
+    day: 4, entryFees: 900, trainerFees: 0, subscriptions: 400, counterfeitLoss: 0,
+    signups: 2, churn: 0, rent: 60, power: 6, memberUpkeep: 28, wages: 0,
+    marketingSpend: 0, contractFees: 0, sponsorIncome: 0,
+    bill: 94, net: 1206, cashBefore: 1000, cashAfter: 2206,
+    clientsServed: 12, clientsLost: 1,
+  }
+
+  it('fills the breakdown in rather than rejecting the save', () => {
+    const raw = JSON.stringify({
+      ...initialState(9, 0), version: SAVE_VERSION, cash: 7777, dayReport: oldReport,
+    })
+
+    const loaded = deserialize(raw, 0)
+
+    expect(loaded.cash).toBe(7777)
+    expect(loaded.dayReport!.renewals).toBe(0)
+    expect(loaded.dayReport!.renewalCount).toBe(0)
+    // The totals it already carried are not re-derived or guessed at.
+    expect(loaded.dayReport!.subscriptions).toBe(400)
+  })
+
+  it('carries the receipt of an older save all the way up the chain', () => {
+    const v7 = JSON.stringify({ ...initialState(9, 0), version: 7, dayReport: oldReport })
+
+    const loaded = deserialize(v7, 0)
+
+    expect(loaded.version).toBe(SAVE_VERSION)
+    expect(loaded.dayReport!.renewals).toBe(0)
+    expect(loaded.dayReport!.subscriptions).toBe(400)
+  })
+
+  it('leaves a save with no receipt at all alone', () => {
+    const raw = JSON.stringify({ ...initialState(9, 0), version: 7, dayReport: null })
+    expect(deserialize(raw, 0).dayReport).toBeNull()
+  })
+
+  it('keeps a breakdown the receipt already carries', () => {
+    const collected = {
+      ...initialState(9, 0),
+      dayReport: { ...oldReport, renewals: 5200, renewalCount: 4 },
+    }
+    const loaded = deserialize(serialize(collected), 0)
+
+    expect(loaded.dayReport!.renewals).toBe(5200)
+    expect(loaded.dayReport!.renewalCount).toBe(4)
+  })
+})

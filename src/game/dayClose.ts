@@ -74,9 +74,9 @@ export function closeDay(state: GameState): GameState {
 
   const cashBefore = state.cash
 
-  const renewed = chargeRenewals(state).state
-  const costs = dailyCosts(renewed)
-  const { state: churnedState, churn } = applyChurn(renewed)
+  const renewal = chargeRenewals(state)
+  const costs = dailyCosts(renewal.state)
+  const { state: churnedState, churn } = applyChurn(renewal.state)
 
   // Campaigns, contracts and sponsors all settle before the bill, so their
   // money is in the till when the rent is taken and — crucially — when the
@@ -94,6 +94,8 @@ export function closeDay(state: GameState): GameState {
     entryFees: ledger.entryFees,
     trainerFees: ledger.trainerFees,
     subscriptions: ledger.subscriptions,
+    renewals: renewal.amount,
+    renewalCount: renewal.count,
     counterfeitLoss: ledger.counterfeitLoss,
     marketingSpend: ledger.marketingSpend,
     contractFees: ledger.contractFees,

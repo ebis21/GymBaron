@@ -1,4 +1,5 @@
 import type { DayReport } from '../game/types'
+import { daysToPayday } from '../game/members'
 import { useI18n } from '../i18n'
 
 interface Props {
@@ -28,6 +29,14 @@ export default function DayReportModal({ report, onNextDay }: Props) {
   const totalDue = report.bill + report.wages + report.marketingSpend + report.contractFees
   const profit = report.net >= 0
 
+  // What today's brand-new passes sold for, with the payday collection — which
+  // is banked on top of them — taken back out.
+  const newPasses = report.subscriptions - report.renewals
+  const perPass = report.renewalCount > 0 ? report.renewals / report.renewalCount : 0
+  // Only meaningful on a receipt that had no collection: on payday itself this
+  // reads zero, and the block above is already showing the money.
+  const untilPayday = daysToPayday(report.day)
+
   return (
     <div className="modal-backdrop">
       <div className="modal receipt">
@@ -42,7 +51,18 @@ export default function DayReportModal({ report, onNextDay }: Props) {
           {report.trainerFees > 0 && (
             <Row label={t.report.trainerFees} value={money(report.trainerFees)} tone="in" />
           )}
-          <Row label={t.report.passes} value={money(report.subscriptions)} tone="in" />
+          <Row label={t.report.passes} value={money(newPasses)} tone="in" />
+          {/* The week's collection is the largest single thing that happens to
+              the till, and it only lands one evening in seven — so it gets its
+              own line with the price per pass, rather than disappearing into
+              the one above. */}
+          {report.renewalCount > 0 && (
+            <Row
+              label={t.report.payday(report.renewalCount, money(perPass))}
+              value={money(report.renewals)}
+              tone="in"
+            />
+          )}
           {/* Sponsorship is income like any other, so it belongs in this block
               rather than in a section of its own. It is only printed on a day
               a deal actually paid — an unsigned gym sees the receipt it always
@@ -54,6 +74,9 @@ export default function DayReportModal({ report, onNextDay }: Props) {
             <span>{t.report.total}</span>
             <span className="receipt-in">{money(income)}</span>
           </div>
+          {report.renewalCount === 0 && untilPayday > 0 && (
+            <p className="receipt-hint">{t.report.paydayHint(untilPayday)}</p>
+          )}
         </section>
 
         {report.counterfeitLoss > 0 && (

@@ -73,6 +73,23 @@ export function addMember(state: GameState): GameState {
   }
 }
 
+/**
+ * The whole gym bills on one seven-day week: days 7, 14, 21 and so on are
+ * payday, and every pass in the building is charged that evening.
+ *
+ * Each member used to renew on their own cycle counted from the day they
+ * joined. The weekly total was the same, but it arrived as one or two passes a
+ * night, blended into the same receipt line as that day's signups — so the
+ * money was invisible, and a pass read as a one-off sale that never came back.
+ * Collected all at once it is a payday the player can see coming, plan around
+ * and feel land.
+ */
+export const isPayday = (day: number): boolean => day % BILLING_PERIOD_DAYS === 0
+
+/** Days until the next payday; zero on payday itself. */
+export const daysToPayday = (day: number): number =>
+  isPayday(day) ? 0 : BILLING_PERIOD_DAYS - (day % BILLING_PERIOD_DAYS)
+
 export interface RenewalResult {
   state: GameState
   amount: number
@@ -80,16 +97,18 @@ export interface RenewalResult {
 }
 
 /**
- * Every member renews on their own seven-day cycle counted from the day they
- * joined, so passes trickle in across the week instead of all landing on the
- * same evening. Priced at today's gym class — upgrading the floor raises what
- * existing members pay on their next renewal.
+ * Collects every pass in the building, but only on payday. Priced at today's
+ * gym class — upgrading the floor raises what existing members pay on the next
+ * collection, which is what makes a purchase worth more than the door fee it
+ * lifts.
+ *
+ * Anyone who joined today is skipped: their first pass was banked at the desk
+ * hours ago, and charging it twice on the same receipt would read as a bug.
  */
 export function chargeRenewals(state: GameState): RenewalResult {
-  const due = state.members.filter(m => {
-    const age = state.day - m.joinedDay
-    return age > 0 && age % BILLING_PERIOD_DAYS === 0
-  })
+  if (!isPayday(state.day)) return { state, amount: 0, count: 0 }
+
+  const due = state.members.filter(m => m.joinedDay < state.day)
   if (due.length === 0) return { state, amount: 0, count: 0 }
 
   const amount = passPrice(state) * due.length

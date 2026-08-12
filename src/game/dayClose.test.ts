@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { closeDay, nextDay } from './dayClose'
 import { initialState, dailyCosts, emptyLedger, passPrice } from './economy'
 import { DAILY_RENT, DAY_MS, DEBT_LIMIT, MEMBER_UPKEEP } from './constants'
+import { wageFor } from './content/staff'
 import type { GameState, Machine, Member, Staff } from './types'
 
 const base = () => initialState(5, 0)
@@ -65,9 +66,19 @@ describe('closeDay', () => {
     expect(closeDay(atClosing({ cash: DEBT_LIMIT + DAILY_RENT })).gameOver).toBe(false)
   })
 
-  it('collects renewals that fall due today', () => {
-    const s = atClosing({ day: 8, members: [member('p1', 1)] })
-    expect(closeDay(s).dayReport!.subscriptions).toBeCloseTo(passPrice(s), 5)
+  it('collects every pass on payday', () => {
+    const s = atClosing({ day: 7, members: [member('p1', 1)] })
+    const r = closeDay(s).dayReport!
+    expect(r.subscriptions).toBeCloseTo(passPrice(s), 5)
+    expect(r.renewals).toBeCloseTo(passPrice(s), 5)
+    expect(r.renewalCount).toBe(1)
+  })
+
+  it('collects nothing mid-week, and says so on the receipt', () => {
+    const r = closeDay(atClosing({ day: 6, members: [member('p1', 1)] })).dayReport!
+    expect(r.renewals).toBe(0)
+    expect(r.renewalCount).toBe(0)
+    expect(r.subscriptions).toBe(0)
   })
 
   it('bills a member who quits this evening for the day they just used', () => {
@@ -76,7 +87,7 @@ describe('closeDay', () => {
   })
 
   it('balances the receipt against the cash it reports', () => {
-    const s = atClosing({ day: 8, members: [member('p1', 1)] })
+    const s = atClosing({ day: 7, members: [member('p1', 1)] })
     const r = closeDay(s).dayReport!
     expect(r.rent + r.power + r.memberUpkeep).toBe(r.bill)
     expect(r.cashAfter).toBeCloseTo(r.cashBefore + r.subscriptions - r.bill, 5)
@@ -172,34 +183,38 @@ describe('wages', () => {
     targetUid: null, workMs: 0, owed: 0, ...over,
   })
 
+  /** Read from the table rather than copied out of it, so a rebalance of the
+   * wages cannot quietly turn these into tests of nothing. */
+  const RARE_DESK = wageFor('reception', 'rare')
+
   it('pays everybody when the money is there', () => {
     const s = closeDay(atClosing({ cash: 50_000, staff: [employee('e1')] }))
     expect(s.staff[0]!.owed).toBe(0)
-    expect(s.dayReport!.wages).toBe(1000)
+    expect(s.dayReport!.wages).toBe(RARE_DESK)
   })
 
   it('bills wages on top of rent, not instead of it', () => {
     const withStaff = closeDay(atClosing({ cash: 50_000, staff: [employee('e1')] }))
     const without = closeDay(atClosing({ cash: 50_000 }))
-    expect(withStaff.cash).toBe(without.cash - 1000)
+    expect(withStaff.cash).toBe(without.cash - RARE_DESK)
   })
 
   it('pays in hiring order and leaves the rest owed', () => {
-    // Enough for the first 1000 wage and the 60 rent, not for the second.
+    // Enough for the first wage and the rent, a coin short of the second.
     const s = closeDay(atClosing({
-      cash: 1100,
+      cash: RARE_DESK + DAILY_RENT + 1,
       staff: [employee('e1'), employee('e2')],
     }))
     expect(s.staff[0]!.owed).toBe(0)
-    expect(s.staff[1]!.owed).toBe(1000)
+    expect(s.staff[1]!.owed).toBe(RARE_DESK)
   })
 
   it('does not charge a striking employee again', () => {
     const s = closeDay(atClosing({
       cash: 50_000,
-      staff: [employee('e1', { owed: 1000 })],
+      staff: [employee('e1', { owed: RARE_DESK })],
     }))
-    expect(s.staff[0]!.owed).toBe(1000)
+    expect(s.staff[0]!.owed).toBe(RARE_DESK)
     expect(s.dayReport!.wages).toBe(0)
   })
 
@@ -208,6 +223,7 @@ describe('wages', () => {
       cash: 100_000,
       staff: [employee('e1', { rank: 'legend', role: 'repair' })],
     }))
-    expect(s.dayReport!.wages).toBe(20_000)
+    expect(s.dayReport!.wages).toBe(wageFor('repair', 'legend'))
+    expect(s.dayReport!.wages).toBeGreaterThan(RARE_DESK)
   })
 })

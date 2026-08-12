@@ -131,7 +131,11 @@ export interface Client extends Walker {
 
 export interface Member {
   uid: string
-  /** Day the pass was bought; renewals fall every 7 days from here. */
+  /**
+   * Day the pass was bought. The gym bills on one shared seven-day week rather
+   * than per member, so this decides only whether somebody is old enough to be
+   * charged on the next payday — see `isPayday`.
+   */
   joinedDay: number
 }
 
@@ -165,6 +169,14 @@ export interface DayReport {
   /** Part of `entryFees` that personal-trainer bookings brought in. */
   trainerFees: number
   subscriptions: number
+  /**
+   * The payday collection's share of `subscriptions` — a breakdown, not extra
+   * income, the same way `trainerFees` breaks down `entryFees`. Whatever is
+   * left over is what the day's new passes sold for.
+   */
+  renewals: number
+  /** Passes charged in that collection, so the receipt can show a per-pass price. */
+  renewalCount: number
   counterfeitLoss: number
   /** The three v2 lines. Zero means the feature did nothing today, and the
    * receipt leaves the row out rather than printing a nought. */

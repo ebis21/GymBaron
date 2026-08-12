@@ -4,14 +4,27 @@ import {
   STAFF_LIMIT,
 } from './staff'
 import { STAFF_UNLOCK_LEVEL, TRAINER_UNLOCK_LEVEL } from '../constants'
+import { REFRESH_PRICE } from '../recruit'
 
 describe('wageFor', () => {
   it('matches the published day rates', () => {
-    expect(wageFor('reception', 'rare')).toBe(1000)
-    expect(wageFor('reception', 'epic')).toBe(5000)
-    expect(wageFor('reception', 'legend')).toBe(10_000)
-    expect(wageFor('cleaner', 'rare')).toBe(1500)
-    expect(wageFor('repair', 'legend')).toBe(20_000)
+    expect(wageFor('reception', 'rare')).toBe(400)
+    expect(wageFor('reception', 'epic')).toBe(1000)
+    expect(wageFor('reception', 'legend')).toBe(2000)
+    expect(wageFor('cleaner', 'rare')).toBe(600)
+    expect(wageFor('repair', 'legend')).toBe(4000)
+  })
+
+  /**
+   * The reason the table was cut: a crew of three has to be payable out of the
+   * gym that would hire it. A twenty-machine floor grosses about 21 000 a day,
+   * and the old legendary crew billed 45 000 of it.
+   */
+  it('keeps a full legendary crew inside what a mature gym takes in a day', () => {
+    const crew = wageFor('reception', 'legend')
+      + wageFor('cleaner', 'legend')
+      + wageFor('repair', 'legend')
+    expect(crew).toBeLessThan(21_000 / 2)
   })
 
   it('never costs less for a higher rank', () => {
@@ -41,6 +54,19 @@ describe('hirePriceFor', () => {
   it('costs strictly more for a higher rank', () => {
     expect(hirePriceFor('epic')).toBeGreaterThan(hirePriceFor('rare'))
     expect(hirePriceFor('legend')).toBeGreaterThan(hirePriceFor('epic'))
+  })
+
+  it('costs more to hire somebody than to reroll the board', () => {
+    expect(hirePriceFor('rare')).toBeGreaterThan(REFRESH_PRICE)
+  })
+
+  /** Signing somebody is a commitment measured in days of their own pay. */
+  it('asks a few days of the wage up front, never a wall', () => {
+    for (const rank of STAFF_RANKS) {
+      const wage = wageFor('reception', rank)
+      expect(hirePriceFor(rank)).toBeGreaterThanOrEqual(wage)
+      expect(hirePriceFor(rank)).toBeLessThanOrEqual(wage * 3)
+    }
   })
 })
 

@@ -246,11 +246,25 @@ function hydrateFeatures(s: Record<string, unknown>): Record<string, unknown> {
   const today = s.today as Record<string, unknown>
   const number = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) ? v : 0)
 
+  // The receipt gained a breakdown of the weekly pass collection after some
+  // saves were already written. Same reasoning as the ledger lines below —
+  // a stored receipt missing them would print `NaN` rather than fail loudly —
+  // and same treatment, so it costs no version bump. Zero is honest here: the
+  // totals the receipt does carry are left exactly as they were.
+  const report = s.dayReport
+  const dayReport = typeof report === 'object' && report !== null
+    ? (() => {
+        const r = report as Record<string, unknown>
+        return { ...r, renewals: number(r.renewals), renewalCount: number(r.renewalCount) }
+      })()
+    : report
+
   return {
     ...s,
     marketing: normalizeMarketing(s.marketing),
     contracts: normalizeContracts(s.contracts),
     sponsors: normalizeSponsors(s.sponsors),
+    dayReport,
     // The ledger's three v2 lines get the same treatment for the same reason:
     // a missing number here would print `NaN` on the receipt rather than fail
     // loudly, which is the worst of both worlds.
