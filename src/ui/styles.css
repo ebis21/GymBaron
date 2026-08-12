@@ -25,6 +25,11 @@
   --shadow: 0 6px 0 rgba(125, 74, 38, 0.35);
   --shadow-soft: 0 8px 24px rgba(74, 53, 36, 0.22);
 
+  /* What `TopBar` measures itself to be, before it has had a chance to say so.
+     Anything that hangs off the bottom of the bar reads it through
+     `--below-topbar`, which only the touch layout defines. */
+  --topbar-h: 75px;
+
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-right: env(safe-area-inset-right, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
@@ -1739,6 +1744,17 @@ p.warn {
  * even when their CSS width happens to cross the desktop breakpoint.
  */
 @media (max-width: 719px), (hover: none) and (pointer: coarse) {
+  /*
+   * Where the topbar actually ends, plus room to breathe. The rail and the
+   * panels both hang from this line, and they have to hang from the same one:
+   * the rail's fold handle floats over the panel's top corner, and a debt
+   * banner that moved one without the other would drop the handle into the
+   * middle of the screen.
+   */
+  .app {
+    --below-topbar: calc(var(--safe-top) + var(--topbar-h) + 11px);
+  }
+
   .topbar-wrap {
     padding: 6px calc(6px + var(--safe-right)) 0 calc(6px + var(--safe-left));
   }
@@ -1820,7 +1836,7 @@ p.warn {
     --rail-gap: 4px;
     --rail-pad: 3px;
     --rail-rows: 4;
-    top: calc(var(--safe-top) + 86px);
+    top: var(--below-topbar);
     right: auto;
     bottom: auto;
     left: calc(6px + var(--safe-left));
@@ -1980,7 +1996,7 @@ p.warn {
   }
 
   .carry-banner {
-    top: calc(var(--safe-top) + 86px);
+    top: var(--below-topbar);
     max-width: calc(100vw - var(--safe-left) - var(--safe-right) - 20px);
     overflow: hidden;
     text-overflow: ellipsis;
@@ -2042,7 +2058,7 @@ p.warn {
   }
 
   .panel {
-    top: calc(var(--safe-top) + 86px);
+    top: var(--below-topbar);
     left: calc(6px + var(--safe-left));
     right: calc(6px + var(--safe-right));
     bottom: calc(84px + var(--safe-bottom));
@@ -2144,6 +2160,11 @@ p.warn {
 /* Short landscape phones trade decoration for usable playfield height. */
 @media (max-height: 520px) and (orientation: landscape) and (max-width: 719px),
   (max-height: 520px) and (orientation: landscape) and (hover: none) and (pointer: coarse) {
+  /* Same line, tighter: there is no vertical room to spend on breathing here. */
+  .app {
+    --below-topbar: calc(var(--safe-top) + var(--topbar-h) + 4px);
+  }
+
   .topbar-wrap {
     padding-top: 3px;
   }
@@ -2181,22 +2202,21 @@ p.warn {
     --rail-tile: 44px;
     --rail-gap: 3px;
     --rail-rows: 2;
-    top: calc(var(--safe-top) + 50px);
     gap: 3px;
   }
 
   .phone-apps {
     /* Two rows only if two rows fit. What is subtracted is everything the rail
-       may not have: the topbar above it (50), the square the stick sweeps (158),
-       and its own handle plus a finger of clearance (60). A 320px-tall
-       landscape screen ends up showing one tile and the top of the next, which
-       still reads as a list worth scrolling. */
+       may not have: whatever the topbar turned out to be, the square the stick
+       sweeps (158), and its own handle plus a finger of clearance (60). A
+       320px-tall landscape screen ends up showing one tile and the top of the
+       next, which still reads as a list worth scrolling. */
     max-height: min(
       calc(
         var(--rail-tile) * var(--rail-rows) + var(--rail-gap) * (var(--rail-rows) - 1) +
           var(--rail-pad) * 2
       ),
-      calc(100dvh - var(--safe-top) - var(--safe-bottom) - 50px - 158px - 60px)
+      calc(100dvh - var(--below-topbar) - var(--safe-bottom) - 158px - 60px)
     );
   }
 
@@ -2217,7 +2237,7 @@ p.warn {
   }
 
   .panel {
-    top: calc(var(--safe-top) + 50px);
+    top: var(--below-topbar);
     bottom: calc(58px + var(--safe-bottom));
   }
 
