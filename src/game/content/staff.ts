@@ -56,15 +56,25 @@ export const WORK_MS: Record<StaffRole, Record<StaffRank, number>> = {
 }
 
 /**
- * Wages are deliberately steep against the rest of the economy. A mature gym
- * nets around 12 000 a day, so a rare receptionist is a considered purchase
- * and a legendary repairer costs more than such a gym earns — the top rank is
- * a trophy for a far bigger operation, not the next thing on the shopping list.
+ * Priced against what the gym actually takes in a day, measured rather than
+ * guessed: a four-machine gym in its first week grosses around 4 000, a
+ * ten-machine one around 11 000, and a full twenty-machine floor around 21 000
+ * of which the evening bill claims barely 1 500.
+ *
+ * The old table read 1 000 / 5 000 / 10 000 against an assumed 12 000-a-day
+ * gym, which put a three-person epic crew at 22 500 and a legendary one at
+ * 45 000 — both more than the very best gym in the game can earn. Every
+ * automated gym ran at a permanent loss and the top two ranks were unbuyable
+ * rather than aspirational.
+ *
+ * At these rates a full crew of three costs roughly 40% of the takings at the
+ * tier that would hire it, so automation is a real bite out of the day's profit
+ * and still leaves one.
  */
 export const RANK_WAGE: Record<StaffRank, number> = {
-  rare: 1000,
-  epic: 5000,
-  legend: 10_000,
+  rare: 400,
+  epic: 1000,
+  legend: 2000,
 }
 
 /**
@@ -80,7 +90,11 @@ export const ROLE_WAGE_MULT: Record<StaffRole, number> = {
   reception: 1.0,
   cleaner: 1.5,
   repair: 2.0,
-  trainer: 0.2,
+  // Half, not the old fifth: the trainer was the one role already priced off
+  // what it earns rather than off `RANK_WAGE`, so when the ranks came down it
+  // had to move the other way to keep a rare trainer at the same 200 a day the
+  // dozen-bookings sum below arrives at.
+  trainer: 0.5,
 }
 
 export const wageFor = (role: StaffRole, rank: StaffRank): number =>
@@ -88,13 +102,15 @@ export const wageFor = (role: StaffRole, rank: StaffRank): number =>
 
 /**
  * One-time hiring cost, by rank only — the wage already prices the role in.
- * A rare sits around the priciest machine in the shop; a legend is a real
- * commitment, in line with what `RANK_WAGE` already asks of the player daily.
+ * Set against `RANK_WAGE`: a rare costs a day and a half of its own pay, a
+ * legend two and a half, so signing the better name is a commitment without
+ * being a wall. A rare also has to cost more than `REFRESH_PRICE`, or rerolling
+ * the board would be the expensive half of hiring.
  */
 export const RANK_HIRE_PRICE: Record<StaffRank, number> = {
-  rare: 1200,
-  epic: 4000,
-  legend: 9000,
+  rare: 600,
+  epic: 2000,
+  legend: 5000,
 }
 
 export const hirePriceFor = (rank: StaffRank): number => RANK_HIRE_PRICE[rank]

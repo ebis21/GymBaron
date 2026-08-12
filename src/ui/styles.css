@@ -198,6 +198,34 @@ button {
   white-space: nowrap;
 }
 
+/*
+ * Payday — the one evening a week when every pass in the building is charged.
+ * The cell is worth marking because the sum is the largest single thing that
+ * happens to the till, and the player can only plan for it if they see it
+ * coming.
+ */
+.topbar-cell.payday {
+  background: rgba(97, 185, 84, 0.16);
+  border-radius: 10px;
+}
+
+.payday-sub {
+  color: var(--leaf-dark);
+  animation: payday-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes payday-pulse {
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .payday-sub {
+    animation: none;
+  }
+}
+
 .clock-cell .clock {
   font-size: 22px;
   color: var(--wood-dark);

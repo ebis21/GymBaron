@@ -93,6 +93,10 @@ export const MEMBER_DISCOUNT = 0.5
 export const MEMBER_FEE = 200
 /** Towels, water, cleaning — charged per member on every day's bill. */
 export const MEMBER_UPKEEP = 14
+/**
+ * Length of the gym's billing week. Passes are collected on one shared cycle
+ * rather than per member — days divisible by this are payday. See `isPayday`.
+ */
 export const BILLING_PERIOD_DAYS = 7
 export const DAILY_RENT = 60
 

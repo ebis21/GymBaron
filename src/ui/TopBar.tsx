@@ -1,25 +1,12 @@
 import type { GameState } from '../game/types'
 import { dayProgress, formatClock, isClosingTime } from '../game/clock'
-import { gymClass } from '../game/economy'
-import { BILLING_PERIOD_DAYS } from '../game/constants'
+import { gymClass, passPrice } from '../game/economy'
+import { daysToPayday, isPayday } from '../game/members'
 import { useI18n } from '../i18n'
 import { floorName } from '../game/floors'
 
 const cashClass = (cash: number) =>
   cash < -10_000 ? 'cash-bad' : cash < 0 ? 'cash-warn' : 'cash-ok'
-
-/**
- * Days until the next pass renews for anyone. Members run on staggered
- * cycles, so this reports the soonest one rather than a gym-wide date.
- */
-function daysToNextRenewal(state: GameState): number | null {
-  if (state.members.length === 0) return null
-
-  return state.members.reduce<number>((soonest, m) => {
-    const age = state.day - m.joinedDay
-    return Math.min(soonest, BILLING_PERIOD_DAYS - (age % BILLING_PERIOD_DAYS))
-  }, BILLING_PERIOD_DAYS)
-}
 
 interface Props {
   state: GameState
@@ -28,7 +15,15 @@ interface Props {
 
 export default function TopBar({ state, onOpenSettings }: Props) {
   const { t, money } = useI18n()
-  const renewal = daysToNextRenewal(state)
+  // The whole gym bills on one week, so this is a date rather than an estimate:
+  // every pass in the building is collected when the counter reaches zero.
+  const untilPayday = daysToPayday(state.day)
+  const paydayToday = isPayday(state.day)
+  // Anyone who joined today already paid at the desk — see `chargeRenewals` —
+  // so a gym whose whole membership signed up this morning collects nothing
+  // tonight even though it is payday. Worth still saying it is payday: the
+  // number is what is missing, not the date.
+  const duePasses = state.members.filter(m => m.joinedDay < state.day).length
   const closing = isClosingTime(state.dayMs) && !state.dayEnded
 
   return (
@@ -49,11 +44,21 @@ export default function TopBar({ state, onOpenSettings }: Props) {
           <span className="topbar-label">{t.topbar.cash}</span>
           <span className={`topbar-value ${cashClass(state.cash)}`}>{money(state.cash)}</span>
         </div>
-        <div className="topbar-cell">
+        <div className={`topbar-cell${paydayToday && duePasses > 0 ? ' payday' : ''}`}>
           <span className="topbar-label">{t.topbar.members}</span>
           <span className="topbar-value">
             {state.members.length}
-            {renewal !== null && <span className="topbar-sub">{t.topbar.renewal(renewal)}</span>}
+            {state.members.length > 0 && (
+              paydayToday ? (
+                <span className="topbar-sub payday-sub">
+                  {duePasses > 0
+                    ? t.topbar.paydayToday(money(duePasses * passPrice(state)))
+                    : t.topbar.paydayTodayEmpty}
+                </span>
+              ) : (
+                <span className="topbar-sub">{t.topbar.payday(untilPayday)}</span>
+              )
+            )}
           </span>
         </div>
         <div className="topbar-cell">
