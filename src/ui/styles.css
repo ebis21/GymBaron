@@ -664,6 +664,10 @@ button {
   transform: translateY(2px);
 }
 
+.phone-handle-glyph {
+  display: inline-block;
+}
+
 .phone-shell {
   flex: none;
   width: 240px;
@@ -1727,9 +1731,12 @@ p.warn {
 
 /*
  * On a phone the slide-out handset consumed most of the playfield and put a
- * second gesture between the player and every screen. It becomes a familiar
- * bottom dock instead. The same layout is used on touch tablets even when
- * their CSS width happens to cross the desktop breakpoint.
+ * second gesture between the player and every screen. It becomes a rail down
+ * the left edge instead: icon-only tiles under the topbar, folded away by the
+ * handle underneath them. A bottom dock was tried first and was worse — nine
+ * tiles across two rows ate a third of the room, could not be dismissed, and
+ * landed squarely on the walk stick. The same layout is used on touch tablets
+ * even when their CSS width happens to cross the desktop breakpoint.
  */
 @media (max-width: 719px), (hover: none) and (pointer: coarse) {
   .topbar-wrap {
@@ -1807,76 +1814,145 @@ p.warn {
 
   .phone,
   .phone.open {
-    top: auto;
-    right: 0;
-    bottom: 0;
-    left: 0;
-    display: block;
-    padding: 0 calc(6px + var(--safe-right)) calc(6px + var(--safe-bottom))
-      calc(6px + var(--safe-left));
+    /* One tile, its gap and the rail's own padding, named once so the four-row
+       height below stays arithmetic instead of a magic number. */
+    --rail-tile: 46px;
+    --rail-gap: 4px;
+    --rail-pad: 3px;
+    --rail-rows: 4;
+    top: calc(var(--safe-top) + 86px);
+    right: auto;
+    bottom: auto;
+    left: calc(6px + var(--safe-left));
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+    padding: 0;
     transform: none;
     pointer-events: none;
   }
 
-  .phone-handle,
   .phone-speaker,
   .phone-status,
   .phone-home {
     display: none;
   }
 
+  /*
+   * The desktop grip, re-cut as the fold control. It sits under the rail rather
+   * than beside it so it stays in the same thumb sweep as the tiles, and it is
+   * the one part that survives the fold — collapsed, this button is the whole
+   * phone.
+   */
+  .phone-handle {
+    order: 1;
+    /* Stretches to the rail while the rail is there; the minimum is what it
+       falls back to once folded, when this button is the only target left. */
+    width: auto;
+    min-width: 56px;
+    height: 44px;
+    font-size: 16px;
+    border: 3px solid var(--wood);
+    border-radius: 14px;
+    box-shadow: 0 3px 0 rgba(125, 74, 38, 0.3);
+    pointer-events: auto;
+  }
+
+  /* The chevron points back along the fold, which is upward here. */
+  .phone.open .phone-handle-glyph {
+    transform: rotate(-90deg);
+  }
+
   .phone-shell {
-    width: 100%;
-    padding: 5px;
+    width: auto;
+    padding: 4px;
     border: 3px solid #17121f;
-    border-radius: 20px;
+    border-radius: 18px;
     box-shadow: 0 5px 18px rgba(23, 18, 31, 0.32);
     pointer-events: auto;
   }
 
+  .phone:not(.open) .phone-shell {
+    display: none;
+  }
+
   .phone-apps {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap: 2px;
-    padding: 2px;
-    border-radius: 14px;
+    grid-template-columns: var(--rail-tile);
+    /* Locked rather than content-sized: a level badge on one tile must not be
+       able to push the fifth app up into view and break the row count. */
+    grid-auto-rows: var(--rail-tile);
+    gap: var(--rail-gap);
+    padding: var(--rail-pad);
+    border-radius: 15px;
+    /* Exactly four rows and the three gaps between them. The other five apps
+       are a flick away, which is what keeps the rail clear of the stick. */
+    max-height: calc(
+      var(--rail-tile) * var(--rail-rows) + var(--rail-gap) * (var(--rail-rows) - 1) +
+        var(--rail-pad) * 2
+    );
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    /* The canvas underneath treats a stray drag as aiming at the room, so a
+       flick that runs off the end of the list has to stop here. */
+    overscroll-behavior: contain;
+    touch-action: pan-y;
+    scrollbar-width: none;
+    /* With the scrollbar gone the fade is the only thing saying there is more
+       below, so it stays on at both ends of the scroll rather than blinking. */
+    -webkit-mask-image: linear-gradient(180deg, #000 calc(100% - 15px), transparent);
+    mask-image: linear-gradient(180deg, #000 calc(100% - 15px), transparent);
+  }
+
+  .phone-apps::-webkit-scrollbar {
+    display: none;
   }
 
   .phone-app,
   .phone-app.soon {
     grid-column: auto;
+    width: var(--rail-tile);
     min-width: 0;
-    min-height: 58px;
+    min-height: var(--rail-tile);
     flex-direction: column;
     justify-content: center;
-    gap: 3px;
-    padding: 4px 2px;
-    border-radius: 12px;
+    gap: 0;
+    padding: 0;
+    border-radius: 13px;
   }
 
   .phone-icon {
-    width: 36px;
-    height: 36px;
-    font-size: 19px;
-    border-radius: 11px;
+    width: 38px;
+    height: 38px;
+    font-size: 20px;
+    border-radius: 12px;
   }
 
+  /* Nothing legible fits beside an icon this size, and the button already
+     carries the app's name in `aria-label`, so the visible copy goes. */
   .phone-label {
-    width: 100%;
+    position: absolute;
+    width: 1px;
+    height: 1px;
     overflow: hidden;
-    font-size: 9px;
-    line-height: 1.1;
-    text-overflow: ellipsis;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
     white-space: nowrap;
   }
 
+  /* Across the foot of the tile: a corner badge on a 46px square covers the
+     glyph it is meant to be qualifying. */
   .phone-lock,
   .phone-soon {
     position: absolute;
-    top: 2px;
-    right: 1px;
+    bottom: 1px;
+    left: 50%;
     margin: 0;
-    padding: 1px 4px;
+    padding: 0 3px;
     font-size: 7px;
+    letter-spacing: 0;
+    white-space: nowrap;
+    transform: translateX(-50%);
   }
 
   .joystick {
@@ -1984,6 +2060,15 @@ p.warn {
     padding: 14px;
   }
 
+  /*
+   * Opening an app folds the rail, but its handle still floats over the panel's
+   * top-left corner the way the desktop grip floats over the right edge. The
+   * screen starts below it rather than underneath it.
+   */
+  .app.panelled .screen {
+    padding-top: 46px;
+  }
+
   .btn {
     min-height: 44px;
   }
@@ -2087,36 +2172,48 @@ p.warn {
     margin-top: 2px;
   }
 
+  /* Two rows, not four: the stick starts about 160px down a screen this short,
+     and a four-row rail would be sitting in it. */
   .phone,
   .phone.open {
-    padding-bottom: calc(3px + var(--safe-bottom));
+    /* Still 44px square — the tiles are the one thing that may not shrink past
+       what a thumb can hit. Only the count and the chrome give way. */
+    --rail-tile: 44px;
+    --rail-gap: 3px;
+    --rail-rows: 2;
+    top: calc(var(--safe-top) + 50px);
+    gap: 3px;
+  }
+
+  .phone-apps {
+    /* Two rows only if two rows fit. What is subtracted is everything the rail
+       may not have: the topbar above it (50), the square the stick sweeps (158),
+       and its own handle plus a finger of clearance (60). A 320px-tall
+       landscape screen ends up showing one tile and the top of the next, which
+       still reads as a list worth scrolling. */
+    max-height: min(
+      calc(
+        var(--rail-tile) * var(--rail-rows) + var(--rail-gap) * (var(--rail-rows) - 1) +
+          var(--rail-pad) * 2
+      ),
+      calc(100dvh - var(--safe-top) - var(--safe-bottom) - 50px - 158px - 60px)
+    );
+  }
+
+  .phone-handle {
+    height: 34px;
+    font-size: 14px;
   }
 
   .phone-shell {
-    padding: 2px;
+    padding: 3px;
     border-radius: 15px;
-  }
-
-  .phone-app,
-  .phone-app.soon {
-    min-height: 44px;
-    padding: 3px 2px;
   }
 
   .phone-icon {
     width: 32px;
     height: 32px;
     font-size: 17px;
-  }
-
-  .phone-label {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip: rect(0 0 0 0);
-    clip-path: inset(50%);
-    white-space: nowrap;
   }
 
   .panel {

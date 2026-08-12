@@ -51,6 +51,11 @@ const APPS: Tile[] = [
  * game can do lives on this one home screen, which keeps the bottom of the
  * display clear for the joystick and leaves room for more apps later without
  * another row of tabs appearing from nowhere.
+ *
+ * Touch layouts reshape the same markup into a vertical rail under the topbar
+ * — see the touch block in `styles.css`. Nothing here branches on viewport:
+ * every app stays in the DOM at every size, so the rail is one CSS rule away
+ * from the handset rather than a second component to keep in step.
  */
 export default function Phone({ state, open, active, onToggle, onOpen }: Props) {
   const { t, money } = useI18n()
@@ -62,7 +67,9 @@ export default function Phone({ state, open, active, onToggle, onOpen }: Props) 
         onClick={onToggle}
         aria-label={open ? t.phone.hide : t.phone.show}
       >
-        {open ? '›' : '📱'}
+        {/* Wrapped so the touch layout, where the phone folds upward into a
+            rail instead of sideways into the edge, can turn the chevron. */}
+        <span className="phone-handle-glyph">{open ? '›' : '📱'}</span>
       </button>
 
       <div className="phone-shell">
