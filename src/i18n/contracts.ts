@@ -27,6 +27,8 @@ export interface ContractStrings {
   signingFee: string
   dailyFee: (amount: string) => string
   unlocks: (count: number) => string
+  /** Opens and closes the folded catalogue. */
+  kit: string
   sign: (price: string) => string
   cancel: string
   held: string
@@ -56,6 +58,7 @@ export const contractsEn: ContractStrings = {
   signingFee: 'To sign',
   dailyFee: amount => `${amount} / day while held`,
   unlocks: count => `Unlocks ${count} machines`,
+  kit: 'Kit',
   sign: price => `Sign · ${price}`,
   cancel: 'End contract',
   held: 'Signed',
@@ -84,6 +87,7 @@ export const contractsPl: ContractStrings = {
   signingFee: 'Za podpis',
   dailyFee: amount => `${amount} / dzień, dopóki trzymasz`,
   unlocks: count => `Odblokowuje ${count} maszyn`,
+  kit: 'Sprzęt',
   sign: price => `Podpisz · ${price}`,
   cancel: 'Zerwij kontrakt',
   held: 'Podpisany',

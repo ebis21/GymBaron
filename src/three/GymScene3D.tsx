@@ -1,7 +1,10 @@
 import { useEffect, useRef } from 'react'
 import type { GameState, MachineTypeId } from '../game/types'
 import type { PlacedKind } from '../game/build'
-import { GymScene, type Focus, type PickResult } from './scene'
+import type { AlertKind } from '../game/alerts'
+import { gymAlerts, nearestAlert } from '../game/alerts'
+import { REACH } from './layout'
+import { FLOOR_SQUASH, GymScene, type Focus, type PickResult } from './scene'
 
 interface Props {
   state: GameState
@@ -12,6 +15,12 @@ interface Props {
   facing: string | null
   /** A modal interaction freezes movement without pretending to face a client. */
   paused: boolean
+  /**
+   * Trouble the player has asked to be led to, or null for no arrow. A kind
+   * rather than one target: which broken machine is nearest changes with every
+   * step, and re-picking it per frame is what keeps the arrow honest.
+   */
+  guide: AlertKind | null
   /**
    * Bumped to drop the player at the front counter. A counter rather than a
    * boolean so that asking for it twice in a row still moves them twice.
@@ -37,6 +46,7 @@ export default function GymScene3D({
   preview,
   facing,
   paused,
+  guide,
   teleport,
   onFocus,
   onPick,
@@ -46,10 +56,11 @@ export default function GymScene3D({
   const sceneRef = useRef<GymScene | null>(null)
   const stickRef = useRef<HTMLDivElement>(null)
   const knobRef = useRef<HTMLDivElement>(null)
+  const guideRef = useRef<HTMLDivElement>(null)
 
   // Read through a ref inside the loop so the effect never needs to re-run.
-  const latest = useRef({ state, buildMode, onPick, onFocus, onFloorAccess })
-  latest.current = { state, buildMode, onPick, onFocus, onFloorAccess }
+  const latest = useRef({ state, buildMode, guide, onPick, onFocus, onFloorAccess })
+  latest.current = { state, buildMode, guide, onPick, onFocus, onFloorAccess }
 
   // Mode, selection, and preview are cheap setters, pushed on every render.
   useEffect(() => {
@@ -92,6 +103,43 @@ export default function GymScene3D({
     let raf = 0
     let last = 0
 
+    /**
+     * Swings the guide arrow round to whichever piece of trouble is nearest,
+     * per frame and straight onto the element. It has to move with the walk,
+     * and rerendering React sixty times a second to turn one chevron would be
+     * the same mistake the joystick already avoids.
+     *
+     * Hidden rather than removed while there is nothing to point at, so the
+     * arrow never costs a layout pass on the frame it comes back.
+     */
+    const aimGuide = (live: GymScene) => {
+      const arrow = guideRef.current
+      if (!arrow) return
+
+      const kind = latest.current.guide
+      // Build mode looks straight down from somewhere else entirely: the
+      // screen directions this arrow is drawn in do not survive that camera.
+      const target =
+        kind && !latest.current.buildMode
+          ? nearestAlert(gymAlerts(latest.current.state), kind, live.playerAt())
+          : null
+
+      // Close enough to act on it — the action button is already saying so,
+      // and an arrow at the player's own feet only spins.
+      if (!target || target.distance < REACH) {
+        arrow.classList.add('hidden')
+        return
+      }
+
+      const at = live.playerAt()
+      // Screen up is world −Z and screen right is world +X: the follow camera
+      // never yaws, so no basis is needed, only the pitch's foreshortening.
+      const dx = target.at.x - at.x
+      const dy = (target.at.z - at.z) * FLOOR_SQUASH
+      arrow.style.setProperty('--guide-angle', `${(Math.atan2(dx, -dy) * 180) / Math.PI}deg`)
+      arrow.classList.remove('hidden')
+    }
+
     const frame = (now: number) => {
       raf = requestAnimationFrame(frame)
       const dt = last === 0 ? 16 : now - last
@@ -99,6 +147,7 @@ export default function GymScene3D({
 
       scene.sync(latest.current.state)
       scene.update(dt)
+      aimGuide(scene)
     }
     raf = requestAnimationFrame(frame)
 
@@ -211,6 +260,16 @@ export default function GymScene3D({
         aria-hidden="true"
       >
         <div className="joystick-knob" ref={knobRef} />
+      </div>
+
+      {/* Orbits the player, pointing the way to whatever the HUD's alert chip
+          was tapped for. Starts hidden; the frame loop is what reveals it. */}
+      <div
+        className={`guide hidden${guide ? ` ${guide}` : ''}`}
+        ref={guideRef}
+        aria-hidden="true"
+      >
+        <span className="guide-head">▲</span>
       </div>
     </>
   )

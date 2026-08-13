@@ -24,9 +24,12 @@ import ClientCard from './ui/ClientCard'
 import WelcomeBack from './ui/WelcomeBack'
 import DevPanel from './ui/DevPanel'
 import SettingsModal from './ui/SettingsModal'
+import AlertBar from './ui/AlertBar'
 import { useI18n, useI18nStore } from './i18n'
+import { usePrefsStore } from './store/prefs'
 import FloorAccessModal from './ui/FloorAccessModal'
 import { floorName } from './game/floors'
+import { countOf, gymAlerts, type AlertKind } from './game/alerts'
 
 /** Which full-screen panel is over the room, if any. */
 type Tab =
@@ -113,6 +116,8 @@ interface Action {
 export default function App() {
   const { t, money } = useI18n()
   const langReady = useI18nStore(s => s.ready)
+  const alertsOn = usePrefsStore(s => s.alerts)
+  const prefsReady = usePrefsStore(s => s.ready)
 
   const state = useGameStore(s => s.state)
   const welcomeBack = useGameStore(s => s.welcomeBack)
@@ -157,6 +162,8 @@ export default function App() {
   const [recruiting, setRecruiting] = useState(false)
   const [floorAccessOpen, setFloorAccessOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  /** Kind of trouble the floor arrow is leading to, or null for no arrow. */
+  const [guide, setGuide] = useState<AlertKind | null>(null)
 
   const [buildMode, setBuildMode] = useState(false)
   /** Bumped by the dev panel to drop the player at the front counter. */
@@ -176,6 +183,11 @@ export default function App() {
   const [movingWall, setMovingWall] = useState<string | null>(null)
 
   const onFocus = useCallback((next: Focus) => setFocus(next), [])
+
+  // Recomputed every tick rather than memoised: `state` is a fresh object on
+  // each one, so a memo keyed on it would rebuild the list regardless and only
+  // add the bookkeeping. The work is a pass over the machines and the stains.
+  const alerts = alertsOn ? gymAlerts(state) : []
 
   // --- serve / clean / repair hold ---------------------------------------
   // Fraction (0..1) the action button is currently filled while held down,
@@ -244,6 +256,15 @@ export default function App() {
   useEffect(() => {
     if (talkingGone) setTalking(null)
   }, [talkingGone])
+
+  // The last machine of that kind got fixed, the last stain got wiped, or the
+  // player switched the chips off outright — either way there is nothing left
+  // to lead to, and the arrow puts itself away rather than waiting for a tap
+  // on a chip that is no longer on screen.
+  const guideGone = guide !== null && countOf(alerts, guide) === 0
+  useEffect(() => {
+    if (guideGone) setGuide(null)
+  }, [guideGone])
 
   // Leaving the staff tab — by the panel's ✕ or by switching apps — should not
   // leave the recruit sub-screen armed for next time the tab opens.
@@ -452,7 +473,7 @@ export default function App() {
   // The language is read back from storage asynchronously, so the loading
   // screen also covers that — otherwise a Polish player would watch the game
   // paint in English and then switch under them.
-  if (!ready || !langReady) {
+  if (!ready || !langReady || !prefsReady) {
     return (
       <div className="app">
         <div className="screen">
@@ -555,6 +576,9 @@ export default function App() {
         preview={null}
         facing={talking}
         paused={floorAccessOpen}
+        /* A panel covers the floor the arrow would be pointing across, so it
+           waits behind it rather than drawing under it. */
+        guide={tab === 'gym' ? guide : null}
         teleport={teleport}
         onFocus={onFocus}
         onPick={onPick}
@@ -562,6 +586,13 @@ export default function App() {
       />
 
       <TopBar state={state} onOpenSettings={() => setSettingsOpen(true)} />
+
+      {/* Only over the room: with a panel up there is no floor to point at,
+          and a day that has been closed cannot be tidied any further. */}
+      {tab === 'gym' && !state.dayEnded && (
+        <AlertBar alerts={alerts} guide={guide} onGuide={setGuide} />
+      )}
+
       {import.meta.env.DEV && (
         <DevPanel
           onTeleportToReception={() => {

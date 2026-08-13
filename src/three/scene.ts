@@ -82,6 +82,18 @@ const BASE_REACH = Math.hypot(HALL_W, HALL_D)
 export const FOLLOW_HEIGHT = 10.6
 export const FOLLOW_DEPTH = 11.5
 
+/**
+ * How much of a step across the floor survives on screen once the camera's
+ * pitch has flattened it. A pace towards the far wall covers barely two thirds
+ * the pixels the same pace sideways does, so anything drawing a floor
+ * direction as a screen direction — the HUD's guide arrow — has to squash the
+ * depth component by this or it points visibly wide of what it is aimed at.
+ *
+ * Derived from the pair above rather than measured, so the pitch and this stay
+ * in step by construction.
+ */
+export const FLOOR_SQUASH = FOLLOW_HEIGHT / Math.hypot(FOLLOW_HEIGHT, FOLLOW_DEPTH)
+
 const DEFAULT_UP = new THREE.Vector3(0, 1, 0)
 
 const sameFocus = (a: Focus, b: Focus): boolean => {
@@ -585,6 +597,18 @@ export class GymScene {
         }
       }
     }
+  }
+
+  /**
+   * Where the character is standing, in world units. Read by the HUD's guide
+   * arrow, which has to know what it is pointing away from — the scene owns
+   * the walk, so it is the only thing that can answer.
+   *
+   * A copy: handing out the live vector would let a caller walk the player
+   * through a wall by assigning to it.
+   */
+  playerAt(): { x: number; z: number } {
+    return { x: this.playerPos.x, z: this.playerPos.z }
   }
 
   /** True while the player is stood at the reception desk. */

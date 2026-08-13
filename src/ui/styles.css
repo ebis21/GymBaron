@@ -701,6 +701,11 @@ button {
   display: inline-block;
 }
 
+/* Only the touch rail uses this one — see the fold note in the touch block. */
+.phone-handle-close {
+  display: none;
+}
+
 .phone-shell {
   flex: none;
   width: 240px;
@@ -841,6 +846,137 @@ button {
   margin: 11px auto 0;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.32);
+}
+
+/* --- floor alerts -------------------------------------------------------- */
+
+/*
+ * Two chips, opposite the phone: what is broken and what is dirty. They hang
+ * off the same line the panel does so nothing has to be measured twice, and
+ * they are the whole notification — a count that stays up for exactly as long
+ * as the problem does beats a toast that has to be dismissed mid-queue.
+ */
+.alert-bar {
+  position: absolute;
+  top: calc(var(--safe-top) + 104px);
+  right: calc(12px + var(--safe-right));
+  z-index: 14;
+  display: flex;
+  gap: 6px;
+}
+
+.alert-chip {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 38px;
+  padding: 4px 10px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--ink);
+  background: var(--cream);
+  border: 3px solid var(--wood);
+  border-radius: 999px;
+  box-shadow: 0 3px 0 rgba(125, 74, 38, 0.35);
+  cursor: pointer;
+  animation: pop 160ms ease-out;
+}
+
+.alert-chip:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 rgba(125, 74, 38, 0.35);
+}
+
+/* Past the grace window it is no longer a warning — reputation is going down
+   right now, and the chip stops sitting quietly. */
+.alert-chip.costing {
+  color: var(--danger-dark);
+  border-color: var(--danger);
+  box-shadow: 0 3px 0 rgba(167, 46, 41, 0.4);
+  animation: pop 160ms ease-out, alert-throb 1.2s ease-in-out 160ms infinite;
+}
+
+/* The one the floor arrow is currently leading to. */
+.alert-chip.leading {
+  color: var(--wood-dark);
+  background: var(--gold);
+}
+
+.alert-glyph {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.alert-count {
+  font-variant-numeric: tabular-nums;
+}
+
+.alert-lead {
+  font-size: 10px;
+  color: var(--ink-soft);
+}
+
+.alert-chip.leading .alert-lead {
+  color: var(--wood-dark);
+}
+
+@keyframes alert-throb {
+  50% {
+    transform: scale(1.07);
+  }
+}
+
+/*
+ * The arrow itself: it orbits the player — who the follow camera keeps at the
+ * middle of the screen — and points the way to the nearest mess or wreck. A
+ * marker pinned on the target itself would be no help at all, because the
+ * whole problem is that the target is somewhere off the edge of the view.
+ *
+ * The rotation is the one thing the render loop writes, so everything else
+ * here — how far out it rides, how it bobs — stays adjustable in CSS.
+ */
+.guide {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 13;
+  --guide-radius: 92px;
+  --guide-angle: 0deg;
+  pointer-events: none;
+  transform: translate(-50%, -50%) rotate(var(--guide-angle))
+    translateY(calc(-1 * var(--guide-radius)));
+}
+
+.guide.hidden {
+  display: none;
+}
+
+.guide-head {
+  display: block;
+  font-size: 26px;
+  line-height: 1;
+  color: var(--gold);
+  /* Painted under the fill, so the outline reads against both the pale floor
+     and the dark kit without the glyph itself getting thinner. */
+  -webkit-text-stroke: 3px var(--wood-dark);
+  paint-order: stroke fill;
+  animation: guide-bob 900ms ease-in-out infinite;
+}
+
+.guide.broken .guide-head {
+  color: var(--coral);
+}
+
+.guide.dirty .guide-head {
+  color: var(--sky);
+}
+
+/* Outward along whatever direction the parent is pointing, since the child
+   inherits the rotated frame. */
+@keyframes guide-bob {
+  50% {
+    transform: translateY(-6px);
+  }
 }
 
 /* --- overlay panels ------------------------------------------------------ */
@@ -1062,6 +1198,159 @@ button {
   color: var(--coral-dark);
 }
 
+/* --- contracts ----------------------------------------------------------- */
+
+/*
+ * A supplier is one card, not a card with five more nested inside it. The
+ * folded catalogue is what keeps a screen with two deals on it readable on a
+ * handset — see the note in `ContractsScreen`.
+ */
+.deal-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.deal {
+  background: var(--cream);
+  border: 3px solid rgba(168, 106, 61, 0.45);
+  border-radius: 16px;
+  padding: 10px 12px;
+}
+
+.deal.held {
+  border-color: var(--leaf);
+}
+
+.deal.locked {
+  opacity: 0.62;
+}
+
+.deal-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+}
+
+.deal-tag {
+  padding: 2px 8px;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: #fff;
+  background: var(--leaf-dark);
+  border-radius: 999px;
+}
+
+.deal-meta {
+  margin-top: 3px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.45;
+  color: var(--ink-soft);
+}
+
+.deal-reason {
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--coral-dark);
+}
+
+/* The fold control and the commitment on one line, in that order: the player
+   reads the catalogue before signing for it, and reaches right to commit. */
+.deal-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 9px;
+}
+
+.deal-more {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 11px;
+  font: inherit;
+  font-size: 12px;
+  color: var(--wood-dark);
+  background: var(--paper);
+  border: 2px solid rgba(168, 106, 61, 0.45);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.deal-caret {
+  font-size: 9px;
+}
+
+/* Pushes the deal's own button to the far edge, whichever one it is. */
+.deal-actions > .btn {
+  margin-left: auto;
+}
+
+.deal-body {
+  margin-top: 10px;
+  padding-top: 9px;
+  border-top: 2px solid rgba(168, 106, 61, 0.28);
+  animation: pop 140ms ease-out;
+}
+
+.deal-blurb {
+  margin: 0 0 8px;
+  font-size: 11.5px;
+  font-weight: 700;
+  line-height: 1.45;
+  color: var(--ink-soft);
+}
+
+.deal-kit {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Four columns, one line each: what it is, what it earns, what it costs. Any
+   more per rung and the fold has bought nothing. */
+.deal-kit-row {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  background: var(--paper);
+  border-radius: 10px;
+}
+
+.deal-kit-row svg {
+  width: 30px;
+  height: 30px;
+}
+
+.deal-kit-name {
+  font-size: 12.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.deal-kit-mult {
+  padding: 1px 7px;
+  font-size: 10.5px;
+  color: #fff;
+  background: var(--gold);
+  border-radius: 999px;
+  font-variant-numeric: tabular-nums;
+}
+
+.deal-kit-price {
+  font-size: 11.5px;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+
 /* --- stats --------------------------------------------------------------- */
 
 .stat-grid {
@@ -1209,6 +1498,25 @@ button {
 .settings-lang-mark {
   font-size: 16px;
   color: var(--leaf-dark);
+}
+
+/* On/off is two short words rather than two sentences, so this pair sits side
+   by side instead of stacking the way the languages do. */
+.settings-toggle {
+  display: flex;
+  gap: 8px;
+}
+
+.settings-toggle .settings-lang {
+  justify-content: center;
+}
+
+.settings-note {
+  margin: 8px 0 18px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.45;
+  color: var(--ink-soft);
 }
 
 /* --- floor access ------------------------------------------------------- */
@@ -1859,8 +2167,12 @@ p.warn {
   .phone,
   .phone.open {
     /* One tile, its gap and the rail's own padding, named once so the four-row
-       height below stays arithmetic instead of a magic number. */
-    --rail-tile: 46px;
+       height below stays arithmetic instead of a magic number.
+
+       56, up from 46: at the old size the glyph inside was 20px and every app
+       on the rail read as the same grey smudge at arm's length. This is still
+       under a third of the narrowest screen the rail has to sit on. */
+    --rail-tile: 56px;
     --rail-gap: 4px;
     --rail-pad: 3px;
     --rail-rows: 4;
@@ -1895,17 +2207,28 @@ p.warn {
        falls back to once folded, when this button is the only target left. */
     width: auto;
     min-width: 56px;
-    height: 44px;
-    font-size: 16px;
+    height: 48px;
+    font-size: 18px;
     border: 3px solid var(--wood);
     border-radius: 14px;
     box-shadow: 0 3px 0 rgba(125, 74, 38, 0.3);
     pointer-events: auto;
   }
 
-  /* The chevron points back along the fold, which is upward here. */
+  /*
+   * Folded sideways into the edge, a chevron says which way the phone goes and
+   * the room behind it is still in view. Folded upward into a rail it said
+   * nothing: the tiles it dismisses are above it, not beside it, and players
+   * read the turned arrow as decoration and left the rail up. A close mark is
+   * the one glyph nobody has to be taught.
+   */
   .phone.open .phone-handle-glyph {
-    transform: rotate(-90deg);
+    display: none;
+  }
+
+  .phone.open .phone-handle-close {
+    display: inline-block;
+    font-size: 17px;
   }
 
   .phone-shell {
@@ -1962,14 +2285,14 @@ p.warn {
     justify-content: center;
     gap: 0;
     padding: 0;
-    border-radius: 13px;
+    border-radius: 16px;
   }
 
   .phone-icon {
-    width: 38px;
-    height: 38px;
-    font-size: 20px;
-    border-radius: 12px;
+    width: 48px;
+    height: 48px;
+    font-size: 26px;
+    border-radius: 15px;
   }
 
   /* Nothing legible fits beside an icon this size, and the button already
@@ -1984,19 +2307,45 @@ p.warn {
     white-space: nowrap;
   }
 
-  /* Across the foot of the tile: a corner badge on a 46px square covers the
-     glyph it is meant to be qualifying. */
+  /* Across the foot of the tile: a corner badge on a square this small covers
+     the glyph it is meant to be qualifying. */
   .phone-lock,
   .phone-soon {
     position: absolute;
     bottom: 1px;
     left: 50%;
     margin: 0;
-    padding: 0 3px;
-    font-size: 7px;
+    padding: 0 4px;
+    font-size: 8px;
     letter-spacing: 0;
     white-space: nowrap;
     transform: translateX(-50%);
+  }
+
+  .alert-bar {
+    top: var(--below-topbar);
+    right: calc(6px + var(--safe-right));
+    gap: 5px;
+  }
+
+  .alert-chip {
+    min-height: 42px;
+    padding: 4px 11px;
+    font-size: 14px;
+  }
+
+  .alert-glyph {
+    font-size: 18px;
+  }
+
+  /* Closer in and larger: less screen to cross, and a thumb is about to be
+     covering the bottom third of it. */
+  .guide {
+    --guide-radius: 78px;
+  }
+
+  .guide-head {
+    font-size: 30px;
   }
 
   .joystick {
@@ -2110,7 +2459,8 @@ p.warn {
    * screen starts below it rather than underneath it.
    */
   .app.panelled .screen {
-    padding-top: 46px;
+    /* The handle's own height plus a hair — they grew together. */
+    padding-top: 50px;
   }
 
   .btn {

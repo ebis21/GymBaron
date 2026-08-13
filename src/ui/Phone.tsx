@@ -67,9 +67,14 @@ export default function Phone({ state, open, active, onToggle, onOpen }: Props) 
         onClick={onToggle}
         aria-label={open ? t.phone.hide : t.phone.show}
       >
-        {/* Wrapped so the touch layout, where the phone folds upward into a
-            rail instead of sideways into the edge, can turn the chevron. */}
+        {/* Two glyphs, one of them always hidden. The touch layout folds the
+            phone upward into a rail rather than sideways into the edge, where
+            a chevron pointing back along the fold reads as decoration — so it
+            shows the close mark instead. Which one is on screen is a CSS
+            question, and answering it here would mean this component measuring
+            the viewport for a single character. */}
         <span className="phone-handle-glyph">{open ? '›' : '📱'}</span>
+        <span className="phone-handle-close" aria-hidden="true">✕</span>
       </button>
 
       <div className="phone-shell">
