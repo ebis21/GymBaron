@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   spawnWalkins, spawnMembers, advanceClients, scanClient, freeTrainers, isTrainerFree,
+  queueLimit,
 } from './clients'
 import { initialState } from './economy'
 import {
@@ -72,6 +73,56 @@ describe('spawnWalkins', () => {
     let a = gym(); let b = gym()
     for (let i = 0; i < 50; i++) { a = spawnWalkins(a, 1000); b = spawnWalkins(b, 1000) }
     expect(a).toEqual(b)
+  })
+
+  /**
+   * The queue is emptied after every tick so the cap can never be the thing
+   * under test — what is being measured is how often the door opens, not how
+   * many people fit in the hall once it has.
+   */
+  const arrivalsOver = (state: GameState, ticks: number): number => {
+    let s = state
+    let arrivals = 0
+    for (let i = 0; i < ticks; i += 1) {
+      const next = spawnWalkins(s, 100)
+      arrivals += next.clients.length - s.clients.length
+      s = { ...next, clients: [] }
+    }
+    return arrivals
+  }
+
+  const floorOf = (type: Machine['type'], count: number): GameState => ({
+    ...initialState(7, 0),
+    machines: Array.from({ length: count }, (_, i) => machine({ uid: `m${i}`, type })),
+  })
+
+  it('brings more people in the more machines there are', () => {
+    // Footfall used to be reputation alone, so a floor of thirty served the
+    // same trickle as a floor of one and the extra kit only ever shortened
+    // the queue. Same seed on both, so this is the same random stream.
+    expect(arrivalsOver(floorOf('bench', 12), 600))
+      .toBeGreaterThan(arrivalsOver(floorOf('bench', 1), 600))
+  })
+
+  it('brings more people in the better those machines are', () => {
+    expect(arrivalsOver(floorOf('apex-rig', 8), 600))
+      .toBeGreaterThan(arrivalsOver(floorOf('bench', 8), 600))
+  })
+})
+
+describe('queueLimit', () => {
+  it('is the base cap in the room the game opens with', () => {
+    expect(queueLimit(gym())).toBe(MAX_QUEUE)
+  })
+
+  it('grows with the floor space, so a big gym is not throttled at ten', () => {
+    expect(queueLimit({ ...gym(), expansion: 1 })).toBe(MAX_QUEUE + 2)
+    expect(queueLimit({ ...gym(), expansion: 3 })).toBe(MAX_QUEUE + 6)
+  })
+
+  it('clamps a nonsense rung rather than growing without bound', () => {
+    expect(queueLimit({ ...gym(), expansion: 99 })).toBe(MAX_QUEUE + 6)
+    expect(queueLimit({ ...gym(), expansion: -4 })).toBe(MAX_QUEUE)
   })
 })
 

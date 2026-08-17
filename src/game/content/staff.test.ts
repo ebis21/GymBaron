@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   STAFF_RANKS, STAFF_ROLES, wageFor, workMsFor, speedFor, hirePriceFor, roleUnlockLevel,
-  STAFF_LIMIT,
+  STAFF_PER_FLOOR, STAFF_PER_EXPANSION,
 } from './staff'
 import { STAFF_UNLOCK_LEVEL, TRAINER_UNLOCK_LEVEL } from '../constants'
 import { REFRESH_PRICE } from '../recruit'
@@ -123,7 +123,12 @@ describe('tables', () => {
     }
   })
 
-  it('caps the payroll at five', () => {
-    expect(STAFF_LIMIT).toBe(5)
+  // The cap itself is a function of floor space — see `staffLimit` in
+  // `../staff.ts`, which is where the rule and its tests live. What matters
+  // here is that one unexpanded storey still allows exactly the five the game
+  // shipped with, so an existing save opens on the payroll it went to bed on.
+  it('leaves a single starting floor with the five it always allowed', () => {
+    expect(STAFF_PER_FLOOR).toBe(5)
+    expect(STAFF_PER_EXPANSION).toBe(2)
   })
 })

@@ -1,5 +1,6 @@
 import type { GameState, StaffRole } from '../game/types'
-import { RANK_LABEL, wageFor, workMsFor, roleUnlockLevel, STAFF_LIMIT } from '../game/content/staff'
+import { RANK_LABEL, wageFor, workMsFor, roleUnlockLevel } from '../game/content/staff'
+import { freeDesks, staffLimit } from '../game/staff'
 import { REFRESH_PRICE, displayName } from '../game/recruit'
 import { TRAINER_FEE_MULT } from '../game/constants'
 import { useI18n, type I18n } from '../i18n'
@@ -26,8 +27,10 @@ function jobHint(role: StaffRole, ms: number, t: I18n['t']): string {
 
 export default function RecruitScreen({ state, onHire, onReroll, onBack }: Props) {
   const { t, money, language } = useI18n()
-  const full = state.staff.length >= STAFF_LIMIT
-  const hasDesk = state.decor.some(d => d.type === 'reception')
+  const full = state.staff.length >= staffLimit(state)
+  // A desk already claimed by somebody is not a vacancy: `pickJob` gives one
+  // counter to one receptionist, so hiring past that buys a wage and no scans.
+  const deskFree = freeDesks(state) > 0
 
   return (
     <div className="screen recruit">
@@ -41,7 +44,7 @@ export default function RecruitScreen({ state, onHire, onReroll, onBack }: Props
 
       <ul className="candidate-list">
         {state.candidates.map(c => {
-          const needsDesk = c.role === 'reception' && !hasDesk
+          const needsDesk = c.role === 'reception' && !deskFree
           const needsLevel = roleUnlockLevel(c.role)
           const locked = state.level < needsLevel
           const afford = state.cash >= c.price
