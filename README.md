@@ -65,6 +65,14 @@ npx cap open ios      # otwiera Xcode
 npx cap open android  # otwiera Android Studio
 ```
 
+Ikony i ekrany startowe generują się z jednego pliku,
+`public/assets/icon.svg` — nie edytuj PNG-ów ręcznie:
+
+```bash
+npm run icons      # ikony aplikacji (web, PWA, iOS, Android)
+npm run splash     # ekrany startowe obu platform
+```
+
 Do wydania na App Store potrzebny jest Xcode i konto Apple Developer,
 do Google Play — Android Studio i konto Google Play Console.
 Pełna checklista podpisywania, archiwizacji i publikacji jest w

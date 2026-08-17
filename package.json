@@ -13,6 +13,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "icons": "bash scripts/make-icons.sh",
+    "splash": "bash scripts/make-splash.sh",
     "typecheck": "tsc --noEmit",
     "mobile:sync": "npm run build && cap sync",
     "mobile:ios": "npm run build && cap sync ios",
