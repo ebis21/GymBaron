@@ -38,14 +38,14 @@ funkcji do tablicy `SYSTEMS`.
 ## Uruchomienie
 
 ```bash
-npm install
+npm ci
 npm run dev        # http://localhost:5173
 ```
 
 ## Weryfikacja
 
 ```bash
-npm test           # 62 testy silnika
+npm test           # pełny zestaw Vitest
 npm run typecheck  # tsc --noEmit
 npm run build      # produkcyjny build do dist/
 ```
@@ -56,15 +56,27 @@ Projekty natywne są w repozytorium — niosą blokadę orientacji pionowej,
 której `npx cap add` samo by nie odtworzyło.
 
 ```bash
-npm run build
-npx cap sync       # przenosi dist/ do obu projektów natywnych
+npm run mobile:sync     # build + synchronizacja obu projektów
+# albo osobno:
+npm run mobile:ios
+npm run mobile:android
 
 npx cap open ios      # otwiera Xcode
 npx cap open android  # otwiera Android Studio
 ```
 
+Ikony i ekrany startowe generują się z jednego pliku,
+`public/assets/icon.svg` — nie edytuj PNG-ów ręcznie:
+
+```bash
+npm run icons      # ikony aplikacji (web, PWA, iOS, Android)
+npm run splash     # ekrany startowe obu platform
+```
+
 Do wydania na App Store potrzebny jest Xcode i konto Apple Developer,
 do Google Play — Android Studio i konto Google Play Console.
+Pełna checklista podpisywania, archiwizacji i publikacji jest w
+[`docs/mobile-release.md`](docs/mobile-release.md).
 
 ## Grafika
 

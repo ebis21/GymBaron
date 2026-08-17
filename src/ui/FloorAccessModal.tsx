@@ -2,6 +2,7 @@ import { FLOOR_UNLOCK_COST } from '../game/constants'
 import { canSwitchFloor, floorName } from '../game/floors'
 import type { GameState } from '../game/types'
 import { useI18n } from '../i18n'
+import { useDialogFocus } from './useDialogFocus'
 
 interface Props {
   state: GameState
@@ -13,10 +14,13 @@ interface Props {
 export default function FloorAccessModal({ state, onBuy, onSwitch, onClose }: Props) {
   const { t, money } = useI18n()
   const unlocked = state.floorPlans.length > 1
+  const dialogRef = useDialogFocus<HTMLElement>(onClose)
 
   return (
     <div className="modal-backdrop" role="presentation" onPointerDown={onClose}>
       <section
+        ref={dialogRef}
+        tabIndex={-1}
         className="modal floor-access-modal"
         role="dialog"
         aria-modal="true"

@@ -1,4 +1,6 @@
 import { create } from 'zustand'
+import { Capacitor } from '@capacitor/core'
+import { App as NativeApp } from '@capacitor/app'
 import type { DecorTypeId, GameState, MachineTypeId } from '../game/types'
 import { initialState } from '../game/economy'
 import { machineType } from '../game/content/machines'
@@ -91,12 +93,17 @@ interface GameStore {
 let rafId: number | null = null
 let lastFrameAt = 0
 let sinceSaveMs = 0
-let visibilityBound = false
+let lifecycleBound = false
+let hydration: Promise<void> | null = null
+let appActive = typeof document === 'undefined' || !document.hidden
+let lifecycleGeneration = 0
+
+/** Control Centre and other brief interruptions still settle, but do not need
+ * a full welcome-back receipt when the player returns immediately. */
+const WELCOME_BACK_MIN_MS = 30_000
 
 export const useGameStore = create<GameStore>((set, get) => {
-  const persist = (state: GameState) => {
-    void saveRaw(SAVE_KEY, serialize({ ...state, lastSeenAt: Date.now() }))
-  }
+  const persist = (state: GameState): Promise<void> => saveRaw(SAVE_KEY, serialize(state))
 
   /** Money out of the till, recorded as spend. */
   const charge = (state: GameState, price: number): GameState => ({
@@ -113,7 +120,7 @@ export const useGameStore = create<GameStore>((set, get) => {
   const commit = (next: GameState) => {
     if (next === get().state) return
     set({ state: next })
-    persist(next)
+    void persist({ ...next, lastSeenAt: Date.now() })
   }
 
   const frame = (now: number) => {
@@ -134,14 +141,14 @@ export const useGameStore = create<GameStore>((set, get) => {
     // live for building, so the ordinary autosave carries on below.
     if (isClosingTime(next.dayMs) && !isClosingTime(current.dayMs)) {
       sinceSaveMs = 0
-      persist(next)
+      void persist({ ...next, lastSeenAt: Date.now() })
       return
     }
 
     sinceSaveMs += dtMs
     if (sinceSaveMs >= AUTOSAVE_MS) {
       sinceSaveMs = 0
-      persist(next)
+      void persist({ ...next, lastSeenAt: Date.now() })
     }
   }
 
@@ -152,10 +159,74 @@ export const useGameStore = create<GameStore>((set, get) => {
   }
 
   const stopLoop = () => {
-    if (rafId === null) return
-    cancelAnimationFrame(rafId)
+    if (rafId !== null) cancelAnimationFrame(rafId)
     rafId = null
-    persist(get().state)
+    lastFrameAt = 0
+
+    // StrictMode mounts, cleans up and mounts effects once more in development.
+    // More importantly, the OS can background the WebView while Preferences is
+    // still loading. Never let either path overwrite a real save with the
+    // temporary initial state shown behind the loading screen.
+    if (!get().ready) return
+
+    // Keep the departure timestamp in live state too. A native app is often
+    // resumed without reloading JavaScript, so serializing a stamped copy is
+    // not enough for the later offline settlement.
+    const state = { ...get().state, lastSeenAt: Date.now() }
+    set({ state })
+    void persist(state)
+  }
+
+  const resumeLoop = () => {
+    if (!get().ready) return
+
+    const now = Date.now()
+    const current = get().state
+    const settled = settleOffline(current, now)
+    const state = ensurePool(settled.state)
+    syncRoomSize(state)
+
+    set({
+      state,
+      welcomeBack:
+        settled.awayMs >= WELCOME_BACK_MIN_MS
+          ? { earned: settled.earned, awayMs: settled.awayMs }
+          : get().welcomeBack,
+    })
+    void persist(state)
+    startLoop()
+  }
+
+  const bindLifecycle = () => {
+    if (lifecycleBound) return
+    lifecycleBound = true
+
+    const applyAppState = (isActive: boolean) => {
+      lifecycleGeneration += 1
+      appActive = isActive
+      if (isActive) resumeLoop()
+      else stopLoop()
+    }
+
+    if (Capacitor.isNativePlatform()) {
+      const snapshotGeneration = lifecycleGeneration
+      void NativeApp.addListener('appStateChange', ({ isActive }) => {
+        applyAppState(isActive)
+      }).catch(() => undefined)
+      void NativeApp.getState()
+        .then(({ isActive }) => {
+          // An event delivered after getState was requested is newer than the
+          // snapshot. Never let that stale response restart a background app.
+          if (lifecycleGeneration === snapshotGeneration) applyAppState(isActive)
+        })
+        .catch(() => undefined)
+      return
+    }
+
+    appActive = !document.hidden
+    document.addEventListener('visibilitychange', () => {
+      applyAppState(!document.hidden)
+    })
   }
 
   return {
@@ -164,14 +235,20 @@ export const useGameStore = create<GameStore>((set, get) => {
     ready: false,
 
     start: () => {
+      bindLifecycle()
+
       if (get().ready) {
-        startLoop()
+        if (appActive) startLoop()
         return
       }
 
-      void (async () => {
-        const now = Date.now()
+      // React StrictMode can call start twice before the first Preferences.get
+      // resolves. One hydration owns the save and the offline settlement.
+      if (hydration) return
+
+      hydration = (async () => {
         const raw = await loadRaw(SAVE_KEY)
+        const now = Date.now()
         const loaded = raw ? deserialize(raw, now) : initialState(now, now)
         // Before a single engine call: an expanded gym must be restored at its
         // real size, or the first offline tick would route everyone around
@@ -184,20 +261,13 @@ export const useGameStore = create<GameStore>((set, get) => {
         set({
           state,
           ready: true,
-          welcomeBack: awayMs > 0 ? { earned, awayMs } : null,
+          welcomeBack: awayMs >= WELCOME_BACK_MIN_MS ? { earned, awayMs } : null,
         })
-        persist(state)
-        startLoop()
-      })()
-
-      // A backgrounded tab must not drain battery or bank frames.
-      if (!visibilityBound) {
-        visibilityBound = true
-        document.addEventListener('visibilitychange', () => {
-          if (document.hidden) stopLoop()
-          else if (get().ready) startLoop()
-        })
-      }
+        void persist(state)
+        if (appActive) startLoop()
+      })().finally(() => {
+        hydration = null
+      })
     },
 
     stop: stopLoop,
@@ -314,7 +384,7 @@ export const useGameStore = create<GameStore>((set, get) => {
         stats: { ...state.stats, totalSpent: state.stats.totalSpent + cost },
       }
       set({ state: next })
-      persist(next)
+      void persist({ ...next, lastSeenAt: Date.now() })
     },
 
     wipe: uid => {
@@ -375,7 +445,7 @@ export const useGameStore = create<GameStore>((set, get) => {
 
       sinceSaveMs = 0
       set({ state: next })
-      persist(next)
+      void persist({ ...next, lastSeenAt: Date.now() })
     },
 
     dismissWelcome: () => set({ welcomeBack: null }),
@@ -387,7 +457,7 @@ export const useGameStore = create<GameStore>((set, get) => {
       syncRoomSize(fresh)
       sinceSaveMs = 0
       set({ state: fresh, welcomeBack: null, ready: true })
-      persist(fresh)
+      void persist(fresh)
       startLoop()
     },
 

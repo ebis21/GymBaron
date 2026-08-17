@@ -24,7 +24,19 @@ export const en = {
   settings: {
     title: 'Settings',
     language: 'Language',
+    alerts: 'Floor alerts',
+    alertsOn: 'On',
+    alertsOff: 'Off',
+    alertsHint:
+      'Counts broken machines and mess under the topbar. Tap a count and an arrow leads you to the nearest one.',
+    privacy: 'Privacy policy',
+    privacyHint: 'What GYMBARON stores on this device and what the web version measures.',
     close: 'Close',
+  },
+
+  alerts: {
+    broken: (n: number) => `${n} ${n === 1 ? 'machine is' : 'machines are'} out of service`,
+    dirty: (n: number) => `${n} ${n === 1 ? 'mess' : 'messes'} on the floor`,
   },
 
   topbar: {

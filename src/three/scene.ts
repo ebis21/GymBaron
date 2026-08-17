@@ -82,6 +82,18 @@ const BASE_REACH = Math.hypot(HALL_W, HALL_D)
 export const FOLLOW_HEIGHT = 10.6
 export const FOLLOW_DEPTH = 11.5
 
+/**
+ * How much of a step across the floor survives on screen once the camera's
+ * pitch has flattened it. A pace towards the far wall covers barely two thirds
+ * the pixels the same pace sideways does, so anything drawing a floor
+ * direction as a screen direction — the HUD's guide arrow — has to squash the
+ * depth component by this or it points visibly wide of what it is aimed at.
+ *
+ * Derived from the pair above rather than measured, so the pitch and this stay
+ * in step by construction.
+ */
+export const FLOOR_SQUASH = FOLLOW_HEIGHT / Math.hypot(FOLLOW_HEIGHT, FOLLOW_DEPTH)
+
 const DEFAULT_UP = new THREE.Vector3(0, 1, 0)
 
 const sameFocus = (a: Focus, b: Focus): boolean => {
@@ -171,6 +183,7 @@ export class GymScene {
 
   private state: GameState | null = null
   private buildMode = false
+  private paused = false
   /** Client the player has stepped up to, or null for the usual chase camera. */
   private facing: string | null = null
   private selected: { kind: PlacedKind; uid: string } | null = null
@@ -587,6 +600,18 @@ export class GymScene {
     }
   }
 
+  /**
+   * Where the character is standing, in world units. Read by the HUD's guide
+   * arrow, which has to know what it is pointing away from — the scene owns
+   * the walk, so it is the only thing that can answer.
+   *
+   * A copy: handing out the live vector would let a caller walk the player
+   * through a wall by assigning to it.
+   */
+  playerAt(): { x: number; z: number } {
+    return { x: this.playerPos.x, z: this.playerPos.z }
+  }
+
   /** True while the player is stood at the reception desk. */
   private atReception(state: GameState): boolean {
     const desk = state.decor.find(d => d.type === 'reception')
@@ -606,6 +631,7 @@ export class GymScene {
   setBuildMode(on: boolean): void {
     if (on === this.buildMode) return
     this.buildMode = on
+    this.controls.setEnabled(!on && !this.paused)
     this.gridOverlay.visible = on
 
     // From that height the room would be lost inside the haze.
@@ -783,6 +809,11 @@ export class GymScene {
       return
     }
 
+    if (this.paused || this.buildMode) {
+      animate(this.player, this.elapsed, false)
+      return
+    }
+
     const dir = this.controls.vector()
     const moving = dir.x !== 0 || dir.z !== 0
 
@@ -832,6 +863,12 @@ export class GymScene {
    */
   setFacing(clientUid: string | null): void {
     this.facing = clientUid
+  }
+
+  /** Modal and panel chrome owns input while it covers the room. */
+  setPaused(on: boolean): void {
+    this.paused = on
+    this.controls.setEnabled(!on && !this.buildMode)
   }
 
   private facingRig(): Rig | null {
@@ -943,7 +980,7 @@ export class GymScene {
     const state = this.state
     let next: Focus = null
 
-    if (state && !this.buildMode) {
+    if (state && !this.buildMode && !this.paused) {
       let best = REACH
 
       for (const client of state.clients) {
@@ -1042,7 +1079,8 @@ export class GymScene {
   // --- lifecycle ------------------------------------------------------------
 
   setStick(x: number, z: number): void {
-    this.controls.setStick(x, z)
+    if (this.paused || this.buildMode) this.controls.reset()
+    else this.controls.setStick(x, z)
   }
 
   resize(): void {

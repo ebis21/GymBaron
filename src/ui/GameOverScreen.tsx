@@ -1,5 +1,6 @@
 import type { GameState } from '../game/types'
 import { useI18n } from '../i18n'
+import { useDialogFocus } from './useDialogFocus'
 
 interface Props {
   state: GameState
@@ -8,11 +9,12 @@ interface Props {
 
 export default function GameOverScreen({ state, onRestart }: Props) {
   const { t, money } = useI18n()
+  const dialogRef = useDialogFocus<HTMLDivElement>()
 
   return (
-    <div className="overlay">
-      <div className="modal">
-        <h2>{t.gameOver.title}</h2>
+    <div className="overlay" role="presentation">
+      <div ref={dialogRef} tabIndex={-1} className="modal" role="dialog" aria-modal="true" aria-labelledby="game-over-title">
+        <h2 id="game-over-title">{t.gameOver.title}</h2>
         <p>{t.gameOver.copy}</p>
 
         <div className="stat-grid">

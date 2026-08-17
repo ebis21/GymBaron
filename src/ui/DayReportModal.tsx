@@ -1,6 +1,7 @@
 import type { DayReport } from '../game/types'
 import { daysToPayday } from '../game/members'
 import { useI18n } from '../i18n'
+import { useDialogFocus } from './useDialogFocus'
 
 interface Props {
   report: DayReport
@@ -36,13 +37,14 @@ export default function DayReportModal({ report, onNextDay }: Props) {
   // Only meaningful on a receipt that had no collection: on payday itself this
   // reads zero, and the block above is already showing the money.
   const untilPayday = daysToPayday(report.day)
+  const dialogRef = useDialogFocus<HTMLDivElement>()
 
   return (
-    <div className="modal-backdrop">
-      <div className="modal receipt">
+    <div className="modal-backdrop" role="presentation">
+      <div ref={dialogRef} tabIndex={-1} className="modal receipt" role="dialog" aria-modal="true" aria-labelledby="report-title">
         <header className="receipt-head">
           <span className="receipt-time">{t.report.closingTime}</span>
-          <h2>{t.report.title(report.day)}</h2>
+          <h2 id="report-title">{t.report.title(report.day)}</h2>
         </header>
 
         <section className="receipt-block">

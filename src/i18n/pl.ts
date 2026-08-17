@@ -15,7 +15,33 @@ export const pl: Strings = {
   settings: {
     title: 'Ustawienia',
     language: 'Język',
+    alerts: 'Alerty na sali',
+    alertsOn: 'Włączone',
+    alertsOff: 'Wyłączone',
+    alertsHint:
+      'Liczy zepsute maszyny i brud pod górnym paskiem. Dotknij licznika, a strzałka poprowadzi cię do najbliższego.',
+    privacy: 'Polityka prywatności',
+    privacyHint: 'Co GYMBARON zapisuje na tym urządzeniu i co mierzy wersja webowa.',
     close: 'Zamknij',
+  },
+
+  alerts: {
+    // 2–4 to „maszyny", 5+ (i 12–14) to „maszyn" — polska liczba mnoga ma trzy
+    // formy, a licznik dochodzi tu do kilkunastu, więc skrót na dwóch nie starczy.
+    broken: n => {
+      const ones = n % 10
+      const tens = n % 100
+      if (n === 1) return '1 maszyna nieczynna'
+      if (ones >= 2 && ones <= 4 && (tens < 12 || tens > 14)) return `${n} maszyny nieczynne`
+      return `${n} maszyn nieczynnych`
+    },
+    dirty: n => {
+      const ones = n % 10
+      const tens = n % 100
+      if (n === 1) return '1 plama na podłodze'
+      if (ones >= 2 && ones <= 4 && (tens < 12 || tens > 14)) return `${n} plamy na podłodze`
+      return `${n} plam na podłodze`
+    },
   },
 
   topbar: {

@@ -4,18 +4,26 @@
   "description": "GYMBARON - gym management simulator",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
     "icons": "bash scripts/make-icons.sh",
-    "typecheck": "tsc --noEmit"
+    "splash": "bash scripts/make-splash.sh",
+    "typecheck": "tsc --noEmit",
+    "mobile:sync": "npm run build && cap sync",
+    "mobile:ios": "npm run build && cap sync ios",
+    "mobile:android": "npm run build && cap sync android"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@capacitor/app": "^8.1.1",
     "@capacitor/core": "^8.5.0",
     "@capacitor/preferences": "^8.0.1",
     "@types/three": "^0.185.3",
