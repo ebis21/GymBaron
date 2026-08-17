@@ -3,7 +3,8 @@ import { machineType } from './content/machines'
 import { isClosingTime } from './clock'
 import { rollRarity } from './content/rarity'
 import { nextRandom } from './rng'
-import { addXp, entryFee } from './economy'
+import { addXp, entryFee, equipmentDraw } from './economy'
+import { clampExpansion } from './content/expansion'
 import { addMember, signupChance } from './members'
 import {
   DAY_MS,
@@ -26,6 +27,9 @@ import { spawnRateMultiplier } from './marketing'
  */
 const SPAWN_BASE = 0.144
 const SPAWN_PER_REP = 0.24
+
+/** Extra places in the door queue for every expansion rung — see `queueLimit`. */
+const QUEUE_PER_EXPANSION = 2
 
 /** Times an average member turns up over a full 8:00–20:00 day. */
 const MEMBER_VISITS_PER_DAY = 1.6
@@ -71,13 +75,54 @@ export function freeTrainers(state: GameState): Staff[] {
   return state.staff.filter(s => s.role === 'trainer' && isTrainerFree(state, s.uid))
 }
 
+/**
+ * How long a queue the room itself will hold before newcomers stop bothering.
+ *
+ * It scales with the floor because the cap is the one thing standing between a
+ * well-equipped gym and the crowd `equipmentDraw` now sends it: leave it at a
+ * flat ten and a floor of Apex kit spends the whole day with a full queue,
+ * which turns every extra machine back into nothing. Two more places per
+ * expansion rung is roughly what the extra floor space could hold anyway.
+ *
+ * Read off the active floor's own rung rather than the whole building's: the
+ * queue is a physical thing standing in one room.
+ */
+export function queueLimit(state: GameState): number {
+  return MAX_QUEUE + QUEUE_PER_EXPANSION * clampExpansion(state.expansion)
+}
+
+/**
+ * Nobody joins a queue longer than the gym can plausibly clear. People can see
+ * through the door: a hall with two free machines and a dozen people waiting
+ * does not attract a thirteenth.
+ *
+ * This is what keeps the new footfall honest. Without it, a floor of top-end
+ * kit pulls in far more people than its machines can seat, the overflow times
+ * out at the desk, and every walkout costs a flat `REP_LOSS_ON_WALKOUT` while
+ * a finished workout at high reputation pays back almost nothing — so a
+ * *successful* gym would grind its own reputation to zero and stay there. The
+ * queue has to be bounded by capacity, not just by floor space, or growth
+ * punishes itself.
+ *
+ * The overhang is what makes a queue worth having at all: a few people waiting
+ * on a machine that is about to free up is the busy gym the player is building
+ * toward, and it leaves walkouts as something bad play causes rather than
+ * something arithmetic guarantees.
+ */
+const QUEUE_OVERHANG = 3
+
 /** True when the gym can take one more person through the door right now. */
 function acceptingArrivals(state: GameState): boolean {
   // Past 20:00 the door is shut. Whoever is already inside still finishes.
   if (isClosingTime(state.dayMs)) return false
-  if (!state.machines.some(isUsable)) return false
+
+  // Machines already promised to somebody walking over are not free: `scanClient`
+  // sets `occupiedBy` at the desk, so this counts seats, not hardware.
+  const free = state.machines.filter(isUsable).length
+  if (free === 0) return false
+
   const waiting = state.clients.filter(c => c.phase === 'queue' || c.phase === 'arriving').length
-  return waiting < MAX_QUEUE
+  return waiting < Math.min(queueLimit(state), free + QUEUE_OVERHANG)
 }
 
 function enqueue(state: GameState, kind: ClientKind, memberUid: string | null): GameState {
@@ -138,19 +183,36 @@ export function spawnLilD(state: GameState, dtMs: number): GameState {
 }
 
 /**
+ * How often the door opens, per second.
+ *
+ * Three separate reasons somebody walks in, and they multiply rather than add:
+ * reputation is what the gym earned, the kit on the floor is what it bought,
+ * and advertising is what it rents. A campaign is therefore worth more to a
+ * place people already like and that has the machines to put them on — which
+ * is the shape the marketing design wants, and the reason a thirty-machine
+ * floor is no longer serving the same trickle as a six.
+ *
+ * Exported so the marketing screen can project what an offer would actually
+ * bring in without restating the formula. `multiplier` defaults to whatever is
+ * live; pass a hypothetical one to price a campaign the player has not bought.
+ */
+export function arrivalsPerSecond(
+  state: GameState,
+  multiplier: number = spawnRateMultiplier(state),
+): number {
+  return (SPAWN_BASE + (clamp(state.reputation, 0, 100) / 100) * SPAWN_PER_REP)
+    * equipmentDraw(state)
+    * multiplier
+}
+
+/**
  * Passers-by only turn up when there is a working, unoccupied machine — an
  * empty gym attracts nobody, which is what makes the first purchase matter.
  */
 export function spawnWalkins(state: GameState, dtMs: number): GameState {
   if (!acceptingArrivals(state)) return state
 
-  // Reputation is what the gym earned; advertising is what it paid for. They
-  // multiply rather than add, so a campaign is worth more to a place people
-  // already like — which is the shape the marketing design wants.
-  const perSecond =
-    (SPAWN_BASE + (clamp(state.reputation, 0, 100) / 100) * SPAWN_PER_REP) *
-    spawnRateMultiplier(state)
-  const chance = perSecond * (dtMs / 1000)
+  const chance = arrivalsPerSecond(state) * (dtMs / 1000)
 
   const [roll, seed] = nextRandom(state.seed)
   const next = { ...state, seed }

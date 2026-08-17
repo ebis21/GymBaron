@@ -124,7 +124,14 @@ export const en = {
     equipmentHint:
       'The multiplier raises the door fee on that machine, and whatever it carries above 1.0 feeds the gym class — which is the price of every pass. Anything you buy goes to your inventory.',
     furniture: 'Furniture',
-    furnitureHint: 'None of it earns anything and it all takes a tile — you buy it for the look.',
+    furnitureHint: 'Apart from the desk none of it earns anything and it all takes a tile — you buy it for the look.',
+    deskSection: 'Reception',
+    deskHint:
+      'Every desk is one post: one receptionist per desk, and all of them scan the same queue. This is the most common ceiling on a gym — add a desk, hire somebody for it, and you get through more people a day.',
+    deskCount: (desks: number, staff: number) =>
+      `You have ${desks} desk${desks === 1 ? '' : 's'} and ${staff} receptionist${staff === 1 ? '' : 's'}.`,
+    deskIdle: (n: number) => `${n} desk${n === 1 ? '' : 's'} standing empty — hire somebody for ${n === 1 ? 'it' : 'them'}.`,
+    deskShortStaff: 'Every desk is staffed — add another to hire more.',
     partitions: 'Partitions',
     partitionsHint:
       'They stand on tile edges, so they cost no equipment space. In build mode take one from your inventory and click a tile edge. Clicking a partition selects it — then you can move it or put it back.',
@@ -226,7 +233,7 @@ export const en = {
     perDay: (amount: string) => `${amount} / day`,
     tooPoor: (amount: string) => `Not enough cash — ${amount} short`,
     fromLevel: (level: number) => `From level ${level}`,
-    needsDesk: 'No front desk',
+    needsDesk: 'No free desk',
     full: 'Full house',
     hire: (price: string) => `Hire for ${price}`,
     footer:

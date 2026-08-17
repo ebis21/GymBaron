@@ -7,6 +7,8 @@ describe('the campaign table', () => {
       'flyers',
       'social',
       'billboards',
+      'influencer',
+      'tv',
     ])
     expect(new Set(CAMPAIGNS.map(campaign => campaign.id)).size).toBe(CAMPAIGNS.length)
   })

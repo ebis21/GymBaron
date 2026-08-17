@@ -1,6 +1,6 @@
 import type { GameState, Staff } from '../game/types'
-import { RANK_LABEL, wageFor, STAFF_LIMIT } from '../game/content/staff'
-import { isTrainerFree } from '../game/staff'
+import { RANK_LABEL, wageFor } from '../game/content/staff'
+import { isTrainerFree, staffLimit } from '../game/staff'
 import { displayName } from '../game/recruit'
 import { useI18n, type I18n } from '../i18n'
 
@@ -28,12 +28,14 @@ function activity(state: GameState, s: Staff, t: I18n['t']): string | null {
 export default function StaffPanel({ state, onFire, onSettle, onOpenRecruit }: Props) {
   const { t, money, language } = useI18n()
   const arrears = state.staff.reduce((sum, s) => sum + s.owed, 0)
+  const limit = staffLimit(state)
+  const full = state.staff.length >= limit
 
   return (
     <div className="screen staff-panel">
       <header className="screen-head">
         <h2>{t.staff.title}</h2>
-        <span className="muted">{state.staff.length} / {STAFF_LIMIT}</span>
+        <span className="muted">{state.staff.length} / {limit}</span>
       </header>
 
       {arrears > 0 && <p className="warn">{t.staff.arrears(money(arrears))}</p>}
@@ -82,9 +84,9 @@ export default function StaffPanel({ state, onFire, onSettle, onOpenRecruit }: P
       <button
         className="btn primary block"
         onClick={onOpenRecruit}
-        disabled={state.staff.length >= STAFF_LIMIT}
+        disabled={full}
       >
-        {state.staff.length >= STAFF_LIMIT ? t.staff.full : t.staff.recruit}
+        {full ? t.staff.full : t.staff.recruit}
       </button>
     </div>
   )

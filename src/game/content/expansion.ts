@@ -36,7 +36,15 @@ export const EXPANSIONS: Expansion[] = [
 /** Highest rung there is. Past it the shop has nothing left to sell. */
 export const MAX_EXPANSION = EXPANSIONS.length - 1
 
-const clampLevel = (level: number) => Math.max(0, Math.min(MAX_EXPANSION, Math.floor(level) || 0))
+/**
+ * A stored rung, made safe to index and to do arithmetic with. Exported
+ * because the staff cap and the queue cap are both counted *per rung* now, and
+ * a hand-edited `expansion: 99` must not hand either of them a wild number.
+ */
+export const clampExpansion = (level: number) =>
+  Math.max(0, Math.min(MAX_EXPANSION, Math.floor(level) || 0))
+
+const clampLevel = clampExpansion
 
 /**
  * The room at a given rung. Tolerates rubbish — a save hand-edited to

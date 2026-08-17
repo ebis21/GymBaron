@@ -100,10 +100,30 @@ export function initialState(seed: number, now: number): GameState {
  * paid for more machines the whole economy compounded on itself. Membership
  * income outran rent, power and wages by an order of magnitude within a week.
  *
- * Eight puts the ceiling at ×9 and, more to the point, makes the curve flat
- * where it used to be steepest.
+ * Six puts the ceiling at ×7 and, more to the point, makes the curve flat
+ * where it used to be steepest. It came down from eight when `equipmentDraw`
+ * arrived: a big floor now earns by pulling a bigger crowd through the door,
+ * so letting it *also* keep charging every pass holder more would be paying
+ * the player twice for the same thirty machines.
  */
-const GYM_CLASS_CEILING = 8
+const GYM_CLASS_CEILING = 6
+
+/**
+ * What the kit on the floor is worth above bare boards, summed across every
+ * storey. Shared by `gymClass` and `equipmentDraw` because both answer a
+ * question about the same thing — how good the gym is — and reading it twice
+ * from one place is what keeps them from drifting apart.
+ *
+ * Machines bought through a supplier contract count exactly like the starting
+ * six. `machineType` resolves both from one table, so a floor of Apex kit is
+ * simply a floor with a very high total.
+ */
+function equipmentWorth(state: GameState): number {
+  return machinesAcrossFloors(state).reduce(
+    (acc, m) => acc + (machineType(m.type).revenueMultiplier - 1),
+    0,
+  )
+}
 
 /**
  * Every machine contributes what it is worth above bare floor, on a curve with
@@ -113,14 +133,43 @@ const GYM_CLASS_CEILING = 8
  * from a purchase.
  */
 export function gymClass(state: GameState): number {
-  const raw = machinesAcrossFloors(state).reduce(
-    (acc, m) => acc + (machineType(m.type).revenueMultiplier - 1),
-    0,
-  )
   // Saturating rather than a straight sum. Still monotonic — a purchase can
   // never lower the class — but the twentieth machine adds a fraction of what
   // the second did, so the class settles instead of climbing forever.
+  const raw = equipmentWorth(state)
   return 1 + (raw * GYM_CLASS_CEILING) / (raw + GYM_CLASS_CEILING)
+}
+
+/**
+ * How much more the ceiling of a fully kitted gym pulls in than an empty one,
+ * and how much equipment it takes to get halfway there.
+ *
+ * These two numbers are the whole answer to the complaint that thirty top-end
+ * machines earned barely more than six cheap ones. Footfall used to be a
+ * function of reputation alone, so the only thing a bigger, better floor
+ * bought was a shorter queue — the kit had nowhere to send its takings.
+ *
+ * `DRAW_HALF` is set well above what a starting hall can hold so the curve is
+ * still climbing through the whole mid-game, and `DRAW_CEILING` deliberately
+ * stops at +1.6. Advertising multiplies on top of this, and the two together
+ * have to leave a mega-gym's queue servable: past roughly ×2.5 the door
+ * outruns what any payroll can scan and the surplus turns into walkouts.
+ */
+const DRAW_CEILING = 1.6
+const DRAW_HALF = 9
+
+/**
+ * How much the kit on the floor multiplies walk-in arrivals: 1 in an empty
+ * hall, rising toward `1 + DRAW_CEILING` as the gym fills with better
+ * equipment. A reputation for a well-equipped gym is what actually brings
+ * people in — reputation still sets the base rate, this scales it.
+ *
+ * Same saturating shape as `gymClass`, on the same underlying total, so it is
+ * monotonic for the same reason: buying a machine can never thin the crowd.
+ */
+export function equipmentDraw(state: GameState): number {
+  const raw = equipmentWorth(state)
+  return 1 + (raw * DRAW_CEILING) / (raw + DRAW_HALF)
 }
 
 /**

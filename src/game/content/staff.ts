@@ -4,8 +4,18 @@ import { STAFF_UNLOCK_LEVEL, TRAINER_UNLOCK_LEVEL } from '../constants'
 export const STAFF_ROLES: StaffRole[] = ['reception', 'cleaner', 'repair', 'trainer']
 export const STAFF_RANKS: StaffRank[] = ['rare', 'epic', 'legend']
 
-/** Most the player may have on the payroll at once. */
-export const STAFF_LIMIT = 5
+/**
+ * The payroll cap is a function of floor space, not a flat number — see
+ * `staffLimit` in `../staff.ts` for the rule these two feed.
+ *
+ * A storey is worth five on its own, which is exactly what the whole gym used
+ * to allow, so a one-room save at the starting rung keeps the cap it had. Every
+ * expansion rung adds two more: a bigger hall has more to mop, more kit to keep
+ * running and a longer queue to work through, and the old flat five meant none
+ * of that could ever be staffed for.
+ */
+export const STAFF_PER_FLOOR = 5
+export const STAFF_PER_EXPANSION = 2
 
 // Job titles live in `src/i18n` under `content.roles` — the panel and the tag
 // over the employee's head print the same word, and both follow the language.

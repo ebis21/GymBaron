@@ -28,9 +28,18 @@ export interface MarketingStrings {
   schedule: (days: number, price: string) => string
   start: string
   running: string
-  oneAtTime: string
+  alreadyRunning: string
   closed: string
   short: (amount: string) => string
+  /** Combined daily fee of every campaign live at once. */
+  totalBilling: (price: string) => string
+  /** What the gym can actually get through in a day, desks and kit together. */
+  capacityTitle: string
+  capacity: (servable: number) => string
+  /** Shown per offer: what it would bring in, against what can be served. */
+  projected: (arrivals: number) => string
+  shortReception: (arrivals: number, servable: number) => string
+  shortMachines: (arrivals: number, servable: number) => string
   campaigns: Record<CampaignId, CampaignCopy>
 }
 
@@ -38,7 +47,7 @@ export const marketingEn: MarketingStrings = {
   title: 'Advertising',
   reportLine: 'Advertising',
   hint:
-    'Run one campaign at a time. It starts now, lasts through the listed closing days, and the daily fee lands on each receipt.',
+    'Campaigns stack — their multipliers multiply. Each starts now, lasts through the listed closing days, and adds its daily fee to every receipt.',
   activeTitle: 'Live campaign',
   remainingClosings: count => `${count} closing${count === 1 ? '' : 's'} left`,
   trafficTitle: 'Walk-in traffic',
@@ -47,9 +56,17 @@ export const marketingEn: MarketingStrings = {
   schedule: (days, price) => `${days} days · ${price} / day`,
   start: 'Start',
   running: 'Live',
-  oneAtTime: 'Another campaign is already live.',
+  alreadyRunning: 'Already live.',
   closed: 'The doors are closed. Start one tomorrow.',
   short: amount => `${amount} short for the first bill.`,
+  totalBilling: price => `${price} in total at every close`,
+  capacityTitle: 'What you can serve',
+  capacity: servable => `About ${servable} workouts a day, desks and kit together.`,
+  projected: arrivals => `Would bring in about ${arrivals} a day.`,
+  shortReception: (arrivals, servable) =>
+    `About ${arrivals} a day against a reception that can scan about ${servable}. Add a desk and a receptionist first, or the rest walk out of the door.`,
+  shortMachines: (arrivals, servable) =>
+    `About ${arrivals} a day against kit that seats about ${servable}. Buy more machines first, or the rest walk out of the door.`,
   campaigns: {
     flyers: {
       name: 'Neighbourhood flyers',
@@ -63,6 +80,14 @@ export const marketingEn: MarketingStrings = {
       name: 'City billboards',
       blurb: 'Expensive reach that pays only when a strong reputation backs it up.',
     },
+    influencer: {
+      name: 'Influencer partnership',
+      blurb: 'A known name trains here on camera. Fills a big floor that a billboard cannot.',
+    },
+    tv: {
+      name: 'Television spot',
+      blurb: 'The whole city hears about it. Only worth it with the kit and the desk to cope.',
+    },
   },
 }
 
@@ -70,8 +95,8 @@ export const marketingPl: MarketingStrings = {
   title: 'Reklama',
   reportLine: 'Reklama',
   hint:
-    'Prowadź jedną kampanię naraz. Startuje od razu, trwa przez podaną liczbę zamknięć, a opłata dzienna trafia na każdy paragon.',
-  activeTitle: 'Aktywna kampania',
+    'Kampanie można łączyć — ich mnożniki się mnożą. Każda startuje od razu, trwa przez podaną liczbę zamknięć i dokłada swoją opłatę do każdego paragonu.',
+  activeTitle: 'Aktywne kampanie',
   remainingClosings: count => `Pozostałe zamknięcia: ${count}`,
   trafficTitle: 'Ruch z ulicy',
   effect: multiplier => `${multiplier.toFixed(2).replace('.', ',').replace(/0$/, '')}× wejść`,
@@ -79,9 +104,17 @@ export const marketingPl: MarketingStrings = {
   schedule: (days, price) => `${days} dni · ${price} / dzień`,
   start: 'Uruchom',
   running: 'Trwa',
-  oneAtTime: 'Inna kampania już trwa.',
+  alreadyRunning: 'Już trwa.',
   closed: 'Drzwi są już zamknięte. Wróć jutro.',
   short: amount => `Do pierwszej opłaty brakuje ${amount}.`,
+  totalBilling: price => `${price} łącznie przy każdym zamknięciu`,
+  capacityTitle: 'Ile obsłużysz',
+  capacity: servable => `Około ${servable} treningów dziennie — biurka i sprzęt razem.`,
+  projected: arrivals => `Ściągnie około ${arrivals} osób dziennie.`,
+  shortReception: (arrivals, servable) =>
+    `Około ${arrivals} osób dziennie, a recepcja zeskanuje około ${servable}. Dostaw biurko i zatrudnij recepcjonistę, bo reszta odejdzie od drzwi.`,
+  shortMachines: (arrivals, servable) =>
+    `Około ${arrivals} osób dziennie, a sprzęt obsłuży około ${servable}. Dokup maszyny, bo reszta odejdzie od drzwi.`,
   campaigns: {
     flyers: {
       name: 'Ulotki na osiedlu',
@@ -94,6 +127,14 @@ export const marketingPl: MarketingStrings = {
     billboards: {
       name: 'Billboardy w mieście',
       blurb: 'Drogi zasięg, który zwraca się dopiero przy mocnej reputacji.',
+    },
+    influencer: {
+      name: 'Współpraca z influencerem',
+      blurb: 'Znane nazwisko trenuje u ciebie na wizji. Zapełni dużą salę, na co billboard już nie starcza.',
+    },
+    tv: {
+      name: 'Spot telewizyjny',
+      blurb: 'Usłyszy o tobie całe miasto. Opłaca się tylko przy sprzęcie i recepcji, które to udźwigną.',
     },
   },
 }

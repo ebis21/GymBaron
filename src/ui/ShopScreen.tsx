@@ -1,7 +1,8 @@
 import type { DecorTypeId, GameState, MachineTypeId } from '../game/types'
 import { machineType } from '../game/content/machines'
 import { availableMachines } from '../game/contracts'
-import { DECOR_TYPES, WALL_PRICE } from '../game/content/decor'
+import { DECOR_TYPES, decorType, WALL_PRICE } from '../game/content/decor'
+import { freeDesks, staffedDesks } from '../game/staff'
 import { ENTRY_FEE_BASE } from '../game/constants'
 import { expansionAt, nextExpansion } from '../game/content/expansion'
 import { assetFor } from '../assets/assetFor'
@@ -88,12 +89,52 @@ export default function ShopScreen({
       </div>
 
       <h2 className="section-title" style={{ marginTop: 20 }}>
+        {t.shop.deskSection}
+      </h2>
+      <p className="hint">{t.shop.deskHint}</p>
+
+      <div className="shop-list">
+        {(() => {
+          // Pulled out of the furniture list on purpose. A desk is the one
+          // thing on that list that decides how many people a day the gym can
+          // get through, and burying it under "you buy it for the look" is why
+          // a player would never think to own a second one.
+          const desk = decorType('reception')
+          const reason = shortfall(desk.price)
+          const desks = staffedDesks(state).length
+          const crew = state.staff.filter(s => s.role === 'reception').length
+          const idle = freeDesks(state)
+
+          return (
+            <div className={`shop-row${reason ? ' locked' : ''}`}>
+              <div className="inv-glyph">{t.content.decor.reception.charAt(0)}</div>
+              <div className="shop-info">
+                <div className="shop-name">{t.content.decor.reception}</div>
+                <div className="shop-meta">{t.shop.deskCount(desks, crew)}</div>
+                <div className="shop-meta">
+                  {idle > 0 ? t.shop.deskIdle(idle) : t.shop.deskShortStaff}
+                </div>
+                {reason && <div className="shop-reason">{reason}</div>}
+              </div>
+              <button
+                className="btn"
+                disabled={reason !== null}
+                onClick={() => onBuyDecor('reception')}
+              >
+                {money(desk.price)}
+              </button>
+            </div>
+          )
+        })()}
+      </div>
+
+      <h2 className="section-title" style={{ marginTop: 20 }}>
         {t.shop.furniture}
       </h2>
       <p className="hint">{t.shop.furnitureHint}</p>
 
       <div className="shop-list">
-        {DECOR_TYPES.map(d => {
+        {DECOR_TYPES.filter(d => d.id !== 'reception').map(d => {
           const reason = shortfall(d.price)
           const name = t.content.decor[d.id]
           return (
