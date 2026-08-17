@@ -1,6 +1,7 @@
 import type { InventoryItem } from '../game/types'
 import { assetFor } from '../assets/assetFor'
 import { useI18n, type I18n } from '../i18n'
+import { useDialogFocus } from './useDialogFocus'
 
 interface Props {
   items: InventoryItem[]
@@ -40,12 +41,21 @@ function Thumb({ item, t }: { item: InventoryItem; t: I18n['t'] }) {
  */
 export default function InventoryPanel({ items, hint, onChoose, onClose }: Props) {
   const { t } = useI18n()
+  const dialogRef = useDialogFocus<HTMLDivElement>(onClose)
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal inventory" onClick={e => e.stopPropagation()}>
+    <div className="modal-backdrop" role="presentation" onClick={onClose}>
+      <div
+        ref={dialogRef}
+        tabIndex={-1}
+        className="modal inventory"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="inventory-title"
+        onClick={e => e.stopPropagation()}
+      >
         <header className="inv-head">
-          <h2>{t.inventory.title}</h2>
+          <h2 id="inventory-title">{t.inventory.title}</h2>
           <button className="btn ghost tiny" onClick={onClose}>
             {t.inventory.close}
           </button>

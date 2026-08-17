@@ -56,21 +56,31 @@ export default function GymScene3D({
   const sceneRef = useRef<GymScene | null>(null)
   const stickRef = useRef<HTMLDivElement>(null)
   const knobRef = useRef<HTMLDivElement>(null)
+  const stickPointerRef = useRef<number | null>(null)
   const guideRef = useRef<HTMLDivElement>(null)
 
   // Read through a ref inside the loop so the effect never needs to re-run.
-  const latest = useRef({ state, buildMode, guide, onPick, onFocus, onFloorAccess })
-  latest.current = { state, buildMode, guide, onPick, onFocus, onFloorAccess }
+  const latest = useRef({ state, buildMode, paused, guide, onPick, onFocus, onFloorAccess })
+  latest.current = { state, buildMode, paused, guide, onPick, onFocus, onFloorAccess }
 
   // Mode, selection, and preview are cheap setters, pushed on every render.
   useEffect(() => {
     sceneRef.current?.setBuildMode(buildMode)
   }, [buildMode])
 
+  useEffect(() => {
+    sceneRef.current?.setPaused(paused)
+  }, [paused])
+
   // The stick is about to disappear from under the player's thumb; leaving its
   // last value behind would walk the character off on its own.
   useEffect(() => {
     if (!buildMode && !facing && !paused) return
+    const pointer = stickPointerRef.current
+    if (pointer !== null && stickRef.current?.hasPointerCapture(pointer)) {
+      stickRef.current.releasePointerCapture(pointer)
+    }
+    stickPointerRef.current = null
     sceneRef.current?.setStick(0, 0)
     if (knobRef.current) knobRef.current.style.transform = 'translate(0px, 0px)'
   }, [buildMode, facing, paused])
@@ -99,6 +109,11 @@ export default function GymScene3D({
 
     const scene = new GymScene(canvas, focus => latest.current.onFocus(focus))
     sceneRef.current = scene
+    scene.setBuildMode(buildMode)
+    scene.setPaused(paused)
+    scene.setSelection(selected)
+    scene.setPreview(preview)
+    scene.setFacing(facing)
 
     let raf = 0
     let last = 0
@@ -120,7 +135,7 @@ export default function GymScene3D({
       // Build mode looks straight down from somewhere else entirely: the
       // screen directions this arrow is drawn in do not survive that camera.
       const target =
-        kind && !latest.current.buildMode
+        kind && !latest.current.buildMode && !latest.current.paused
           ? nearestAlert(gymAlerts(latest.current.state), kind, live.playerAt())
           : null
 
@@ -142,6 +157,11 @@ export default function GymScene3D({
 
     const frame = (now: number) => {
       raf = requestAnimationFrame(frame)
+
+      // A full-screen panel or modal leaves the room as scenery. Four frames
+      // per second keep translucent sheets feeling alive without burning the
+      // battery on a Three.js scene the player cannot interact with.
+      if (latest.current.paused && last !== 0 && now - last < 250) return
       const dt = last === 0 ? 16 : now - last
       last = now
 
@@ -159,16 +179,20 @@ export default function GymScene3D({
 
     // A drag is the camera or a stray swipe, not a placement, so only a click
     // that barely moved counts as pointing at a tile.
-    let downAt: { x: number; y: number } | null = null
+    let downAt: { pointerId: number; x: number; y: number } | null = null
 
     const onPointerDown = (e: PointerEvent) => {
-      downAt = { x: e.clientX, y: e.clientY }
+      if (latest.current.paused) return
+      if (downAt) return
+      downAt = { pointerId: e.pointerId, x: e.clientX, y: e.clientY }
+      canvas.setPointerCapture(e.pointerId)
     }
 
     const onPointerUp = (e: PointerEvent) => {
       const start = downAt
+      if (!start || start.pointerId !== e.pointerId) return
       downAt = null
-      if (!start) return
+      if (latest.current.paused) return
       if (Math.hypot(e.clientX - start.x, e.clientY - start.y) > 8) return
 
       if (latest.current.buildMode) {
@@ -178,8 +202,14 @@ export default function GymScene3D({
       }
     }
 
+    const onPointerCancel = (e: PointerEvent) => {
+      if (downAt?.pointerId === e.pointerId) downAt = null
+    }
+
     canvas.addEventListener('pointerdown', onPointerDown)
     canvas.addEventListener('pointerup', onPointerUp)
+    canvas.addEventListener('pointercancel', onPointerCancel)
+    canvas.addEventListener('lostpointercapture', onPointerCancel)
 
     return () => {
       cancelAnimationFrame(raf)
@@ -188,6 +218,8 @@ export default function GymScene3D({
       resizeObserver.disconnect()
       canvas.removeEventListener('pointerdown', onPointerDown)
       canvas.removeEventListener('pointerup', onPointerUp)
+      canvas.removeEventListener('pointercancel', onPointerCancel)
+      canvas.removeEventListener('lostpointercapture', onPointerCancel)
       scene.dispose()
       sceneRef.current = null
     }
@@ -200,7 +232,6 @@ export default function GymScene3D({
     const knob = knobRef.current
     if (!pad || !knob) return
 
-    let pointer: number | null = null
     let originX = 0
     let originY = 0
 
@@ -215,7 +246,9 @@ export default function GymScene3D({
     }
 
     const onDown = (e: PointerEvent) => {
-      pointer = e.pointerId
+      if (latest.current.paused || latest.current.buildMode || facing) return
+      if (stickPointerRef.current !== null) return
+      stickPointerRef.current = e.pointerId
       pad.setPointerCapture(e.pointerId)
       const rect = pad.getBoundingClientRect()
       originX = rect.left + rect.width / 2
@@ -224,14 +257,14 @@ export default function GymScene3D({
     }
 
     const onMove = (e: PointerEvent) => {
-      if (pointer !== e.pointerId) return
+      if (stickPointerRef.current !== e.pointerId) return
       e.preventDefault()
       move(e.clientX - originX, e.clientY - originY)
     }
 
     const onUp = (e: PointerEvent) => {
-      if (pointer !== e.pointerId) return
-      pointer = null
+      if (stickPointerRef.current !== e.pointerId) return
+      stickPointerRef.current = null
       knob.style.transform = 'translate(0px, 0px)'
       sceneRef.current?.setStick(0, 0)
     }
@@ -240,14 +273,17 @@ export default function GymScene3D({
     pad.addEventListener('pointermove', onMove)
     pad.addEventListener('pointerup', onUp)
     pad.addEventListener('pointercancel', onUp)
+    pad.addEventListener('lostpointercapture', onUp)
 
     return () => {
+      stickPointerRef.current = null
       pad.removeEventListener('pointerdown', onDown)
       pad.removeEventListener('pointermove', onMove)
       pad.removeEventListener('pointerup', onUp)
       pad.removeEventListener('pointercancel', onUp)
+      pad.removeEventListener('lostpointercapture', onUp)
     }
-  }, [])
+  }, [facing])
 
   return (
     <>

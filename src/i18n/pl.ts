@@ -20,6 +20,8 @@ export const pl: Strings = {
     alertsOff: 'Wyłączone',
     alertsHint:
       'Liczy zepsute maszyny i brud pod górnym paskiem. Dotknij licznika, a strzałka poprowadzi cię do najbliższego.',
+    privacy: 'Polityka prywatności',
+    privacyHint: 'Co GYMBARON zapisuje na tym urządzeniu i co mierzy wersja webowa.',
     close: 'Zamknij',
   },
 

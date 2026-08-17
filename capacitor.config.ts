@@ -13,7 +13,21 @@ const config: CapacitorConfig = {
   },
   ios: {
     backgroundColor: '#12141a',
-    contentInset: 'always',
+    // CSS owns every safe-area inset. Letting WKWebView add another automatic
+    // inset would double the notch/home-indicator spacing.
+    contentInset: 'never',
+    allowsLinkPreview: false,
+    preferredContentMode: 'mobile',
+  },
+  plugins: {
+    SystemBars: {
+      // Capacitor injects these CSS fallbacks for Android WebView versions
+      // whose env(safe-area-inset-*) values are wrong in edge-to-edge mode.
+      insetsHandling: 'css',
+      style: 'DARK',
+      hidden: false,
+      animation: 'NONE',
+    },
   },
 }
 

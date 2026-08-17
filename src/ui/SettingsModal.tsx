@@ -1,5 +1,6 @@
 import { LANGUAGES, useI18n, useI18nStore, type Language } from '../i18n'
 import { usePrefsStore } from '../store/prefs'
+import { useDialogFocus } from './useDialogFocus'
 
 interface Props {
   onClose: () => void
@@ -15,10 +16,13 @@ export default function SettingsModal({ onClose }: Props) {
   const setLanguage = useI18nStore(s => s.setLanguage)
   const alerts = usePrefsStore(s => s.alerts)
   const setAlerts = usePrefsStore(s => s.setAlerts)
+  const dialogRef = useDialogFocus<HTMLElement>(onClose)
 
   return (
     <div className="modal-backdrop" role="presentation" onPointerDown={onClose}>
       <section
+        ref={dialogRef}
+        tabIndex={-1}
         className="modal settings-modal"
         role="dialog"
         aria-modal="true"
@@ -66,6 +70,17 @@ export default function SettingsModal({ onClose }: Props) {
           </button>
         </div>
         <p className="settings-note">{t.settings.alertsHint}</p>
+
+        <a
+          className="settings-privacy"
+          href="https://gymbaron.com/privacy.html"
+          target="_blank"
+          rel="noreferrer"
+        >
+          <strong>{t.settings.privacy}</strong>
+          <span>{t.settings.privacyHint}</span>
+          <span aria-hidden="true">↗</span>
+        </a>
 
         <button className="btn primary block" onClick={onClose}>
           {t.settings.close}

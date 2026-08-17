@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { Capacitor } from '@capacitor/core'
+import { App as NativeApp } from '@capacitor/app'
 import { useGameStore } from './store/gameStore'
 import type { PlacedKind } from './game/build'
 import { machineType } from './game/content/machines'
@@ -182,6 +184,18 @@ export default function App() {
   /** Wall picked up for relocation; the next edge tap drops it. */
   const [movingWall, setMovingWall] = useState<string | null>(null)
 
+  /** One source of truth for whether room input is allowed. Global keyboard
+   * handlers, canvas picks and the Three scene all consume this same flag. */
+  const interactionBlocked =
+    tab !== 'gym' ||
+    bag !== null ||
+    talking !== null ||
+    settingsOpen ||
+    floorAccessOpen ||
+    (welcomeBack !== null && welcomeBack.awayMs > 0) ||
+    state.dayEnded ||
+    state.gameOver
+
   const onFocus = useCallback((next: Focus) => setFocus(next), [])
 
   // Recomputed every tick rather than memoised: `state` is a fresh object on
@@ -198,6 +212,7 @@ export default function App() {
   const holdRef = useRef<(Hold & { start: number; raf: number }) | null>(null)
   /** Refreshed every render so the rAF loop always sees the latest action. */
   const actionRef = useRef<Action | null>(null)
+  const backActionRef = useRef<() => void>(() => undefined)
 
   const cancelHold = useCallback(() => {
     const active = holdRef.current
@@ -280,7 +295,7 @@ export default function App() {
   // hide the button outright and should clear any hold the same way.
   useEffect(() => {
     cancelHold()
-  }, [focus, buildMode, talking, tab, state.dayEnded, floorAccessOpen, cancelHold])
+  }, [focus, buildMode, talking, interactionBlocked, cancelHold])
 
   // Belt-and-braces: drop any in-flight rAF if the component ever unmounts.
   useEffect(() => () => cancelHold(), [cancelHold])
@@ -295,6 +310,7 @@ export default function App() {
 
     const onDown = (e: KeyboardEvent) => {
       if (e.key.toLowerCase() !== ACTION_KEY) return
+      if (interactionBlocked) return
       // `repeat` is the OS auto-firing the key; the hold is already running.
       if (e.repeat || e.altKey || e.ctrlKey || e.metaKey || isTyping(e.target)) return
 
@@ -322,12 +338,12 @@ export default function App() {
       window.removeEventListener('keyup', onUp)
       window.removeEventListener('blur', onBlur)
     }
-  }, [beginHold, cancelHold])
+  }, [beginHold, cancelHold, interactionBlocked])
 
   // R turns whatever is selected in build mode — the same thing the rotate
   // button does, without making the player reach for it between every piece.
   useEffect(() => {
-    if (!buildMode || !selected) return
+    if (interactionBlocked || !buildMode || !selected) return
 
     const onRotate = (e: KeyboardEvent) => {
       if (e.key.toLowerCase() !== ROTATE_KEY) return
@@ -338,14 +354,14 @@ export default function App() {
 
     window.addEventListener('keydown', onRotate)
     return () => window.removeEventListener('keydown', onRotate)
-  }, [buildMode, selected, rotateObject])
+  }, [interactionBlocked, buildMode, selected, rotateObject])
 
   // X packs the selection away — the same "Schowaj" the bar offers, for the
   // fixture or the partition, whichever one is selected. It stays quiet while
   // something is mid-move or in hand, because the button is gone in those
   // states and the key must not do what the bar is not offering.
   useEffect(() => {
-    if (!buildMode || moving || movingWall || carrying) return
+    if (interactionBlocked || !buildMode || moving || movingWall || carrying) return
     if (!selected && !selectedWall) return
 
     const onStore = (e: KeyboardEvent) => {
@@ -376,7 +392,7 @@ export default function App() {
 
     window.addEventListener('keydown', onStore)
     return () => window.removeEventListener('keydown', onStore)
-  }, [buildMode, moving, movingWall, carrying, selected, selectedWall, storeObject, demolishWall])
+  }, [interactionBlocked, buildMode, moving, movingWall, carrying, selected, selectedWall, storeObject, demolishWall])
 
   const clearBuildState = () => {
     setSelected(null)
@@ -413,6 +429,39 @@ export default function App() {
     setTab(app)
   }
 
+  // Android Back peels one visible layer at a time. Only an unobstructed gym
+  // exits the Activity; predictive back is routed through the same callback by
+  // the official Capacitor App plugin.
+  backActionRef.current = () => {
+    if (settingsOpen) return setSettingsOpen(false)
+    if (floorAccessOpen) return setFloorAccessOpen(false)
+    if (bag) return setBag(null)
+    if (talking) return setTalking(null)
+    if (welcomeBack) return dismissWelcome()
+    if (state.dayEnded || state.gameOver) return
+    if (recruiting) return setRecruiting(false)
+    if (tab !== 'gym') return setTab('gym')
+    if (buildMode) return leaveBuildMode()
+    if (phoneOpen) return setPhoneOpen(false)
+    void NativeApp.exitApp()
+  }
+
+  useEffect(() => {
+    if (Capacitor.getPlatform() !== 'android') return
+
+    let disposed = false
+    let remove: (() => Promise<void>) | undefined
+    void NativeApp.addListener('backButton', () => backActionRef.current()).then(handle => {
+      if (disposed) void handle.remove()
+      else remove = () => handle.remove()
+    })
+
+    return () => {
+      disposed = true
+      if (remove) void remove()
+    }
+  }, [])
+
   /**
    * One click, several possible meanings, resolved without the player having
    * to say in advance whether they are working on walls or on equipment. Order
@@ -422,6 +471,7 @@ export default function App() {
    */
   const onPick = useCallback(
     (pick: PickResult) => {
+      if (interactionBlocked) return
       if (!pick.tile || !pick.edge) return
 
       if (moving) {
@@ -467,7 +517,7 @@ export default function App() {
       setSelected(null)
       setBag({ tile: pick.tile })
     },
-    [moving, movingWall, carrying, state.inventory, moveObject, moveWallEdge, placeWallEdge, placeItem],
+    [interactionBlocked, moving, movingWall, carrying, state.inventory, moveObject, moveWallEdge, placeWallEdge, placeItem],
   )
 
   // The language is read back from storage asynchronously, so the loading
@@ -510,7 +560,7 @@ export default function App() {
 
   /** The proximity button, shown only outside build mode. */
   const action = ((): Action | null => {
-    if (!focus || state.dayEnded || buildMode || talking) return null
+    if (interactionBlocked || !focus || buildMode) return null
 
     if (focus.kind === 'floorAccess') {
       const unlocked = state.floorPlans.length > 1
@@ -575,7 +625,7 @@ export default function App() {
         selected={selected}
         preview={null}
         facing={talking}
-        paused={floorAccessOpen}
+        paused={interactionBlocked}
         /* A panel covers the floor the arrow would be pointing across, so it
            waits behind it rather than drawing under it. */
         guide={tab === 'gym' ? guide : null}
@@ -794,7 +844,7 @@ export default function App() {
       )}
 
       {tab === 'gym' && afterHours && (
-        <div className="closing-bar">
+        <div className={`closing-bar${buildMode ? ' building' : ''}`}>
           <div className="closing-text">
             <strong>{t.closing.title}</strong>
             <small>

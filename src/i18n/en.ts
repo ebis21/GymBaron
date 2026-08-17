@@ -29,6 +29,8 @@ export const en = {
     alertsOff: 'Off',
     alertsHint:
       'Counts broken machines and mess under the topbar. Tap a count and an arrow leads you to the nearest one.',
+    privacy: 'Privacy policy',
+    privacyHint: 'What GYMBARON stores on this device and what the web version measures.',
     close: 'Close',
   },
 

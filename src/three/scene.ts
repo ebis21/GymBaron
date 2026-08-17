@@ -183,6 +183,7 @@ export class GymScene {
 
   private state: GameState | null = null
   private buildMode = false
+  private paused = false
   /** Client the player has stepped up to, or null for the usual chase camera. */
   private facing: string | null = null
   private selected: { kind: PlacedKind; uid: string } | null = null
@@ -630,6 +631,7 @@ export class GymScene {
   setBuildMode(on: boolean): void {
     if (on === this.buildMode) return
     this.buildMode = on
+    this.controls.setEnabled(!on && !this.paused)
     this.gridOverlay.visible = on
 
     // From that height the room would be lost inside the haze.
@@ -807,6 +809,11 @@ export class GymScene {
       return
     }
 
+    if (this.paused || this.buildMode) {
+      animate(this.player, this.elapsed, false)
+      return
+    }
+
     const dir = this.controls.vector()
     const moving = dir.x !== 0 || dir.z !== 0
 
@@ -856,6 +863,12 @@ export class GymScene {
    */
   setFacing(clientUid: string | null): void {
     this.facing = clientUid
+  }
+
+  /** Modal and panel chrome owns input while it covers the room. */
+  setPaused(on: boolean): void {
+    this.paused = on
+    this.controls.setEnabled(!on && !this.buildMode)
   }
 
   private facingRig(): Rig | null {
@@ -967,7 +980,7 @@ export class GymScene {
     const state = this.state
     let next: Focus = null
 
-    if (state && !this.buildMode) {
+    if (state && !this.buildMode && !this.paused) {
       let best = REACH
 
       for (const client of state.clients) {
@@ -1066,7 +1079,8 @@ export class GymScene {
   // --- lifecycle ------------------------------------------------------------
 
   setStick(x: number, z: number): void {
-    this.controls.setStick(x, z)
+    if (this.paused || this.buildMode) this.controls.reset()
+    else this.controls.setStick(x, z)
   }
 
   resize(): void {
