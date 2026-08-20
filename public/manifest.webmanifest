@@ -1,11 +1,11 @@
 {
-  "name": "IRON EMPIRE",
-  "short_name": "IRON EMPIRE",
-  "description": "Symulator prowadzenia siłowni. Zaczynasz z pustą salą i $500.",
-  "lang": "pl",
+  "name": "GYMBARON",
+  "short_name": "GYMBARON",
+  "description": "A gym management simulator. Start with an empty floor and $500.",
+  "lang": "en",
   "start_url": "/",
   "display": "standalone",
-  "orientation": "portrait",
+  "orientation": "any",
   "background_color": "#12141a",
   "theme_color": "#12141a",
   "icons": [

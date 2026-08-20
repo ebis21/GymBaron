@@ -15,15 +15,36 @@ const SIGNUP_PER_SATISFACTION = 0.15
 const CHURN_BASE = 0.02
 const CHURN_PER_UNHAPPY = 0.08
 
+/**
+ * What the luck track is worth at the desk, and the wall it runs into.
+ *
+ * The ceiling is not optional. The comment above records why conversion came
+ * down from 40% in the first place: at that rate the membership — and with it
+ * the subscription income — pulled away from the rest of the economy. An
+ * upgrade has no business undoing that fix, so luck raises the odds but can
+ * never push them past a shade above today's best case (0.18).
+ *
+ * The side effect is the good kind. At full satisfaction the base already sits
+ * just under the ceiling, so luck buys almost nothing there; at the 0.03–0.12
+ * a middling gym actually runs at, it buys plenty. Luck rescues a struggling
+ * gym rather than gilding a thriving one.
+ */
+const SIGNUP_PER_LUCK = 0.30
+const SIGNUP_CEILING = 0.24
+
 const clamp01 = (v: number) => Math.max(0, Math.min(1, v))
 
 /**
  * Odds that a walk-in who just finished a workout buys a pass. A miserable
  * gym still converts the occasional enthusiast; a great one never converts
  * everybody.
+ *
+ * `luck` defaults to the unupgraded game, so existing callers are unaffected.
  */
-export function signupChance(satisfaction: number): number {
-  return SIGNUP_BASE + clamp01(satisfaction / 100) * SIGNUP_PER_SATISFACTION
+export function signupChance(satisfaction: number, luck = 1): number {
+  const base = SIGNUP_BASE + clamp01(satisfaction / 100) * SIGNUP_PER_SATISFACTION
+  const lucky = base * (1 + Math.max(0, luck - 1) * SIGNUP_PER_LUCK)
+  return Math.min(SIGNUP_CEILING, lucky)
 }
 
 /**
@@ -52,6 +73,23 @@ export function addMember(state: GameState): GameState {
   }
 }
 
+/**
+ * The whole gym bills on one seven-day week: days 7, 14, 21 and so on are
+ * payday, and every pass in the building is charged that evening.
+ *
+ * Each member used to renew on their own cycle counted from the day they
+ * joined. The weekly total was the same, but it arrived as one or two passes a
+ * night, blended into the same receipt line as that day's signups — so the
+ * money was invisible, and a pass read as a one-off sale that never came back.
+ * Collected all at once it is a payday the player can see coming, plan around
+ * and feel land.
+ */
+export const isPayday = (day: number): boolean => day % BILLING_PERIOD_DAYS === 0
+
+/** Days until the next payday; zero on payday itself. */
+export const daysToPayday = (day: number): number =>
+  isPayday(day) ? 0 : BILLING_PERIOD_DAYS - (day % BILLING_PERIOD_DAYS)
+
 export interface RenewalResult {
   state: GameState
   amount: number
@@ -59,16 +97,18 @@ export interface RenewalResult {
 }
 
 /**
- * Every member renews on their own seven-day cycle counted from the day they
- * joined, so passes trickle in across the week instead of all landing on the
- * same evening. Priced at today's gym class — upgrading the floor raises what
- * existing members pay on their next renewal.
+ * Collects every pass in the building, but only on payday. Priced at today's
+ * gym class — upgrading the floor raises what existing members pay on the next
+ * collection, which is what makes a purchase worth more than the door fee it
+ * lifts.
+ *
+ * Anyone who joined today is skipped: their first pass was banked at the desk
+ * hours ago, and charging it twice on the same receipt would read as a bug.
  */
 export function chargeRenewals(state: GameState): RenewalResult {
-  const due = state.members.filter(m => {
-    const age = state.day - m.joinedDay
-    return age > 0 && age % BILLING_PERIOD_DAYS === 0
-  })
+  if (!isPayday(state.day)) return { state, amount: 0, count: 0 }
+
+  const due = state.members.filter(m => m.joinedDay < state.day)
   if (due.length === 0) return { state, amount: 0, count: 0 }
 
   const amount = passPrice(state) * due.length

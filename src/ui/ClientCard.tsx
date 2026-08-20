@@ -2,10 +2,10 @@ import { useState } from 'react'
 import type { Client, GameState } from '../game/types'
 import { entryFee, reputationBonus } from '../game/economy'
 import { freeTrainers } from '../game/clients'
-import { machineType } from '../game/content/machines'
 import { RARITY_LABEL, RARITY_MULTIPLIER } from '../game/content/rarity'
 import { LIL_D_FAKE_PAYMENT, MEMBER_DISCOUNT, TRAINER_UNLOCK_LEVEL } from '../game/constants'
-import { money } from './format'
+import { useI18n } from '../i18n'
+import { displayName } from '../game/recruit'
 
 interface Props {
   state: GameState
@@ -22,6 +22,7 @@ interface Props {
  * decisions available: let them in, and whether to sell them a trainer.
  */
 export default function ClientCard({ state, client, onScan, onClose }: Props) {
+  const { t, money, language } = useI18n()
   const free = state.machines.find(m => m.durability > 0 && m.occupiedBy === null)
   const isLilD = client.special === 'lil-d'
 
@@ -45,11 +46,13 @@ export default function ClientCard({ state, client, onScan, onClose }: Props) {
   const memberOff = Math.round((1 - MEMBER_DISCOUNT) * 100)
 
   const numericId = Number(client.uid.replace(/\D/g, '')) || 1
-  const appearance = isLilD ? 'mężczyzna' : numericId % 2 === 0 ? 'kobieta' : 'mężczyzna'
+  const appearance = isLilD
+    ? t.client.man
+    : numericId % 2 === 0 ? t.client.woman : t.client.man
 
   return (
     <div className="client-card">
-      <button className="client-close" onClick={onClose} aria-label="Zamknij">
+      <button className="client-close" onClick={onClose} aria-label={t.client.close}>
         ✕
       </button>
 
@@ -59,33 +62,33 @@ export default function ClientCard({ state, client, onScan, onClose }: Props) {
 
       <p className="client-kind">
         {isLilD
-          ? 'Gość specjalny · płaci grubym plikiem gotówki'
+          ? t.client.secretKind
           : client.kind === 'member'
-            ? `Członek — karnet, ${memberOff}% zniżki`
-            : `Przechodzień z ulicy · ${appearance}`}
+            ? t.client.memberKind(memberOff)
+            : t.client.passerbyKind(appearance)}
       </p>
 
       <div className="client-rows">
         {isLilD ? (
           <div className="client-row secret-cash">
-            <span>Nominał banknotów</span>
+            <span>{t.client.noteValue}</span>
             <strong>{money(LIL_D_FAKE_PAYMENT)}</strong>
           </div>
         ) : (
           <>
             <div className="client-row">
-              <span>Mnożnik gościa</span>
+              <span>{t.client.guestMultiplier}</span>
               <strong>×{RARITY_MULTIPLIER[client.rarity].toFixed(1)}</strong>
             </div>
             <div className="client-row">
-              <span>Renoma</span>
+              <span>{t.client.reputation}</span>
               <strong>{repBonus > 0 ? `+${repBonus}%` : '—'}</strong>
             </div>
           </>
         )}
         <div className="client-row">
-          <span>Wolne stanowisko</span>
-          <strong>{free ? machineType(free.type).name : '—'}</strong>
+          <span>{t.client.freeStation}</span>
+          <strong>{free ? t.content.machines[free.type] : '—'}</strong>
         </div>
       </div>
 
@@ -98,21 +101,21 @@ export default function ClientCard({ state, client, onScan, onClose }: Props) {
             >
               <span className="trainer-mark">{booked ? '✓' : '+'}</span>
               <span className="trainer-text">
-                <strong>Trener personalny</strong>
+                <strong>{t.client.trainer}</strong>
                 <small>
                   {booked
-                    ? `${available[0]!.name} · +${money(fee - plainFee)}`
-                    : `×1.5 za wizytę · wolnych: ${available.length}`}
+                    ? `${displayName(available[0]!.name, language)} · +${money(fee - plainFee)}`
+                    : t.client.trainerOffer(available.length)}
                 </small>
               </span>
             </button>
           ) : (
             <p className="trainer-hint">
               {hasTrainers
-                ? 'Wszyscy trenerzy są w tej chwili zajęci.'
+                ? t.client.trainersBusy
                 : state.level >= TRAINER_UNLOCK_LEVEL
-                  ? 'Zatrudnij trenera w Personelu, żeby sprzedawać sesje ×1.5.'
-                  : `Trenerzy personalni od poziomu ${TRAINER_UNLOCK_LEVEL}.`}
+                  ? t.client.trainersHire
+                  : t.client.trainersLocked(TRAINER_UNLOCK_LEVEL)}
             </p>
           )}
         </div>
@@ -124,8 +127,8 @@ export default function ClientCard({ state, client, onScan, onClose }: Props) {
         onClick={() => onScan(coach ? coach.uid : null)}
       >
         {free
-          ? isLilD ? `Przyjmij gotówkę · +${money(fee)}?` : `Skanuj karnet · +${money(fee)}`
-          : 'Brak wolnej maszyny'}
+          ? isLilD ? t.client.takeCash(money(fee)) : t.client.scan(money(fee))
+          : t.client.noMachine}
       </button>
     </div>
   )

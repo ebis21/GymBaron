@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { Capacitor } from '@capacitor/core'
+import { App as NativeApp } from '@capacitor/app'
 import { useGameStore } from './store/gameStore'
 import type { PlacedKind } from './game/build'
-import type { ClientRarity } from './game/types'
 import { machineType } from './game/content/machines'
-import { decorType } from './game/content/decor'
-import { FLOOR_UNLOCK_COST, HIRING_UNLOCK_LEVEL, STAFF_UNLOCK_LEVEL } from './game/constants'
+import { FLOOR_UNLOCK_COST, HIRING_UNLOCK_LEVEL } from './game/constants'
 import { isClosingTime } from './game/clock'
 import GymScene3D from './three/GymScene3D'
 import type { Focus, PickResult } from './three/scene'
@@ -12,7 +12,12 @@ import TopBar from './ui/TopBar'
 import Phone, { type PhoneApp } from './ui/Phone'
 import ShopScreen from './ui/ShopScreen'
 import StatsScreen from './ui/StatsScreen'
-import StaffPanel from './ui/StaffPanel'
+import UpgradesScreen from './ui/UpgradesScreen'
+import MarketingScreen from './ui/MarketingScreen'
+import ContractsScreen from './ui/ContractsScreen'
+import SponsorsScreen from './ui/SponsorsScreen'
+import { cleanHoldMs, repairHoldMs } from './game/upgrades'
+import StaffPanel, { StaffLockedScreen } from './ui/StaffPanel'
 import RecruitScreen from './ui/RecruitScreen'
 import GameOverScreen from './ui/GameOverScreen'
 import DayReportModal from './ui/DayReportModal'
@@ -20,25 +25,23 @@ import InventoryPanel from './ui/InventoryPanel'
 import ClientCard from './ui/ClientCard'
 import WelcomeBack from './ui/WelcomeBack'
 import DevPanel from './ui/DevPanel'
-import { money } from './ui/format'
+import SettingsModal from './ui/SettingsModal'
+import AlertBar from './ui/AlertBar'
+import { useI18n, useI18nStore } from './i18n'
+import { usePrefsStore } from './store/prefs'
 import FloorAccessModal from './ui/FloorAccessModal'
 import { floorName } from './game/floors'
-import UpgradeScreen from './ui/UpgradeScreen'
-import { repairPrice } from './game/upgrades'
+import DiamondUpgradeScreen from './ui/UpgradeScreen'
+import { repairPrice } from './game/diamondUpgrades'
 import AccountScreen from './ui/AccountScreen'
 import MultiplayerPanel from './ui/MultiplayerPanel'
+import { countOf, gymAlerts, type AlertKind } from './game/alerts'
 
 /** Which full-screen panel is over the room, if any. */
-type Tab = 'gym' | 'shop' | 'upgrades' | 'stats' | 'staff' | 'account' | 'multiplayer'
-
-const RARITY_NAME: Record<ClientRarity, string> = {
-  common: 'Zwykły',
-  rare: 'Rzadki',
-  epic: 'Epicki',
-  legend: 'Legendarny',
-  influencer: 'Influencer',
-  secret: 'Tajny',
-}
+type Tab =
+  | 'gym' | 'shop' | 'stats' | 'staff' | 'upgrades' | 'diamond-upgrades'
+  | 'marketing' | 'contracts' | 'sponsors'
+  | 'account' | 'multiplayer'
 
 interface Selection {
   kind: PlacedKind
@@ -52,9 +55,9 @@ interface Selection {
  */
 const EDGE_GRAB = 0.45
 
-/** Cleaning is quick; repairing kit takes noticeably longer. */
-const CLEAN_HOLD_MS = 3000
-const REPAIR_HOLD_MS = 5000
+// Cleaning is quick; repairing kit takes noticeably longer. Both are now the
+// base rung of an upgrade track — see `content/upgrades.ts` — and are read off
+// the state per render rather than fixed here.
 /**
  * Stepping up to a client is instant on E. It opens a card and charges
  * nothing on its own — the decision is still one tap away inside it — so
@@ -105,6 +108,11 @@ interface Action {
 }
 
 export default function App() {
+  const { t, money } = useI18n()
+  const langReady = useI18nStore(s => s.ready)
+  const alertsOn = usePrefsStore(s => s.alerts)
+  const prefsReady = usePrefsStore(s => s.ready)
+
   const state = useGameStore(s => s.state)
   const welcomeBack = useGameStore(s => s.welcomeBack)
   const ready = useGameStore(s => s.ready)
@@ -129,8 +137,12 @@ export default function App() {
   const demolishWall = useGameStore(s => s.demolishWall)
 
   const buyExpansion = useGameStore(s => s.buyExpansion)
-  const buyNextFloor = useGameStore(s => s.buyNextFloor)
   const buyUpgrade = useGameStore(s => s.buyUpgrade)
+  const marketing = useGameStore(s => s.marketing)
+  const contracts = useGameStore(s => s.contracts)
+  const sponsors = useGameStore(s => s.sponsors)
+  const buyNextFloor = useGameStore(s => s.buyNextFloor)
+  const buyDiamondUpgrade = useGameStore(s => s.buyDiamondUpgrade)
   const switchFloor = useGameStore(s => s.switchFloor)
   const endDay = useGameStore(s => s.endDay)
 
@@ -140,10 +152,16 @@ export default function App() {
   const rerollCandidates = useGameStore(s => s.rerollCandidates)
 
   const [tab, setTab] = useState<Tab>('gym')
+  // Keep the playfield clear on launch, especially when the phone is held in
+  // landscape. The large edge grip remains visible and is the single way to
+  // reveal the same menu on every viewport.
   const [phoneOpen, setPhoneOpen] = useState(false)
   const [focus, setFocus] = useState<Focus>(null)
   const [recruiting, setRecruiting] = useState(false)
   const [floorAccessOpen, setFloorAccessOpen] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  /** Kind of trouble the floor arrow is leading to, or null for no arrow. */
+  const [guide, setGuide] = useState<AlertKind | null>(null)
 
   const [buildMode, setBuildMode] = useState(false)
   /** Bumped by the dev panel to drop the player at the front counter. */
@@ -162,7 +180,24 @@ export default function App() {
   /** Wall picked up for relocation; the next edge tap drops it. */
   const [movingWall, setMovingWall] = useState<string | null>(null)
 
+  /** One source of truth for whether room input is allowed. Global keyboard
+   * handlers, canvas picks and the Three scene all consume this same flag. */
+  const interactionBlocked =
+    tab !== 'gym' ||
+    bag !== null ||
+    talking !== null ||
+    settingsOpen ||
+    floorAccessOpen ||
+    (welcomeBack !== null && welcomeBack.awayMs > 0) ||
+    state.dayEnded ||
+    state.gameOver
+
   const onFocus = useCallback((next: Focus) => setFocus(next), [])
+
+  // Recomputed every tick rather than memoised: `state` is a fresh object on
+  // each one, so a memo keyed on it would rebuild the list regardless and only
+  // add the bookkeeping. The work is a pass over the machines and the stains.
+  const alerts = alertsOn ? gymAlerts(state) : []
 
   // --- serve / clean / repair hold ---------------------------------------
   // Fraction (0..1) the action button is currently filled while held down,
@@ -173,6 +208,7 @@ export default function App() {
   const holdRef = useRef<(Hold & { start: number; raf: number }) | null>(null)
   /** Refreshed every render so the rAF loop always sees the latest action. */
   const actionRef = useRef<Action | null>(null)
+  const backActionRef = useRef<() => void>(() => undefined)
 
   const cancelHold = useCallback(() => {
     const active = holdRef.current
@@ -232,6 +268,15 @@ export default function App() {
     if (talkingGone) setTalking(null)
   }, [talkingGone])
 
+  // The last machine of that kind got fixed, the last stain got wiped, or the
+  // player switched the chips off outright — either way there is nothing left
+  // to lead to, and the arrow puts itself away rather than waiting for a tap
+  // on a chip that is no longer on screen.
+  const guideGone = guide !== null && countOf(alerts, guide) === 0
+  useEffect(() => {
+    if (guideGone) setGuide(null)
+  }, [guideGone])
+
   // Leaving the staff tab — by the panel's ✕ or by switching apps — should not
   // leave the recruit sub-screen armed for next time the tab opens.
   useEffect(() => {
@@ -246,7 +291,7 @@ export default function App() {
   // hide the button outright and should clear any hold the same way.
   useEffect(() => {
     cancelHold()
-  }, [focus, buildMode, talking, tab, state.dayEnded, floorAccessOpen, cancelHold])
+  }, [focus, buildMode, talking, interactionBlocked, cancelHold])
 
   // Belt-and-braces: drop any in-flight rAF if the component ever unmounts.
   useEffect(() => () => cancelHold(), [cancelHold])
@@ -261,6 +306,7 @@ export default function App() {
 
     const onDown = (e: KeyboardEvent) => {
       if (e.key.toLowerCase() !== ACTION_KEY) return
+      if (interactionBlocked) return
       // `repeat` is the OS auto-firing the key; the hold is already running.
       if (e.repeat || e.altKey || e.ctrlKey || e.metaKey || isTyping(e.target)) return
 
@@ -288,12 +334,12 @@ export default function App() {
       window.removeEventListener('keyup', onUp)
       window.removeEventListener('blur', onBlur)
     }
-  }, [beginHold, cancelHold])
+  }, [beginHold, cancelHold, interactionBlocked])
 
-  // R turns whatever is selected in build mode — the same thing the "Obróć"
+  // R turns whatever is selected in build mode — the same thing the rotate
   // button does, without making the player reach for it between every piece.
   useEffect(() => {
-    if (!buildMode || !selected) return
+    if (interactionBlocked || !buildMode || !selected) return
 
     const onRotate = (e: KeyboardEvent) => {
       if (e.key.toLowerCase() !== ROTATE_KEY) return
@@ -304,14 +350,14 @@ export default function App() {
 
     window.addEventListener('keydown', onRotate)
     return () => window.removeEventListener('keydown', onRotate)
-  }, [buildMode, selected, rotateObject])
+  }, [interactionBlocked, buildMode, selected, rotateObject])
 
   // X packs the selection away — the same "Schowaj" the bar offers, for the
   // fixture or the partition, whichever one is selected. It stays quiet while
   // something is mid-move or in hand, because the button is gone in those
   // states and the key must not do what the bar is not offering.
   useEffect(() => {
-    if (!buildMode || moving || movingWall || carrying) return
+    if (interactionBlocked || !buildMode || moving || movingWall || carrying) return
     if (!selected && !selectedWall) return
 
     const onStore = (e: KeyboardEvent) => {
@@ -342,7 +388,7 @@ export default function App() {
 
     window.addEventListener('keydown', onStore)
     return () => window.removeEventListener('keydown', onStore)
-  }, [buildMode, moving, movingWall, carrying, selected, selectedWall, storeObject, demolishWall])
+  }, [interactionBlocked, buildMode, moving, movingWall, carrying, selected, selectedWall, storeObject, demolishWall])
 
   const clearBuildState = () => {
     setSelected(null)
@@ -379,6 +425,39 @@ export default function App() {
     setTab(app)
   }
 
+  // Android Back peels one visible layer at a time. Only an unobstructed gym
+  // exits the Activity; predictive back is routed through the same callback by
+  // the official Capacitor App plugin.
+  backActionRef.current = () => {
+    if (settingsOpen) return setSettingsOpen(false)
+    if (floorAccessOpen) return setFloorAccessOpen(false)
+    if (bag) return setBag(null)
+    if (talking) return setTalking(null)
+    if (welcomeBack) return dismissWelcome()
+    if (state.dayEnded || state.gameOver) return
+    if (recruiting) return setRecruiting(false)
+    if (tab !== 'gym') return setTab('gym')
+    if (buildMode) return leaveBuildMode()
+    if (phoneOpen) return setPhoneOpen(false)
+    void NativeApp.exitApp()
+  }
+
+  useEffect(() => {
+    if (Capacitor.getPlatform() !== 'android') return
+
+    let disposed = false
+    let remove: (() => Promise<void>) | undefined
+    void NativeApp.addListener('backButton', () => backActionRef.current()).then(handle => {
+      if (disposed) void handle.remove()
+      else remove = () => handle.remove()
+    })
+
+    return () => {
+      disposed = true
+      if (remove) void remove()
+    }
+  }, [])
+
   /**
    * One click, several possible meanings, resolved without the player having
    * to say in advance whether they are working on walls or on equipment. Order
@@ -388,6 +467,7 @@ export default function App() {
    */
   const onPick = useCallback(
     (pick: PickResult) => {
+      if (interactionBlocked) return
       if (!pick.tile || !pick.edge) return
 
       if (moving) {
@@ -433,14 +513,17 @@ export default function App() {
       setSelected(null)
       setBag({ tile: pick.tile })
     },
-    [moving, movingWall, carrying, state.inventory, moveObject, moveWallEdge, placeWallEdge, placeItem],
+    [interactionBlocked, moving, movingWall, carrying, state.inventory, moveObject, moveWallEdge, placeWallEdge, placeItem],
   )
 
-  if (!ready) {
+  // The language is read back from storage asynchronously, so the loading
+  // screen also covers that — otherwise a Polish player would watch the game
+  // paint in English and then switch under them.
+  if (!ready || !langReady || !prefsReady) {
     return (
       <div className="app">
         <div className="screen">
-          <p className="hint">Otwieranie siłowni…</p>
+          <p className="hint">{t.loading}</p>
         </div>
       </div>
     )
@@ -452,9 +535,9 @@ export default function App() {
     selected?.kind === 'decor' ? state.decor.find(d => d.uid === selected.uid) : undefined
 
   const selectedName = selectedMachine
-    ? machineType(selectedMachine.type).name
+    ? t.content.machines[selectedMachine.type]
     : selectedDecor
-      ? decorType(selectedDecor.type).name
+      ? t.content.decor[selectedDecor.type]
       : null
 
   const carried = carrying ? state.inventory.find(i => i.uid === carrying) : undefined
@@ -466,14 +549,19 @@ export default function App() {
   const afterHours = isClosingTime(state.dayMs) && !state.dayEnded && !state.gameOver
   const stillInside = state.clients.length
 
+  // The two proximity actions the player performs by hand, both shortened by
+  // their own upgrade track.
+  const cleanMs = cleanHoldMs(state)
+  const repairMs = repairHoldMs(state)
+
   /** The proximity button, shown only outside build mode. */
   const action = ((): Action | null => {
-    if (!focus || state.dayEnded || buildMode || talking) return null
+    if (interactionBlocked || !focus || buildMode) return null
 
     if (focus.kind === 'floorAccess') {
       const unlocked = state.floorPlans.length > 1
       return {
-        label: unlocked ? 'Wybierz piętro' : 'Odblokuj piętro',
+        label: unlocked ? t.action.floorPick : t.action.floorUnlock,
         hint: unlocked ? floorName(state.activeFloor) : money(FLOOR_UNLOCK_COST),
         run: () => setFloorAccessOpen(true),
         enabled: true,
@@ -488,23 +576,23 @@ export default function App() {
       const spec = machineType(machine.type)
       const cost = repairPrice(state, spec.repairCost)
       return {
-        label: `Napraw ${money(cost)}`,
-        hint: spec.name,
+        label: t.action.repair(money(cost)),
+        hint: t.content.machines[machine.type],
         enabled: state.cash >= cost,
         run: () => repair(focus.machineUid),
-        hold: { ms: REPAIR_HOLD_MS, uid: focus.machineUid },
-        key: { ms: REPAIR_HOLD_MS, uid: focus.machineUid },
+        hold: { ms: repairMs, uid: focus.machineUid },
+        key: { ms: repairMs, uid: focus.machineUid },
       }
     }
 
     if (focus.kind === 'wipe') {
       return {
-        label: 'Posprzątaj',
+        label: t.action.clean,
         hint: '',
         enabled: true,
         run: () => wipe(focus.stainUid),
-        hold: { ms: CLEAN_HOLD_MS, uid: focus.stainUid },
-        key: { ms: CLEAN_HOLD_MS, uid: focus.stainUid },
+        hold: { ms: cleanMs, uid: focus.stainUid },
+        key: { ms: cleanMs, uid: focus.stainUid },
       }
     }
 
@@ -515,8 +603,8 @@ export default function App() {
     // that follows is where the pass is actually charged. A tap on the button
     // is enough; E holds for two seconds, because that hand is also driving.
     return {
-      label: 'Obsłuż klienta',
-      hint: `${client.kind === 'member' ? 'Członek' : 'Przechodzień'} · ${RARITY_NAME[client.rarity]}`,
+      label: t.action.serve,
+      hint: `${client.kind === 'member' ? t.action.member : t.action.passerby} · ${t.content.rarity[client.rarity]}`,
       enabled: true,
       run: () => setTalking(focus.clientUid),
       hold: null,
@@ -527,21 +615,31 @@ export default function App() {
   actionRef.current = action
 
   return (
-    <div className={`app${tab === 'gym' ? '' : ' panelled'}`}>
+    <div className={`app${tab === 'gym' ? '' : ' panelled'}${talking ? ' talking' : ''}`}>
       <GymScene3D
         state={state}
         buildMode={buildMode}
         selected={selected}
         preview={null}
         facing={talking}
-        paused={floorAccessOpen}
+        paused={interactionBlocked}
+        /* A panel covers the floor the arrow would be pointing across, so it
+           waits behind it rather than drawing under it. */
+        guide={tab === 'gym' ? guide : null}
         teleport={teleport}
         onFocus={onFocus}
         onPick={onPick}
         onFloorAccess={() => setFloorAccessOpen(true)}
       />
 
-      <TopBar state={state} />
+      <TopBar state={state} onOpenSettings={() => setSettingsOpen(true)} />
+
+      {/* Only over the room: with a panel up there is no floor to point at,
+          and a day that has been closed cannot be tidied any further. */}
+      {tab === 'gym' && !state.dayEnded && (
+        <AlertBar alerts={alerts} guide={guide} onGuide={setGuide} />
+      )}
+
       {import.meta.env.DEV && (
         <DevPanel
           onTeleportToReception={() => {
@@ -556,30 +654,30 @@ export default function App() {
       {buildMode && tab === 'gym' && (
         <div className="build-bar">
           {moving ? (
-            <span className="build-hint">Wskaż nowe pole…</span>
+            <span className="build-hint">{t.build.pickTile}</span>
           ) : movingWall ? (
             <>
-              <span className="build-hint">Wskaż nową krawędź…</span>
+              <span className="build-hint">{t.build.pickEdge}</span>
               <button className="btn ghost tiny" onClick={() => setMovingWall(null)}>
-                Anuluj
+                {t.build.cancel}
               </button>
             </>
           ) : carrying ? (
             <>
               <span className="build-hint">
                 {carried?.kind === 'wall'
-                  ? 'Kliknij krawędź kafla…'
-                  : 'Wskaż pole dla przedmiotu…'}
+                  ? t.build.pickEdgeForWall
+                  : t.build.pickTileForItem}
               </span>
               <button className="btn ghost tiny" onClick={() => setCarrying(null)}>
-                Anuluj
+                {t.build.cancel}
               </button>
             </>
           ) : selectedWall ? (
             <>
-              <span className="build-hint">Ścianka</span>
+              <span className="build-hint">{t.build.wall}</span>
               <button className="btn tiny" onClick={() => setMovingWall(selectedWall)}>
-                Przestaw
+                {t.build.move}
               </button>
               <button
                 className="btn tiny"
@@ -588,7 +686,7 @@ export default function App() {
                   setSelectedWall(null)
                 }}
               >
-                Schowaj{HAS_KEYBOARD && <kbd className="btn-key">X</kbd>}
+                {t.build.store}{HAS_KEYBOARD && <kbd className="btn-key">X</kbd>}
               </button>
               <button className="btn ghost tiny" onClick={() => setSelectedWall(null)}>
                 ✕
@@ -601,7 +699,7 @@ export default function App() {
                 className="btn tiny"
                 onClick={() => rotateObject(selected.kind, selected.uid)}
               >
-                Obróć{HAS_KEYBOARD && <kbd className="btn-key">R</kbd>}
+                {t.build.rotate}{HAS_KEYBOARD && <kbd className="btn-key">R</kbd>}
               </button>
               <button
                 className="btn tiny"
@@ -610,7 +708,7 @@ export default function App() {
                   setSelected(null)
                 }}
               >
-                Przestaw
+                {t.build.move}
               </button>
               <button
                 className="btn tiny"
@@ -620,7 +718,7 @@ export default function App() {
                   setSelected(null)
                 }}
               >
-                Schowaj{HAS_KEYBOARD && <kbd className="btn-key">X</kbd>}
+                {t.build.store}{HAS_KEYBOARD && <kbd className="btn-key">X</kbd>}
               </button>
               <button className="btn ghost tiny" onClick={() => setSelected(null)}>
                 ✕
@@ -628,15 +726,15 @@ export default function App() {
             </>
           ) : (
             <>
-              <span className="build-hint">Kliknij sprzęt, ściankę albo puste pole</span>
+              <span className="build-hint">{t.build.idle}</span>
               <button className="btn tiny" onClick={() => setBag({ tile: null })}>
-                Ekwipunek ({state.inventory.length})
+                {t.build.inventory(state.inventory.length)}
               </button>
               <button className="btn tiny" onClick={() => setTab('shop')}>
-                Sklep
+                {t.build.shop}
               </button>
               <button className="btn primary tiny" onClick={leaveBuildMode}>
-                ✓ Gotowe
+                {t.build.done}
               </button>
             </>
           )}
@@ -645,7 +743,7 @@ export default function App() {
 
       {tab !== 'gym' && (
         <div className="panel">
-          <button className="panel-close" onClick={() => setTab('gym')} aria-label="Zamknij">
+          <button className="panel-close" onClick={() => setTab('gym')} aria-label={t.settings.close}>
             ✕
           </button>
           {tab === 'shop' ? (
@@ -656,24 +754,15 @@ export default function App() {
               onBuyWall={buyWall}
               onBuyExpansion={buyExpansion}
             />
-          ) : tab === 'upgrades' ? (
-            <UpgradeScreen state={state} onBuy={buyUpgrade} />
+          ) : tab === 'diamond-upgrades' ? (
+            <DiamondUpgradeScreen state={state} onBuy={buyDiamondUpgrade} />
           ) : tab === 'account' ? (
             <AccountScreen />
           ) : tab === 'multiplayer' ? (
             <MultiplayerPanel onOpenAccount={() => setTab('account')} />
           ) : tab === 'staff' ? (
             state.level < HIRING_UNLOCK_LEVEL ? (
-              <div className="screen">
-                <header className="screen-head">
-                  <h2>Personel</h2>
-                </header>
-                <p className="hint">
-                  Zatrudnianie odblokowuje się na poziomie {HIRING_UNLOCK_LEVEL} (trenerzy
-                  personalni), a pozostałe role na poziomie {STAFF_UNLOCK_LEVEL}. Obecny
-                  poziom: {state.level}.
-                </p>
-              </div>
+              <StaffLockedScreen state={state} />
             ) : recruiting ? (
               <RecruitScreen
                 state={state}
@@ -692,6 +781,14 @@ export default function App() {
                 onOpenRecruit={() => setRecruiting(true)}
               />
             )
+          ) : tab === 'upgrades' ? (
+            <UpgradesScreen state={state} onBuy={buyUpgrade} />
+          ) : tab === 'marketing' ? (
+            <MarketingScreen state={state} onMarketing={marketing} />
+          ) : tab === 'contracts' ? (
+            <ContractsScreen state={state} onContract={contracts} />
+          ) : tab === 'sponsors' ? (
+            <SponsorsScreen state={state} onSponsor={sponsors} />
           ) : (
             <StatsScreen state={state} />
           )}
@@ -725,14 +822,16 @@ export default function App() {
           <span className="action-label">{action.label}</span>
           {holdPct > 0 ? (
             <span className="action-hint">
-              jeszcze {Math.max(0, ((1 - holdPct) * action.key.ms) / 1000).toFixed(1)}s
+              {t.action.remaining(
+                Math.max(0, ((1 - holdPct) * action.key.ms) / 1000).toFixed(1),
+              )}
             </span>
           ) : (
             <span className="action-hint">
               {action.hint}
               {HAS_KEYBOARD && (
                 <span className="action-key">
-                  <kbd>E</kbd> {action.key.ms > 0 ? 'przytrzymaj' : ''}
+                  <kbd>E</kbd> {action.key.ms > 0 ? t.action.hold : ''}
                 </span>
               )}
             </span>
@@ -741,17 +840,15 @@ export default function App() {
       )}
 
       {tab === 'gym' && afterHours && (
-        <div className="closing-bar">
+        <div className={`closing-bar${buildMode ? ' building' : ''}`}>
           <div className="closing-text">
-            <strong>Po godzinach</strong>
+            <strong>{t.closing.title}</strong>
             <small>
-              {stillInside > 0
-                ? `Nikt już nie wejdzie — ${stillInside} ${stillInside === 1 ? 'osoba kończy' : 'osób kończy'} trening.`
-                : 'Sala pusta. Rozbuduj siłownię, posprzątaj — zamknij, kiedy skończysz.'}
+              {stillInside > 0 ? t.closing.stillInside(stillInside) : t.closing.empty}
             </small>
           </div>
           <button className="btn primary tiny" onClick={endDay}>
-            Zamknij dzień
+            {t.closing.closeDay}
           </button>
         </div>
       )}
@@ -769,8 +866,8 @@ export default function App() {
           items={state.inventory}
           hint={
             bag.tile
-              ? 'Ścianki stawia się na krawędzi — wybierz ją, a potem kliknij krawędź kafla.'
-              : 'Wybierz przedmiot, potem wskaż mu miejsce na sali.'
+              ? t.build.bagOnEdge
+              : t.build.bagOnTile
           }
           onChoose={itemUid => {
             const tile = bag.tile
@@ -797,6 +894,8 @@ export default function App() {
           onClose={() => setTalking(null)}
         />
       )}
+
+      {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
 
       {floorAccessOpen && (
         <FloorAccessModal

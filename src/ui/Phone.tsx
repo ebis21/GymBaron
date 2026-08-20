@@ -1,18 +1,13 @@
 import type { GameState } from '../game/types'
 import { formatClock } from '../game/clock'
 import { HIRING_UNLOCK_LEVEL } from '../game/constants'
-import { money } from './format'
+import { useI18n } from '../i18n'
 
-/** Everything reachable from the phone. `staff` is a placeholder for now. */
+/** Everything reachable from the phone. */
 export type PhoneApp =
-  | 'gym'
-  | 'build'
-  | 'shop'
-  | 'upgrades'
-  | 'stats'
-  | 'staff'
-  | 'account'
-  | 'multiplayer'
+  | 'gym' | 'build' | 'shop' | 'stats' | 'staff' | 'upgrades'
+  | 'marketing' | 'contracts' | 'sponsors'
+  | 'diamond-upgrades' | 'account' | 'multiplayer'
 
 interface Props {
   state: GameState
@@ -24,7 +19,6 @@ interface Props {
 
 interface Tile {
   id: PhoneApp
-  label: string
   glyph: string
   tint: string
   /** Listed, but not built yet. Shows a badge and cannot be opened. */
@@ -34,17 +28,26 @@ interface Tile {
 }
 
 const APPS: Tile[] = [
-  { id: 'gym', label: 'Sala', glyph: '🏋️', tint: 'coral' },
-  { id: 'build', label: 'Buduj', glyph: '🔨', tint: 'gold' },
-  { id: 'shop', label: 'Sklep', glyph: '🛒', tint: 'leaf' },
-  { id: 'upgrades', label: 'Ulepszenia', glyph: '💎', tint: 'diamond' },
-  { id: 'multiplayer', label: 'Znajomi', glyph: '🤝', tint: 'social' },
-  { id: 'account', label: 'Konto', glyph: '☁️', tint: 'cloud' },
-  { id: 'stats', label: 'Statystyki', glyph: '📊', tint: 'sky' },
+  { id: 'gym', glyph: '🏋️', tint: 'coral' },
+  { id: 'build', glyph: '🔨', tint: 'gold' },
+  { id: 'shop', glyph: '🛒', tint: 'leaf' },
+  // No `minLevel`: the price of the first rung is the only gate, which is the
+  // whole design of the track — see `buyUpgrade`.
+  { id: 'upgrades', glyph: '⬆️', tint: 'sky' },
+  { id: 'diamond-upgrades', glyph: '💎', tint: 'diamond' },
+  { id: 'multiplayer', glyph: '🤝', tint: 'social' },
+  { id: 'account', glyph: '☁️', tint: 'cloud' },
+  { id: 'stats', glyph: '📊', tint: 'sky' },
   // Trainers unlock long before the automation roles, and they are hired from
   // this same screen — so the app opens at the earliest level that can hire
   // anybody at all, and the panel itself explains what is still locked.
-  { id: 'staff', label: 'Personel', glyph: '👔', tint: 'plum', minLevel: HIRING_UNLOCK_LEVEL },
+  { id: 'staff', glyph: '👔', tint: 'plum', minLevel: HIRING_UNLOCK_LEVEL },
+  // The three v2 apps. Each ships listed but marked `soon`, so the home screen
+  // already has its final shape and the branch that finishes a feature clears
+  // exactly one flag on one line — three edits that can never collide.
+  { id: 'marketing', glyph: '📣', tint: 'coral' },
+  { id: 'contracts', glyph: '📝', tint: 'gold' },
+  { id: 'sponsors', glyph: '🤝', tint: 'leaf' },
 ]
 
 /**
@@ -52,24 +55,38 @@ const APPS: Tile[] = [
  * game can do lives on this one home screen, which keeps the bottom of the
  * display clear for the joystick and leaves room for more apps later without
  * another row of tabs appearing from nowhere.
+ *
+ * Touch layouts keep the same right-edge drawer, but enlarge its grip and cap
+ * its height so it remains comfortable in landscape — see the touch block in
+ * `styles.css`. Nothing here branches on viewport: every app stays in the DOM
+ * at every size, so there is only one menu to keep in step.
  */
 export default function Phone({ state, open, active, onToggle, onOpen }: Props) {
+  const { t, money } = useI18n()
+
   return (
     <div className={`phone${open ? ' open' : ''}`}>
       <button
         className="phone-handle"
         onClick={onToggle}
-        aria-label={open ? 'Schowaj telefon' : 'Pokaż telefon'}
+        aria-label={open ? t.phone.hide : t.phone.show}
+        aria-expanded={open}
+        aria-controls="phone-menu"
       >
-        {open ? '›' : '📱'}
+        <span className="phone-handle-glyph">{open ? '›' : '📱'}</span>
       </button>
 
-      <div className="phone-shell">
+      <div
+        id="phone-menu"
+        className="phone-shell"
+        aria-hidden={!open}
+        inert={!open}
+      >
         <div className="phone-speaker" />
 
         <div className="phone-status">
           <span>{formatClock(state.dayMs)}</span>
-          <span>Dzień {state.day}</span>
+          <span>{t.phone.day(state.day)}</span>
           <span>{money(state.cash)}</span>
           <span>💎 {state.diamonds}</span>
         </div>
@@ -83,9 +100,10 @@ export default function Phone({ state, open, active, onToggle, onOpen }: Props) 
                 className={`phone-app${active === app.id ? ' active' : ''}${app.soon ? ' soon' : ''}${locked ? ' locked' : ''}`}
                 disabled={app.soon || locked}
                 onClick={() => onOpen(app.id)}
+                aria-label={t.phone.apps[app.id]}
               >
                 <span className={`phone-icon ${app.tint}`}>{app.glyph}</span>
-                <span className="phone-label">{app.label}</span>
+                <span className="phone-label">{t.phone.apps[app.id]}</span>
                 {app.soon && <span className="phone-soon">SOON</span>}
                 {locked && <span className="phone-lock">🔒 Lv {app.minLevel}</span>}
               </button>

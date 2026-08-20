@@ -6,6 +6,7 @@ import type {
   FriendGymSnapshot,
   FriendMachine,
 } from '../multiplayer/types'
+import { useI18n } from '../i18n'
 import './multiplayer.css'
 
 interface Props {
@@ -83,6 +84,7 @@ function GymFloor({ floor }: { floor: FriendFloorSnapshot }) {
 }
 
 export default function FriendGymView({ snapshot, onBack }: Props) {
+  const { t } = useI18n()
   const initialFloor = snapshot.floors.some(floor => floor.index === snapshot.activeFloor)
     ? snapshot.activeFloor
     : (snapshot.floors[0]?.index ?? 0)
@@ -130,7 +132,7 @@ export default function FriendGymView({ snapshot, onBack }: Props) {
         <div className="friend-floor-card">
           <div className="friend-floor-meta">
             <strong>{floorName(floor.index)}</strong>
-            <span>{expansionAt(floor.expansion).name}</span>
+            <span>{t.content.expansions[expansionAt(floor.expansion).id]}</span>
             <span>{floor.machines.length} maszyn</span>
             <span>{floor.decor.length} dekoracji</span>
             <span>{floor.walls.length} ścian</span>

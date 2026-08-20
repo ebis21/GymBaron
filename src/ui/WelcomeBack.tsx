@@ -1,5 +1,6 @@
 import { assetFor } from '../assets/assetFor'
-import { duration, money } from './format'
+import { useI18n } from '../i18n'
+import { useDialogFocus } from './useDialogFocus'
 
 interface Props {
   earned: number
@@ -8,24 +9,24 @@ interface Props {
 }
 
 export default function WelcomeBack({ earned, awayMs, onDismiss }: Props) {
+  const { t, money, duration } = useI18n()
   const Logo = assetFor('logo')
+  const dialogRef = useDialogFocus<HTMLDivElement>(onDismiss)
+
   return (
-    <div className="overlay">
-      <div className="modal">
+    <div className="overlay" role="presentation">
+      <div ref={dialogRef} tabIndex={-1} className="modal" role="dialog" aria-modal="true" aria-labelledby="welcome-title">
         <Logo />
-        <h2>Witaj z powrotem</h2>
-        <p>
-          Siłownia działała bez Ciebie przez {duration(awayMs)}. Klienci wchodzili,
-          rachunki leciały dalej.
-        </p>
+        <h2 id="welcome-title">{t.welcome.title}</h2>
+        <p>{t.welcome.copy(duration(awayMs))}</p>
 
         <div className="stat-card" style={{ marginBottom: 16 }}>
-          <div className="k">Bilans nieobecności</div>
+          <div className="k">{t.welcome.balance}</div>
           <div className={`v ${earned < 0 ? 'cash-bad' : 'cash-ok'}`}>{money(earned)}</div>
         </div>
 
         <button className="btn block" onClick={onDismiss}>
-          Wracam do roboty
+          {t.welcome.dismiss}
         </button>
       </div>
     </div>

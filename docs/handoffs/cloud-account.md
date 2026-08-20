@@ -209,7 +209,9 @@ Hooki: `useAccount(service?)` i `useCloudSaveEvents(listener, service?)`.
 
 ## Integracja
 
-Do zrobienia przez Agenta 3 w `src/store/gameStore.ts`:
+> Status po scaleniu: poniższe kroki zostały wykonane na
+> `feat/multiplayer-integration`. Sekcja zostaje jako opis kontraktu między
+> warstwą gry i chmurą.
 
 1. **Wysyłanie.** W `persist(state)`, obok istniejącego `saveRaw`:
 

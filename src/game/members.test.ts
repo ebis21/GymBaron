@@ -1,7 +1,9 @@
 import { describe, it, expect } from 'vitest'
-import { addMember, applyChurn, chargeRenewals, signupChance } from './members'
+import {
+  addMember, applyChurn, chargeRenewals, daysToPayday, isPayday, signupChance,
+} from './members'
 import { gymClass, initialState, passPrice } from './economy'
-import { MEMBER_FEE } from './constants'
+import { BILLING_PERIOD_DAYS, MEMBER_FEE } from './constants'
 import type { GameState, Machine, Member } from './types'
 
 const base = () => initialState(3, 0)
@@ -62,48 +64,88 @@ describe('addMember', () => {
   })
 })
 
-describe('chargeRenewals', () => {
-  it('takes nothing on the day someone joined', () => {
-    expect(chargeRenewals(withMembers([member('p1', 1)], { day: 1 })).count).toBe(0)
+describe('isPayday', () => {
+  it('falls every seventh day', () => {
+    expect([7, 14, 21, 70].every(isPayday)).toBe(true)
   })
 
-  it('takes nothing in the days between renewals', () => {
-    for (const day of [2, 3, 4, 5, 6, 9, 13]) {
+  it('falls on no other day', () => {
+    expect([1, 2, 3, 4, 5, 6, 8, 13, 15, 20].some(isPayday)).toBe(false)
+  })
+})
+
+describe('daysToPayday', () => {
+  it('counts down across the week and reads zero on payday', () => {
+    expect([1, 2, 3, 4, 5, 6, 7].map(daysToPayday)).toEqual([6, 5, 4, 3, 2, 1, 0])
+  })
+
+  it('starts the count again the morning after', () => {
+    expect(daysToPayday(8)).toBe(BILLING_PERIOD_DAYS - 1)
+  })
+})
+
+describe('chargeRenewals', () => {
+  it('takes nothing on a day that is not payday', () => {
+    for (const day of [1, 2, 3, 4, 5, 6, 8, 13]) {
       expect(chargeRenewals(withMembers([member('p1', 1)], { day })).count).toBe(0)
     }
   })
 
-  it('renews every seven days from the day the member joined', () => {
-    for (const day of [8, 15, 22]) {
-      const s = withMembers([member('p1', 1)], { day })
+  it('collects every pass in the building on payday', () => {
+    for (const day of [7, 14, 21]) {
+      const s = withMembers([member('p1', 1), member('p2', 3), member('p3', 6)], { day })
       const r = chargeRenewals(s)
-      expect(r.count).toBe(1)
-      expect(r.amount).toBeCloseTo(passPrice(s), 5)
+      expect(r.count).toBe(3)
+      expect(r.amount).toBeCloseTo(passPrice(s) * 3, 5)
+      expect(r.state.cash).toBeCloseTo(s.cash + passPrice(s) * 3, 5)
     }
   })
 
-  it("follows each member's own cycle rather than a shared one", () => {
-    // p1 joined day 1, p2 day 3 — only one of them is ever due at a time.
-    expect(chargeRenewals(withMembers([member('p1', 1), member('p2', 3)], { day: 8 })).count).toBe(1)
-    expect(chargeRenewals(withMembers([member('p1', 1), member('p2', 3)], { day: 10 })).count).toBe(1)
+  it('bills the whole gym on one shared week, whenever each member joined', () => {
+    // Joining on different days no longer buys a different billing date: the
+    // gym's week is the gym's week.
+    const spread = withMembers([member('p1', 1), member('p2', 4), member('p3', 6)], { day: 7 })
+    expect(chargeRenewals(spread).count).toBe(3)
+    expect(chargeRenewals({ ...spread, day: 8 }).count).toBe(0)
   })
 
-  it('charges every member whose renewal falls on the same day', () => {
-    const s = withMembers([member('p1', 1), member('p2', 1)], { day: 8 })
-    const r = chargeRenewals(s)
-    expect(r.count).toBe(2)
-    expect(r.state.cash).toBeCloseTo(s.cash + passPrice(s) * 2, 5)
+  it('spares anyone who joined on payday itself, having just paid at the desk', () => {
+    const s = withMembers([member('p1', 1), member('p2', 7)], { day: 7 })
+    expect(chargeRenewals(s).count).toBe(1)
   })
 
   it("is priced at today's gym class, so upgrades lift existing passes", () => {
-    const plain = withMembers([member('p1', 1)], { day: 8 })
+    const plain = withMembers([member('p1', 1)], { day: 7 })
     const posh = { ...plain, machines: [machine('m1', 'cable')] }
     expect(chargeRenewals(posh).amount).toBeGreaterThan(chargeRenewals(plain).amount)
   })
 
+  it('banks the collection as income rather than conjuring it', () => {
+    const s = withMembers([member('p1', 1)], { day: 7 })
+    const r = chargeRenewals(s)
+    expect(r.state.today.subscriptions).toBeCloseTo(r.amount, 5)
+    expect(r.state.stats.totalEarned).toBeCloseTo(s.stats.totalEarned + r.amount, 5)
+  })
+
   it('leaves the state untouched when nothing is due', () => {
-    const s = withMembers([member('p1', 1)], { day: 3 })
-    expect(chargeRenewals(s).state).toBe(s)
+    const midweek = withMembers([member('p1', 1)], { day: 3 })
+    expect(chargeRenewals(midweek).state).toBe(midweek)
+    const emptyGym = withMembers([], { day: 7 })
+    expect(chargeRenewals(emptyGym).state).toBe(emptyGym)
+  })
+
+  /**
+   * The point of the whole change: a week's income arrives as one sum the
+   * player can see, not as a nightly dribble hidden in the signup line.
+   */
+  it('lands a full membership as a single payday rather than a trickle', () => {
+    const crowd = Array.from({ length: 30 }, (_, i) => member(`p${i}`, 1))
+    const week = [7, 8, 9, 10, 11, 12, 13].map(day =>
+      chargeRenewals(withMembers(crowd, { day })).amount,
+    )
+    const total = week.reduce((a, b) => a + b, 0)
+    expect(week[0]).toBe(total)
+    expect(week.slice(1)).toEqual([0, 0, 0, 0, 0, 0])
   })
 })
 
@@ -150,5 +192,31 @@ describe('applyChurn', () => {
     const stillMember = state.members.some(m => m.uid === 'p49')
     const stillQueued = state.clients.some(c => c.memberUid === 'p49')
     expect(stillQueued).toBe(stillMember)
+  })
+})
+
+describe('signupChance — the luck upgrade', () => {
+  it('is unchanged when the track has not been bought', () => {
+    for (const satisfaction of [0, 25, 50, 75, 100]) {
+      expect(signupChance(satisfaction, 1)).toBeCloseTo(signupChance(satisfaction))
+    }
+  })
+
+  it('converts better at the middling satisfaction a real gym runs at', () => {
+    expect(signupChance(40, 4)).toBeGreaterThan(signupChance(40, 1))
+    expect(signupChance(60, 2)).toBeGreaterThan(signupChance(60, 1))
+  })
+
+  it('never breaks the ceiling that keeps membership income in check', () => {
+    for (const satisfaction of [0, 25, 50, 75, 100]) {
+      for (const luck of [1, 1.5, 2, 3, 4, 99]) {
+        expect(signupChance(satisfaction, luck)).toBeLessThanOrEqual(0.24)
+      }
+    }
+  })
+
+  it('cannot be dragged below the unupgraded odds by a nonsense luck value', () => {
+    expect(signupChance(50, 0)).toBeCloseTo(signupChance(50, 1))
+    expect(signupChance(50, -3)).toBeCloseTo(signupChance(50, 1))
   })
 })

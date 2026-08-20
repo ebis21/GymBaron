@@ -10,7 +10,7 @@ import {
   type PlayerSummary,
   type TransferAsset,
 } from '../multiplayer'
-import { money } from './format'
+import { useI18n } from '../i18n'
 import FriendGymView from './FriendGymView'
 import './multiplayer.css'
 
@@ -23,6 +23,7 @@ const wholeNumber = (value: string): number => Number(value)
 const shortDate = (value: string): string => new Date(value).toLocaleDateString('pl-PL')
 
 export default function MultiplayerScreen({ api, onClose }: Props) {
+  const { money } = useI18n()
   const [overview, setOverview] = useState<MultiplayerOverview | null>(null)
   const [query, setQuery] = useState('')
   const [searchResults, setSearchResults] = useState<PlayerSummary[]>([])

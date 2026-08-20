@@ -14,7 +14,11 @@ import {
   SAVE_VERSION,
 } from './constants'
 import { machinesAcrossFloors } from './floors'
-import { emptyUpgrades, xpMultiplier } from './upgrades'
+import { emptyUpgrades } from './content/upgrades'
+import { emptyDiamondUpgrades, xpMultiplier } from './diamondUpgrades'
+import { initialMarketing } from './marketing'
+import { initialContracts } from './contracts'
+import { initialSponsors } from './sponsors'
 
 export const emptyLedger = (): DayLedger => ({
   entryFees: 0,
@@ -24,6 +28,9 @@ export const emptyLedger = (): DayLedger => ({
   clientsServed: 0,
   clientsLost: 0,
   trainerFees: 0,
+  marketingSpend: 0,
+  contractFees: 0,
+  sponsorIncome: 0,
 })
 
 export function initialState(seed: number, now: number): GameState {
@@ -41,7 +48,7 @@ export function initialState(seed: number, now: number): GameState {
     version: SAVE_VERSION,
     cash: START_CASH,
     diamonds: 0,
-    upgrades: emptyUpgrades(),
+    diamondUpgrades: emptyDiamondUpgrades(),
     lastDiamondRewardDay: 0,
     allianceIncomeMultiplier: 1,
     appliedSabotageIds: [],
@@ -61,6 +68,12 @@ export function initialState(seed: number, now: number): GameState {
     stains: [],
     candidates: [],
     candidatesDay: 0,
+    upgrades: emptyUpgrades(),
+    // Each v2 system seeds its own sub-state. This file never learns what is
+    // inside one, which is what keeps three branches out of each other's way.
+    marketing: initialMarketing(),
+    contracts: initialContracts(),
+    sponsors: initialSponsors(),
     seed,
     expansion: 0,
     activeFloor: 0,
@@ -93,10 +106,30 @@ export function initialState(seed: number, now: number): GameState {
  * paid for more machines the whole economy compounded on itself. Membership
  * income outran rent, power and wages by an order of magnitude within a week.
  *
- * Eight puts the ceiling at ×9 and, more to the point, makes the curve flat
- * where it used to be steepest.
+ * Six puts the ceiling at ×7 and, more to the point, makes the curve flat
+ * where it used to be steepest. It came down from eight when `equipmentDraw`
+ * arrived: a big floor now earns by pulling a bigger crowd through the door,
+ * so letting it *also* keep charging every pass holder more would be paying
+ * the player twice for the same thirty machines.
  */
-const GYM_CLASS_CEILING = 8
+const GYM_CLASS_CEILING = 6
+
+/**
+ * What the kit on the floor is worth above bare boards, summed across every
+ * storey. Shared by `gymClass` and `equipmentDraw` because both answer a
+ * question about the same thing — how good the gym is — and reading it twice
+ * from one place is what keeps them from drifting apart.
+ *
+ * Machines bought through a supplier contract count exactly like the starting
+ * six. `machineType` resolves both from one table, so a floor of Apex kit is
+ * simply a floor with a very high total.
+ */
+function equipmentWorth(state: GameState): number {
+  return machinesAcrossFloors(state).reduce(
+    (acc, m) => acc + (machineType(m.type).revenueMultiplier - 1),
+    0,
+  )
+}
 
 /**
  * Every machine contributes what it is worth above bare floor, on a curve with
@@ -106,14 +139,43 @@ const GYM_CLASS_CEILING = 8
  * from a purchase.
  */
 export function gymClass(state: GameState): number {
-  const raw = machinesAcrossFloors(state).reduce(
-    (acc, m) => acc + (machineType(m.type).revenueMultiplier - 1),
-    0,
-  )
   // Saturating rather than a straight sum. Still monotonic — a purchase can
   // never lower the class — but the twentieth machine adds a fraction of what
   // the second did, so the class settles instead of climbing forever.
+  const raw = equipmentWorth(state)
   return 1 + (raw * GYM_CLASS_CEILING) / (raw + GYM_CLASS_CEILING)
+}
+
+/**
+ * How much more the ceiling of a fully kitted gym pulls in than an empty one,
+ * and how much equipment it takes to get halfway there.
+ *
+ * These two numbers are the whole answer to the complaint that thirty top-end
+ * machines earned barely more than six cheap ones. Footfall used to be a
+ * function of reputation alone, so the only thing a bigger, better floor
+ * bought was a shorter queue — the kit had nowhere to send its takings.
+ *
+ * `DRAW_HALF` is set well above what a starting hall can hold so the curve is
+ * still climbing through the whole mid-game, and `DRAW_CEILING` deliberately
+ * stops at +1.6. Advertising multiplies on top of this, and the two together
+ * have to leave a mega-gym's queue servable: past roughly ×2.5 the door
+ * outruns what any payroll can scan and the surplus turns into walkouts.
+ */
+const DRAW_CEILING = 1.6
+const DRAW_HALF = 9
+
+/**
+ * How much the kit on the floor multiplies walk-in arrivals: 1 in an empty
+ * hall, rising toward `1 + DRAW_CEILING` as the gym fills with better
+ * equipment. A reputation for a well-equipped gym is what actually brings
+ * people in — reputation still sets the base rate, this scales it.
+ *
+ * Same saturating shape as `gymClass`, on the same underlying total, so it is
+ * monotonic for the same reason: buying a machine can never thin the crowd.
+ */
+export function equipmentDraw(state: GameState): number {
+  const raw = equipmentWorth(state)
+  return 1 + (raw * DRAW_CEILING) / (raw + DRAW_HALF)
 }
 
 /**
@@ -132,8 +194,12 @@ export function reputationBonus(reputation: number): number {
  * the multiplier, which is why the fee is charged at scan time rather than on
  * arrival — that is the moment the assignment is known.
  *
- * `reputation` and `withTrainer` default to the neutral case so the fee of a
- * plain visit at an unknown gym is still a two-line call.
+ * `reputation`, `withTrainer` and `earnings` all default to the neutral case so
+ * the fee of a plain visit at an unknown gym is still a two-line call.
+ *
+ * `earnings` is the player's own upgrade track. It lands last, on top of
+ * everything else, and touches only the door — a pass is priced by the gym
+ * class alone and never sees this multiplier.
  */
 export function entryFee(
   typeId: MachineTypeId,
@@ -141,11 +207,12 @@ export function entryFee(
   rarity: ClientRarity,
   reputation = 0,
   withTrainer = false,
+  earnings = 1,
 ): number {
   const base = ENTRY_FEE_BASE * machineType(typeId).revenueMultiplier * RARITY_MULTIPLIER[rarity]
   const discounted = kind === 'member' ? base * MEMBER_DISCOUNT : base
   const coached = withTrainer ? discounted * TRAINER_FEE_MULT : discounted
-  return coached * reputationBonus(reputation)
+  return coached * reputationBonus(reputation) * earnings
 }
 
 /** Face value of a pass at the gym's current class. */

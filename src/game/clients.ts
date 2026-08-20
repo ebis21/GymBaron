@@ -3,7 +3,8 @@ import { machineType } from './content/machines'
 import { isClosingTime } from './clock'
 import { rollRarity } from './content/rarity'
 import { nextRandom } from './rng'
-import { addXp, entryFee } from './economy'
+import { addXp, entryFee, equipmentDraw } from './economy'
+import { clampExpansion } from './content/expansion'
 import { addMember, signupChance } from './members'
 import {
   DAY_MS,
@@ -13,10 +14,12 @@ import {
   MAX_QUEUE,
   TRAINER_SATISFACTION_MULT,
 } from './constants'
-import { queuePatienceMs } from './upgrades'
+import { earningsMult, luckMult } from './upgrades'
+import { queuePatienceMs } from './diamondUpgrades'
 import { DOOR_QUEUE_Z, doorX } from './layout'
 import { spawnStain, STAIN_CHANCE } from './stains'
 import { clientsAcrossFloors } from './floors'
+import { marketingLuck, marketingSignupBoost, spawnRateMultiplier } from './marketing'
 
 /**
  * Chance per second that a client walks in, at zero and at full reputation.
@@ -25,6 +28,9 @@ import { clientsAcrossFloors } from './floors'
  */
 const SPAWN_BASE = 0.144
 const SPAWN_PER_REP = 0.24
+
+/** Extra places in the door queue for every expansion rung — see `queueLimit`. */
+const QUEUE_PER_EXPANSION = 2
 
 /** Times an average member turns up over a full 8:00–20:00 day. */
 const MEMBER_VISITS_PER_DAY = 1.6
@@ -70,17 +76,60 @@ export function freeTrainers(state: GameState): Staff[] {
   return state.staff.filter(s => s.role === 'trainer' && isTrainerFree(state, s.uid))
 }
 
+/**
+ * How long a queue the room itself will hold before newcomers stop bothering.
+ *
+ * It scales with the floor because the cap is the one thing standing between a
+ * well-equipped gym and the crowd `equipmentDraw` now sends it: leave it at a
+ * flat ten and a floor of Apex kit spends the whole day with a full queue,
+ * which turns every extra machine back into nothing. Two more places per
+ * expansion rung is roughly what the extra floor space could hold anyway.
+ *
+ * Read off the active floor's own rung rather than the whole building's: the
+ * queue is a physical thing standing in one room.
+ */
+export function queueLimit(state: GameState): number {
+  return MAX_QUEUE + QUEUE_PER_EXPANSION * clampExpansion(state.expansion)
+}
+
+/**
+ * Nobody joins a queue longer than the gym can plausibly clear. People can see
+ * through the door: a hall with two free machines and a dozen people waiting
+ * does not attract a thirteenth.
+ *
+ * This is what keeps the new footfall honest. Without it, a floor of top-end
+ * kit pulls in far more people than its machines can seat, the overflow times
+ * out at the desk, and every walkout costs a flat `REP_LOSS_ON_WALKOUT` while
+ * a finished workout at high reputation pays back almost nothing — so a
+ * *successful* gym would grind its own reputation to zero and stay there. The
+ * queue has to be bounded by capacity, not just by floor space, or growth
+ * punishes itself.
+ *
+ * The overhang is what makes a queue worth having at all: a few people waiting
+ * on a machine that is about to free up is the busy gym the player is building
+ * toward, and it leaves walkouts as something bad play causes rather than
+ * something arithmetic guarantees.
+ */
+const QUEUE_OVERHANG = 3
+
 /** True when the gym can take one more person through the door right now. */
 function acceptingArrivals(state: GameState): boolean {
   // Past 20:00 the door is shut. Whoever is already inside still finishes.
   if (isClosingTime(state.dayMs)) return false
-  if (!state.machines.some(isUsable)) return false
+
+  // Machines already promised to somebody walking over are not free: `scanClient`
+  // sets `occupiedBy` at the desk, so this counts seats, not hardware.
+  const free = state.machines.filter(isUsable).length
+  if (free === 0) return false
+
   const waiting = state.clients.filter(c => c.phase === 'queue' || c.phase === 'arriving').length
-  return waiting < MAX_QUEUE
+  return waiting < Math.min(queueLimit(state), free + QUEUE_OVERHANG)
 }
 
 function enqueue(state: GameState, kind: ClientKind, memberUid: string | null): GameState {
-  const [rarity, seed] = rollRarity(state.seed)
+  // Advertising can buy a better class of visitor as well as more of them,
+  // and it stacks on the player's own luck track rather than replacing it.
+  const [rarity, seed] = rollRarity(state.seed, luckMult(state) * marketingLuck(state))
   const client: Client = {
     uid: `c${state.nextUid}`,
     kind,
@@ -89,6 +138,7 @@ function enqueue(state: GameState, kind: ClientKind, memberUid: string | null): 
     phaseMs: 0,
     machineUid: null,
     memberUid,
+    receptionUid: null,
     trainerUid: null,
     x: doorX(),
     z: DOOR_QUEUE_Z,
@@ -111,6 +161,7 @@ export function summonLilD(state: GameState): GameState {
     phaseMs: 0,
     machineUid: null,
     memberUid: null,
+    receptionUid: null,
     trainerUid: null,
     x: doorX(),
     z: DOOR_QUEUE_Z,
@@ -137,14 +188,36 @@ export function spawnLilD(state: GameState, dtMs: number): GameState {
 }
 
 /**
+ * How often the door opens, per second.
+ *
+ * Three separate reasons somebody walks in, and they multiply rather than add:
+ * reputation is what the gym earned, the kit on the floor is what it bought,
+ * and advertising is what it rents. A campaign is therefore worth more to a
+ * place people already like and that has the machines to put them on — which
+ * is the shape the marketing design wants, and the reason a thirty-machine
+ * floor is no longer serving the same trickle as a six.
+ *
+ * Exported so the marketing screen can project what an offer would actually
+ * bring in without restating the formula. `multiplier` defaults to whatever is
+ * live; pass a hypothetical one to price a campaign the player has not bought.
+ */
+export function arrivalsPerSecond(
+  state: GameState,
+  multiplier: number = spawnRateMultiplier(state),
+): number {
+  return (SPAWN_BASE + (clamp(state.reputation, 0, 100) / 100) * SPAWN_PER_REP)
+    * equipmentDraw(state)
+    * multiplier
+}
+
+/**
  * Passers-by only turn up when there is a working, unoccupied machine — an
  * empty gym attracts nobody, which is what makes the first purchase matter.
  */
 export function spawnWalkins(state: GameState, dtMs: number): GameState {
   if (!acceptingArrivals(state)) return state
 
-  const perSecond = SPAWN_BASE + (clamp(state.reputation, 0, 100) / 100) * SPAWN_PER_REP
-  const chance = perSecond * (dtMs / 1000)
+  const chance = arrivalsPerSecond(state) * (dtMs / 1000)
 
   const [roll, seed] = nextRandom(state.seed)
   const next = { ...state, seed }
@@ -190,6 +263,15 @@ export function advanceClients(state: GameState, dtMs: number): GameState {
   let signups = 0
   let xpAwarded = 0
 
+  // Both upgrade tracks are read once for the whole sweep rather than per
+  // client — they cannot change mid-tick, and the loop runs over every person
+  // in the building on every frame.
+  const patience = queuePatienceMs(state)
+  const luck = luckMult(state)
+  // A referral push is worth exactly what the luck track is worth at the
+  // desk, so it rides the same parameter — and the same conversion ceiling.
+  const deskLuck = luck * marketingSignupBoost(state)
+
   const machines = state.machines.map(m => ({ ...m }))
   const byUid = new Map(machines.map(m => [m.uid, m]))
   const survivors: Client[] = []
@@ -205,7 +287,7 @@ export function advanceClients(state: GameState, dtMs: number): GameState {
     const phaseMs = client.phaseMs + dtMs
 
     if (client.phase === 'queue') {
-      if (phaseMs > queuePatienceMs(state)) {
+      if (phaseMs > patience) {
         lost += 1
         reputation = clamp(reputation - REP_LOSS_ON_WALKOUT, 0, 100)
         satisfaction = clamp(satisfaction - SAT_LOSS_ON_WALKOUT, 0, 100)
@@ -255,6 +337,7 @@ export function advanceClients(state: GameState, dtMs: number): GameState {
       phase: 'leaving',
       phaseMs: 0,
       machineUid: null,
+      receptionUid: null,
       trainerUid: null,
       path: [],
       goal: null,
@@ -263,7 +346,7 @@ export function advanceClients(state: GameState, dtMs: number): GameState {
     if (client.kind === 'walkin' && client.special !== 'lil-d') {
       const [roll, nextSeed] = nextRandom(seed)
       seed = nextSeed
-      if (roll < signupChance(satisfaction)) signups += 1
+      if (roll < signupChance(satisfaction, deskLuck)) signups += 1
     }
   }
 
@@ -319,13 +402,24 @@ export function scanClient(
   const isLilD = client.special === 'lil-d'
   const coach = trainerUid && !isLilD && isTrainerFree(state, trainerUid) ? trainerUid : null
 
+  // LIL D. settles by his own rules and his notes are a loss, so the earnings
+  // track never touches him — upgrading how well you sell cannot make a con
+  // pay better.
+  const earnings = earningsMult(state)
   const plainFee = isLilD
     ? 0
-    : entryFee(machine.type, client.kind, client.rarity, state.reputation) * state.allianceIncomeMultiplier
+    : entryFee(machine.type, client.kind, client.rarity, state.reputation, false, earnings) *
+      state.allianceIncomeMultiplier
   const fee = isLilD
     ? LIL_D_FAKE_PAYMENT
-    : entryFee(machine.type, client.kind, client.rarity, state.reputation, coach !== null) *
-      state.allianceIncomeMultiplier
+    : entryFee(
+        machine.type,
+        client.kind,
+        client.rarity,
+        state.reputation,
+        coach !== null,
+        earnings,
+      ) * state.allianceIncomeMultiplier
   // A breakdown of `fee`, not income on top of it — see `DayLedger.trainerFees`.
   const trainerShare = isLilD ? 0 : fee - plainFee
   const cashDelta = isLilD ? -fee : fee
@@ -343,6 +437,7 @@ export function scanClient(
             phase: 'toMachine' as const,
             phaseMs: 0,
             machineUid: machine.uid,
+            receptionUid: null,
             trainerUid: coach,
             path: [],
             goal: null,

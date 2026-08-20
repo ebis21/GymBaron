@@ -128,6 +128,10 @@ Entry point: `src/multiplayer/index.ts`.
 
 ## UI integration
 
+> Status po scaleniu: konkretny adapter Supabase, ekran telefonu, mnożnik
+> sojuszu oraz odbiór LIL D. są zaimplementowane na
+> `feat/multiplayer-integration`. Poniższa lista opisuje spełniony kontrakt.
+
 Render `src/ui/MultiplayerScreen.tsx` with a concrete API adapter:
 
 ```tsx
@@ -168,11 +172,9 @@ revision changes, global target/day sabotage limits and pending-event ack.
 `migration.contract.test.ts` guards RLS/direct-write structure, save locking,
 revision updates, idempotency and the snapshot whitelist.
 
-The branch has no concrete Supabase client dependency or adapter by design and
-does not apply the ×1.5 multiplier inside the local game engine. A live SQL
-integration run still needs `supabase db reset` (or equivalent PostgreSQL with
-Supabase `auth.uid()`); the local Docker CLI was present during development,
-but its daemon was not running. The migration was therefore covered by the
-static contract test and compatibility-reviewed against migration
-`202608200001`, while the production database execution remains an integration
-step.
+The original social branch had no concrete Supabase adapter by design. The
+integration branch now supplies it and applies the ×1.5 multiplier in the game
+engine. A live SQL integration run is still required: migration
+`202608200002_multiplayer.sql` has not been applied to production, while its
+static contract test and compatibility review against migration
+`202608200001` pass.

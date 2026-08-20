@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import type { Decor, GameState, Machine, MachineTypeId, Wall } from '../game/types'
+import type { Client, Decor, GameState, Machine, MachineTypeId, Wall } from '../game/types'
 import { tileOccupant, type PlacedKind } from '../game/build'
 import { buildHall, disposeHall } from './models/floor'
 import { buildDecor, buildWallSegment, WALL_THICK } from './models/decor'
@@ -66,11 +66,64 @@ const WALL_FADED = 0.22
 /** How close to the reception desk counts as being behind it. */
 const DESK_REACH = 2.6
 
+/** Nearest placed reception within manual interaction range. */
+export function receptionAtPoint(
+  state: GameState,
+  point: { x: number; z: number },
+): Decor | null {
+  let nearest: Decor | null = null
+  let best = DESK_REACH
+
+  for (const desk of state.decor) {
+    if (desk.type !== 'reception') continue
+    const at = tileToWorld(desk.x, desk.y)
+    const distance = Math.hypot(at.x - point.x, at.z - point.z)
+    if (distance >= best) continue
+    best = distance
+    nearest = desk
+  }
+
+  return nearest
+}
+
+/** Front of the local line at one counter, in the same order movement lays it out. */
+export function frontClientAtReception(state: GameState, receptionUid: string): Client | null {
+  const firstReception = state.decor.find(d => d.type === 'reception')?.uid ?? null
+  return state.clients.find(c =>
+    c.phase === 'queue' && (
+      c.receptionUid === receptionUid ||
+      (c.receptionUid == null && receptionUid === firstReception)
+    ),
+  ) ?? null
+}
+
 /** Where the haze starts and ends in the hall the game ships with. */
 const FOG_NEAR = 34
 const FOG_FAR = 66
 /** Corner-to-corner of that same hall — the yardstick a bigger room scales by. */
 const BASE_REACH = Math.hypot(HALL_W, HALL_D)
+
+/**
+ * How far above and behind the player the follow camera rides. The two are a
+ * locked pair: 10.6 / 11.5 is the same ratio as the 12.5 / 13.5 they replaced,
+ * so the room comes ~15% closer at the identical 42.8° pitch. Nudge one without
+ * the other and the whole game tilts — the machines were modelled for this
+ * angle, and `blockingSight` is tuned to which partitions it can see over.
+ */
+export const FOLLOW_HEIGHT = 10.6
+export const FOLLOW_DEPTH = 11.5
+
+/**
+ * How much of a step across the floor survives on screen once the camera's
+ * pitch has flattened it. A pace towards the far wall covers barely two thirds
+ * the pixels the same pace sideways does, so anything drawing a floor
+ * direction as a screen direction — the HUD's guide arrow — has to squash the
+ * depth component by this or it points visibly wide of what it is aimed at.
+ *
+ * Derived from the pair above rather than measured, so the pitch and this stay
+ * in step by construction.
+ */
+export const FLOOR_SQUASH = FOLLOW_HEIGHT / Math.hypot(FOLLOW_HEIGHT, FOLLOW_DEPTH)
 
 const DEFAULT_UP = new THREE.Vector3(0, 1, 0)
 
@@ -161,6 +214,7 @@ export class GymScene {
 
   private state: GameState | null = null
   private buildMode = false
+  private paused = false
   /** Client the player has stepped up to, or null for the usual chase camera. */
   private facing: string | null = null
   private selected: { kind: PlacedKind; uid: string } | null = null
@@ -577,13 +631,21 @@ export class GymScene {
     }
   }
 
-  /** True while the player is stood at the reception desk. */
-  private atReception(state: GameState): boolean {
-    const desk = state.decor.find(d => d.type === 'reception')
-    if (!desk) return false
+  /**
+   * Where the character is standing, in world units. Read by the HUD's guide
+   * arrow, which has to know what it is pointing away from — the scene owns
+   * the walk, so it is the only thing that can answer.
+   *
+   * A copy: handing out the live vector would let a caller walk the player
+   * through a wall by assigning to it.
+   */
+  playerAt(): { x: number; z: number } {
+    return { x: this.playerPos.x, z: this.playerPos.z }
+  }
 
-    const at = tileToWorld(desk.x, desk.y)
-    return Math.hypot(at.x - this.playerPos.x, at.z - this.playerPos.z) < DESK_REACH
+  /** The reception the player is stood at, across every counter on the floor. */
+  private atReception(state: GameState): Decor | null {
+    return receptionAtPoint(state, this.playerPos)
   }
 
   // --- build mode -----------------------------------------------------------
@@ -596,6 +658,7 @@ export class GymScene {
   setBuildMode(on: boolean): void {
     if (on === this.buildMode) return
     this.buildMode = on
+    this.controls.setEnabled(!on && !this.paused)
     this.gridOverlay.visible = on
 
     // From that height the room would be lost inside the haze.
@@ -773,6 +836,11 @@ export class GymScene {
       return
     }
 
+    if (this.paused || this.buildMode) {
+      animate(this.player, this.elapsed, false)
+      return
+    }
+
     const dir = this.controls.vector()
     const moving = dir.x !== 0 || dir.z !== 0
 
@@ -824,6 +892,12 @@ export class GymScene {
     this.facing = clientUid
   }
 
+  /** Modal and panel chrome owns input while it covers the room. */
+  setPaused(on: boolean): void {
+    this.paused = on
+    this.controls.setEnabled(!on && !this.buildMode)
+  }
+
   private facingRig(): Rig | null {
     if (!this.facing || this.buildMode) return null
     return this.actors.rigFor(this.facing) ?? null
@@ -852,7 +926,9 @@ export class GymScene {
    * whoever is waiting is immediately within reach of the action prompt.
    */
   teleportToReception(state: GameState): void {
-    const anchor = queueAnchorFor(state)
+    // The first placed desk is a stable destination even with several queues.
+    const firstDesk = state.decor.find(d => d.type === 'reception')
+    const anchor = queueAnchorFor(state, firstDesk?.uid ?? null)
     const spot = queueSpot(0, anchor)
 
     // One pace to the attendant's left of the first person in line, so the
@@ -933,7 +1009,7 @@ export class GymScene {
     const state = this.state
     let next: Focus = null
 
-    if (state && !this.buildMode) {
+    if (state && !this.buildMode && !this.paused) {
       let best = REACH
 
       for (const client of state.clients) {
@@ -951,8 +1027,9 @@ export class GymScene {
       // Standing at the desk serves whoever is at the front of the line, even
       // when the line itself trails off across the room. Working the counter
       // is the job; chasing individual visitors around the floor is not.
-      if (!next && this.atReception(state)) {
-        const front = state.clients.find(c => c.phase === 'queue')
+      const desk = this.atReception(state)
+      if (!next && desk) {
+        const front = frontClientAtReception(state, desk.uid)
         if (front) next = { kind: 'scan', clientUid: front.uid }
       }
 
@@ -1006,7 +1083,11 @@ export class GymScene {
       eye = this.buildEye
       aim = new THREE.Vector3(0, 0, 0)
     } else {
-      eye = new THREE.Vector3(this.playerPos.x - 1.5, 12.5, this.playerPos.z + 13.5)
+      eye = new THREE.Vector3(
+        this.playerPos.x - 1.5,
+        FOLLOW_HEIGHT,
+        this.playerPos.z + FOLLOW_DEPTH,
+      )
       aim = new THREE.Vector3(this.playerPos.x, 1.1, this.playerPos.z - 0.5)
     }
 
@@ -1028,7 +1109,8 @@ export class GymScene {
   // --- lifecycle ------------------------------------------------------------
 
   setStick(x: number, z: number): void {
-    this.controls.setStick(x, z)
+    if (this.paused || this.buildMode) this.controls.reset()
+    else this.controls.setStick(x, z)
   }
 
   resize(): void {

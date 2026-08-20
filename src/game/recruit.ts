@@ -1,3 +1,4 @@
+import { currentLanguage, type Language } from '../i18n'
 import type { Candidate, GameState, StaffRank, StaffRole } from './types'
 import { nextRandom } from './rng'
 import { STAFF_RANKS, STAFF_ROLES, hirePriceFor, roleUnlockLevel } from './content/staff'
@@ -18,12 +19,52 @@ export const RANK_WEIGHT: Record<StaffRank, number> = {
 
 const TOTAL_WEIGHT = STAFF_RANKS.reduce((sum, r) => sum + RANK_WEIGHT[r], 0)
 
-const FIRST_NAMES = [
-  'Marta', 'Piotr', 'Ola', 'Kamil', 'Zofia', 'Bartek',
-  'Iwona', 'Rafał', 'Ewa', 'Damian', 'Kinga', 'Sławek',
-]
+/**
+ * Drawn in whatever language the player is reading, because an English gym
+ * staffed by Sławek and Iwona reads as an unfinished translation. The pools
+ * are the same length so the same seed still draws the same *slot* — only the
+ * word changes — and a name already on the payroll is never revisited: it was
+ * written into the save the day that person was hired.
+ */
+export const FIRST_NAMES: Record<Language, string[]> = {
+  pl: [
+    'Marta', 'Piotr', 'Ola', 'Kamil', 'Zofia', 'Bartek',
+    'Iwona', 'Rafał', 'Ewa', 'Damian', 'Kinga', 'Sławek',
+  ],
+  en: [
+    'Martha', 'Peter', 'Olivia', 'Cameron', 'Sophie', 'Bart',
+    'Yvonne', 'Ralph', 'Eve', 'Damien', 'Kim', 'Steve',
+  ],
+}
 
 const SURNAME_INITIALS = ['K.', 'W.', 'D.', 'N.', 'S.', 'M.', 'L.', 'B.']
+
+/**
+ * The name as it should read right now. A name is written into the save the
+ * moment somebody is drawn, so switching language would otherwise leave a
+ * board of Camerons and Olivias under a Polish interface — and re-rolling the
+ * board to fix it would hand out the 500 kr refresh for free.
+ *
+ * Instead the pools are parallel: the same slot in each is the same person,
+ * so a stored name can be looked up in one and read out of the other. A name
+ * from neither pool is left exactly as it is, which is what keeps a save from
+ * an older build — or any name the pools stop offering — intact.
+ */
+export function displayName(stored: string, language: Language): string {
+  const [first, ...rest] = stored.split(' ')
+  if (!first) return stored
+
+  for (const pool of Object.values(FIRST_NAMES)) {
+    const slot = pool.indexOf(first)
+    if (slot < 0) continue
+    // Guarded rather than assumed: if the pools ever stop being the same
+    // length, a name with no counterpart keeps the one it was drawn with
+    // instead of rendering as a blank.
+    const translated = FIRST_NAMES[language][slot]
+    return translated ? [translated, ...rest].join(' ') : stored
+  }
+  return stored
+}
 
 function pick<T>(list: T[], seed: number): [T, number] {
   const [roll, next] = nextRandom(seed)
@@ -63,7 +104,7 @@ export function rollPool(state: GameState): GameState {
   const roles = unlockedRoles(state)
 
   for (let i = 0; i < POOL_SIZE; i += 1) {
-    const [first, s1] = pick(FIRST_NAMES, seed)
+    const [first, s1] = pick(FIRST_NAMES[currentLanguage()], seed)
     const [initial, s2] = pick(SURNAME_INITIALS, s1)
     const [role, s3] = pick(roles, s2)
     const [rank, s4] = rollRank(s3)

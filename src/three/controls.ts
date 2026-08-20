@@ -22,9 +22,10 @@ export interface MoveVector {
 export class Controls {
   private readonly held = new Set<string>()
   private stick: MoveVector = { x: 0, z: 0 }
+  private enabled = true
 
   private readonly onKeyDown = (e: KeyboardEvent) => {
-    if (!KEYS[e.code]) return
+    if (!this.enabled || !KEYS[e.code]) return
     // Arrow keys scroll the page otherwise, which fights the camera.
     e.preventDefault()
     this.held.add(e.code)
@@ -47,10 +48,25 @@ export class Controls {
 
   /** Called by the joystick component; values are already in −1…1. */
   setStick(x: number, z: number): void {
+    if (!this.enabled) return
     this.stick = { x, z }
   }
 
+  /** Panels and build mode hand ordinary arrow-key behaviour back to the UI. */
+  setEnabled(enabled: boolean): void {
+    if (enabled === this.enabled) return
+    this.enabled = enabled
+    this.reset()
+  }
+
+  /** Drops every input source when a modal or build view takes over. */
+  reset(): void {
+    this.held.clear()
+    this.stick = { x: 0, z: 0 }
+  }
+
   vector(): MoveVector {
+    if (!this.enabled) return { x: 0, z: 0 }
     let x = this.stick.x
     let z = this.stick.z
 
@@ -72,6 +88,6 @@ export class Controls {
     window.removeEventListener('keydown', this.onKeyDown)
     window.removeEventListener('keyup', this.onKeyUp)
     window.removeEventListener('blur', this.onBlur)
-    this.held.clear()
+    this.reset()
   }
 }

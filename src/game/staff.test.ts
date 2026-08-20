@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   assignStaff, workStaff, fire, hire, payArrears, onDuty, restTileFor, targetTile,
-  deskPost, freeTrainers, isTrainerFree, nextToServe,
+  deskPost, freeTrainers, isTrainerFree, nextToServe, staffLimit, freeDesks, staffedDesks,
 } from './staff'
 import { initialState } from './economy'
 import { isAtStaffDoor, staffDoorTile, tileToWorld } from './layout'
@@ -387,6 +387,43 @@ describe('workStaff', () => {
     expect(s.clients.find(c => c.uid === 'fresh')!.phase).toBe('queue')
   })
 
+  it('serves only the queue assigned to its own reception desk', () => {
+    let s = gym({
+      staff: [receptionist({ targetUid: 'd2', x: at(6, 0).x, z: at(6, 0).z })],
+      decor: [desk(), desk({ uid: 'd2', x: 6 })],
+      machines: [machine()],
+      clients: [
+        client({ uid: 'desperate', receptionUid: 'd1', phaseMs: PATIENCE_MS - 1 }),
+        client({ uid: 'own-line', receptionUid: 'd2', phaseMs: 0 }),
+      ],
+    })
+
+    s = workStaff(s, SCAN_MS)
+
+    expect(s.clients.find(c => c.uid === 'desperate')!.phase).toBe('queue')
+    expect(s.clients.find(c => c.uid === 'own-line')!.phase).toBe('toMachine')
+  })
+
+  it('lets two staffed desks scan their two queues in parallel', () => {
+    let s = gym({
+      staff: [
+        receptionist({ uid: 'e1', targetUid: 'd1' }),
+        receptionist({ uid: 'e2', targetUid: 'd2', x: at(6, 0).x, z: at(6, 0).z }),
+      ],
+      decor: [desk(), desk({ uid: 'd2', x: 6 })],
+      machines: [machine(), machine({ uid: 'm2', x: 5 })],
+      clients: [
+        client({ uid: 'c1', receptionUid: 'd1' }),
+        client({ uid: 'c2', receptionUid: 'd2' }),
+      ],
+    })
+
+    s = workStaff(s, SCAN_MS)
+
+    expect(s.clients.every(c => c.phase === 'toMachine')).toBe(true)
+    expect(s.machines.every(m => m.occupiedBy !== null)).toBe(true)
+  })
+
   it('never scans from a desk somebody else claimed', () => {
     const s = gym({
       staff: [receptionist({ targetUid: 'd-old' })],
@@ -609,5 +646,141 @@ describe('restTileFor', () => {
   it('counts anywhere on the gym floor as being out and visible', () => {
     expect(isAtStaffDoor(at(4, 2).x, at(4, 2).z)).toBe(false)
     expect(isAtStaffDoor(at(-1, 3).x, at(-1, 3).z)).toBe(false)
+  })
+})
+
+
+describe('staffLimit', () => {
+  const oneFloor = (expansion: number): GameState => ({
+    ...initialState(1, 0),
+    expansion,
+    activeFloor: 0,
+    floorPlans: [{ expansion, machines: [], decor: [], walls: [], stains: [], clients: [] }],
+  })
+
+  const twoFloors = (ground: number, upper: number): GameState => ({
+    ...oneFloor(ground),
+    floorPlans: [
+      { expansion: ground, machines: [], decor: [], walls: [], stains: [], clients: [] },
+      { expansion: upper, machines: [], decor: [], walls: [], stains: [], clients: [] },
+    ],
+  })
+
+  it('allows the five the game always did in an unexpanded starting hall', () => {
+    expect(staffLimit(oneFloor(0))).toBe(5)
+  })
+
+  it('adds two for every expansion rung bought', () => {
+    expect(staffLimit(oneFloor(1))).toBe(7)
+    expect(staffLimit(oneFloor(2))).toBe(9)
+    expect(staffLimit(oneFloor(3))).toBe(11)
+  })
+
+  it('gives a second storey its own five, and its own room to expand', () => {
+    expect(staffLimit(twoFloors(0, 0))).toBe(10)
+    expect(staffLimit(twoFloors(3, 0))).toBe(16)
+    expect(staffLimit(twoFloors(3, 3))).toBe(22)
+  })
+
+  /**
+   * The engine mirrors the active storey at the top level and leaves the others
+   * in their plans. Reading `state.expansion` alone would drop the cap the
+   * moment the player stepped upstairs into a room they had not expanded — and
+   * with it, silently, their ability to replace anybody they sacked.
+   */
+  it('does not change when the player merely walks up the stairs', () => {
+    const downstairs = twoFloors(3, 1)
+    const upstairs: GameState = { ...downstairs, activeFloor: 1, expansion: 1 }
+    expect(staffLimit(upstairs)).toBe(staffLimit(downstairs))
+  })
+
+  it('clamps a hand-edited rung rather than handing out a wild cap', () => {
+    expect(staffLimit(oneFloor(99))).toBe(11)
+    expect(staffLimit(oneFloor(-3))).toBe(5)
+  })
+
+  it('reads a state built without any floor plans as the one floor it is', () => {
+    const bare = { ...initialState(1, 0), expansion: 2, floorPlans: [] }
+    expect(staffLimit(bare)).toBe(9)
+  })
+
+  it('is what hiring actually enforces', () => {
+    const room = oneFloor(0)
+    const full: GameState = {
+      ...room,
+      level: STAFF_UNLOCK_LEVEL,
+      cash: 100_000,
+      staff: Array.from({ length: staffLimit(room) }, (_, i) => staff({ uid: `e${i}` })),
+      candidates: [candidate({ uid: 'k9' })],
+    }
+    expect(hire(full, 'k9')).toBe(full)
+
+    // The same payroll on an expanded floor has room for more. Only the room
+    // changes here — spreading a fresh `oneFloor` over this would also reset
+    // the level and the cash that hiring checks first.
+    const expanded: GameState = {
+      ...full,
+      expansion: 2,
+      floorPlans: [{ expansion: 2, machines: [], decor: [], walls: [], stains: [], clients: [] }],
+    }
+    expect(hire(expanded, 'k9').staff).toHaveLength(full.staff.length + 1)
+  })
+})
+
+
+describe('reception desks', () => {
+  const withDesks = (n: number, receptionists = 0): GameState => ({
+    ...initialState(1, 0),
+    level: STAFF_UNLOCK_LEVEL,
+    cash: 100_000,
+    decor: Array.from({ length: n }, (_, i) => desk({ uid: `d${i}`, x: 1, y: 1 + i * 2 })),
+    staff: Array.from({ length: receptionists }, (_, i) =>
+      staff({ uid: `e${i}`, role: 'reception' })),
+  })
+
+  it('counts only counters somebody can actually stand at', () => {
+    expect(staffedDesks(withDesks(3))).toHaveLength(3)
+    expect(freeDesks(withDesks(3))).toBe(3)
+  })
+
+  it('treats a desk that already has somebody as taken', () => {
+    expect(freeDesks(withDesks(3, 2))).toBe(1)
+    expect(freeDesks(withDesks(3, 3))).toBe(0)
+  })
+
+  /**
+   * `pickJob` hands one counter to one receptionist, so a fourth hire in a
+   * three-desk gym scans nothing and just draws a wage every evening. Hiring
+   * already refused with no desk at all; this is that rule counted properly.
+   */
+  it('refuses a receptionist there is no free desk for', () => {
+    const staffed = {
+      ...withDesks(2, 2),
+      candidates: [candidate({ uid: 'k9', role: 'reception' })],
+    }
+    expect(hire(staffed, 'k9')).toBe(staffed)
+  })
+
+  it('allows the hire as soon as another desk is put in', () => {
+    const roomy = {
+      ...withDesks(3, 2),
+      candidates: [candidate({ uid: 'k9', role: 'reception' })],
+    }
+    expect(hire(roomy, 'k9').staff).toHaveLength(3)
+  })
+
+  it('still lets other roles be hired with every desk staffed', () => {
+    const staffed = {
+      ...withDesks(1, 1),
+      candidates: [candidate({ uid: 'k9', role: 'cleaner' })],
+    }
+    expect(hire(staffed, 'k9').staff).toHaveLength(2)
+  })
+
+  it('gives each receptionist their own desk rather than doubling up', () => {
+    const assigned = assignStaff(withDesks(3, 3))
+    const claimed = assigned.staff.map(s => s.targetUid)
+    expect(new Set(claimed).size).toBe(3)
+    expect(claimed).not.toContain(null)
   })
 })

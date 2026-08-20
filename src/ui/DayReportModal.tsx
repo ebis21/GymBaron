@@ -1,5 +1,7 @@
 import type { DayReport } from '../game/types'
-import { money } from './format'
+import { daysToPayday } from '../game/members'
+import { useI18n } from '../i18n'
+import { useDialogFocus } from './useDialogFocus'
 
 interface Props {
   report: DayReport
@@ -21,61 +23,104 @@ function Row({ label, value, tone }: { label: string; value: string; tone?: 'in'
  * forward is to open the gym again tomorrow.
  */
 export default function DayReportModal({ report, onNextDay }: Props) {
-  const income = report.entryFees + report.subscriptions
-  const totalDue = report.bill + report.wages
+  const { t, money } = useI18n()
+  // Both totals have to add up the rows actually printed above them, or the
+  // receipt contradicts itself the first day a campaign runs.
+  const income = report.entryFees + report.subscriptions + report.sponsorIncome
+  const totalDue = report.bill + report.wages + report.marketingSpend + report.contractFees
   const profit = report.net >= 0
 
+  // What today's brand-new passes sold for, with the payday collection — which
+  // is banked on top of them — taken back out.
+  const newPasses = report.subscriptions - report.renewals
+  const perPass = report.renewalCount > 0 ? report.renewals / report.renewalCount : 0
+  // Only meaningful on a receipt that had no collection: on payday itself this
+  // reads zero, and the block above is already showing the money.
+  const untilPayday = daysToPayday(report.day)
+  const dialogRef = useDialogFocus<HTMLDivElement>()
+
   return (
-    <div className="modal-backdrop">
-      <div className="modal receipt">
+    <div className="modal-backdrop" role="presentation">
+      <div ref={dialogRef} tabIndex={-1} className="modal receipt" role="dialog" aria-modal="true" aria-labelledby="report-title">
         <header className="receipt-head">
-          <span className="receipt-time">20:00 — zamknięcie</span>
-          <h2>Rachunek za dzień {report.day}</h2>
+          <span className="receipt-time">{t.report.closingTime}</span>
+          <h2 id="report-title">{t.report.title(report.day)}</h2>
         </header>
 
         <section className="receipt-block">
-          <h3>Przychód</h3>
-          <Row label="Wejściówki" value={money(report.entryFees)} tone="in" />
+          <h3>{t.report.income}</h3>
+          <Row label={t.report.doorFees} value={money(report.entryFees)} tone="in" />
           {report.trainerFees > 0 && (
+            <Row label={t.report.trainerFees} value={money(report.trainerFees)} tone="in" />
+          )}
+          <Row label={t.report.passes} value={money(newPasses)} tone="in" />
+          {/* The week's collection is the largest single thing that happens to
+              the till, and it only lands one evening in seven — so it gets its
+              own line with the price per pass, rather than disappearing into
+              the one above. */}
+          {report.renewalCount > 0 && (
             <Row
-              label="↳ w tym sesje z trenerem"
-              value={money(report.trainerFees)}
+              label={t.report.payday(report.renewalCount, money(perPass))}
+              value={money(report.renewals)}
               tone="in"
             />
           )}
-          <Row label="Karnety" value={money(report.subscriptions)} tone="in" />
+          {/* Sponsorship is income like any other, so it belongs in this block
+              rather than in a section of its own. It is only printed on a day
+              a deal actually paid — an unsigned gym sees the receipt it always
+              saw. The same holds for the two outgoings below. */}
+          {report.sponsorIncome > 0 && (
+            <Row label={t.sponsors.reportLine} value={money(report.sponsorIncome)} tone="in" />
+          )}
           <div className="receipt-row total">
-            <span>Razem</span>
+            <span>{t.report.total}</span>
             <span className="receipt-in">{money(income)}</span>
           </div>
+          {report.renewalCount === 0 && untilPayday > 0 && (
+            <p className="receipt-hint">{t.report.paydayHint(untilPayday)}</p>
+          )}
         </section>
 
         {report.counterfeitLoss > 0 && (
           <section className="receipt-block receipt-counterfeit">
-            <h3>Wpadka przy kasie</h3>
+            <h3>{t.report.counterfeitTitle}</h3>
             <Row
-              label="Fałszywe pieniądze — LIL D."
+              label={t.report.counterfeit}
               value={`−${money(report.counterfeitLoss)}`}
               tone="out"
             />
-            <p>Banknoty wyglądały legitnie. Dopiero wieczorne liczenie ujawniło przekręt.</p>
+            <p>{t.report.counterfeitNote}</p>
           </section>
         )}
 
         <section className="receipt-block">
-          <h3>Do zapłaty</h3>
-          <Row label="Czynsz" value={`−${money(report.rent)}`} tone="out" />
-          <Row label="Prąd" value={`−${money(report.power)}`} tone="out" />
-          <Row label="Utrzymanie członków" value={`−${money(report.memberUpkeep)}`} tone="out" />
-          <Row label="Wypłaty" value={`−${money(report.wages)}`} tone="out" />
+          <h3>{t.report.due}</h3>
+          <Row label={t.report.rent} value={`−${money(report.rent)}`} tone="out" />
+          <Row label={t.report.power} value={`−${money(report.power)}`} tone="out" />
+          <Row label={t.report.memberUpkeep} value={`−${money(report.memberUpkeep)}`} tone="out" />
+          <Row label={t.report.wages} value={`−${money(report.wages)}`} tone="out" />
+          {report.marketingSpend > 0 && (
+            <Row
+              label={t.marketing.reportLine}
+              value={`−${money(report.marketingSpend)}`}
+              tone="out"
+            />
+          )}
+          {report.contractFees > 0 && (
+            <Row
+              label={t.contracts.reportLine}
+              value={`−${money(report.contractFees)}`}
+              tone="out"
+            />
+          )}
           <div className="receipt-row total">
-            <span>Rachunek</span>
+            <span>{t.report.bill}</span>
             <span className="receipt-out">−{money(totalDue)}</span>
           </div>
         </section>
 
         <div className={`receipt-net ${profit ? 'good' : 'bad'}`}>
-          <span>Bilans dnia</span>
+          <span>{t.report.net}</span>
           <strong>
             {profit ? '+' : '−'}
             {money(Math.abs(report.net))}
@@ -90,27 +135,23 @@ export default function DayReportModal({ report, onNextDay }: Props) {
         )}
 
         <p className="receipt-cash">
-          Kasa: {money(report.cashBefore)} → <strong>{money(report.cashAfter)}</strong>
+          {t.report.cashLabel} {money(report.cashBefore)} →{' '}
+          <strong>{money(report.cashAfter)}</strong>
         </p>
 
         <div className="receipt-stats">
-          <span>Obsłużeni: {report.clientsServed}</span>
-          <span>Straceni: {report.clientsLost}</span>
-          <span>Nowi członkowie: +{report.signups}</span>
-          {report.churn > 0 && <span className="receipt-out">Odeszli: −{report.churn}</span>}
+          <span>{t.report.served(report.clientsServed)}</span>
+          <span>{t.report.lost(report.clientsLost)}</span>
+          <span>{t.report.signups(report.signups)}</span>
+          {report.churn > 0 && <span className="receipt-out">{t.report.churn(report.churn)}</span>}
         </div>
 
         {report.clientsLost > 0 && (
-          <p className="receipt-hint">
-            {report.clientsLost === 1
-              ? 'Jeden klient wyszedł'
-              : `${report.clientsLost} klientów wyszło`}{' '}
-            bez treningu. Każdy niezeskanowany to przepadła wejściówka i szansa na karnet.
-          </p>
+          <p className="receipt-hint">{t.report.lostHint(report.clientsLost)}</p>
         )}
 
         <button className="btn primary block big" onClick={onNextDay}>
-          Następny dzień →
+          {t.report.nextDay}
         </button>
       </div>
     </div>

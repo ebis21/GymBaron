@@ -9,10 +9,12 @@
   --wood: #a86a3d;
   --wood-dark: #7d4a26;
   --ink: #4a3524;
-  --ink-soft: #8a6f57;
+  --ink-soft: #7d614b;
   --sky: #62c1e8;
   --coral: #f2664c;
   --coral-dark: #cf4a34;
+  --coral-action: #c43d2a;
+  --coral-action-dark: #8f2a1c;
   --leaf: #61b954;
   --leaf-dark: #46943b;
   --gold: #f6b73c;
@@ -25,8 +27,15 @@
   --shadow: 0 6px 0 rgba(125, 74, 38, 0.35);
   --shadow-soft: 0 8px 24px rgba(74, 53, 36, 0.22);
 
-  --safe-top: env(safe-area-inset-top, 0px);
-  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  /* What `TopBar` measures itself to be, before it has had a chance to say so.
+     Anything that hangs off the bottom of the bar reads it through
+     `--below-topbar`, which only the touch layout defines. */
+  --topbar-h: 75px;
+
+  --safe-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+  --safe-right: var(--safe-area-inset-right, env(safe-area-inset-right, 0px));
+  --safe-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
+  --safe-left: var(--safe-area-inset-left, env(safe-area-inset-left, 0px));
 }
 
 * {
@@ -53,7 +62,27 @@ body {
 .app {
   position: relative;
   height: 100%;
+  min-height: 100svh;
   width: 100%;
+}
+
+@supports (height: 100dvh) {
+  #root,
+  .app {
+    height: 100dvh;
+    min-height: 100dvh;
+  }
+}
+
+button {
+  touch-action: manipulation;
+}
+
+button:focus-visible,
+a:focus-visible,
+[tabindex]:focus-visible {
+  outline: 4px solid #1f5f82;
+  outline-offset: 3px;
 }
 
 /* --- 3D layer ------------------------------------------------------------ */
@@ -74,9 +103,9 @@ body {
   width: 132px;
   height: 132px;
   border-radius: 50%;
-  background: rgba(255, 246, 227, 0.35);
-  border: 4px solid rgba(255, 253, 247, 0.65);
-  backdrop-filter: blur(3px);
+  background: rgba(255, 246, 227, 0.78);
+  border: 4px solid var(--paper);
+  box-shadow: 0 4px 0 rgba(125, 74, 38, 0.32);
   display: grid;
   place-items: center;
   touch-action: none;
@@ -135,6 +164,30 @@ body {
   border-left: 2px dashed rgba(168, 106, 61, 0.3);
 }
 
+/*
+ * Deliberately outside the dashed run of stat cells: the five to its left are
+ * numbers to read, and a button sitting inside that rhythm gets read as one.
+ */
+.topbar-settings {
+  flex: 0 0 auto;
+  align-self: stretch;
+  margin-left: 4px;
+  padding: 0 8px;
+  font: inherit;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--ink-soft);
+  background: transparent;
+  border: none;
+  border-left: 2px dashed rgba(168, 106, 61, 0.3);
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.topbar-settings:active {
+  transform: translateY(1px);
+}
+
 .topbar-label {
   font-size: 10px;
   letter-spacing: 0.04em;
@@ -159,6 +212,34 @@ body {
   white-space: nowrap;
 }
 
+/*
+ * Payday — the one evening a week when every pass in the building is charged.
+ * The cell is worth marking because the sum is the largest single thing that
+ * happens to the till, and the player can only plan for it if they see it
+ * coming.
+ */
+.topbar-cell.payday {
+  background: rgba(97, 185, 84, 0.16);
+  border-radius: 10px;
+}
+
+.payday-sub {
+  color: var(--leaf-dark);
+  animation: payday-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes payday-pulse {
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .payday-sub {
+    animation: none;
+  }
+}
+
 .clock-cell .clock {
   font-size: 22px;
   color: var(--wood-dark);
@@ -172,7 +253,7 @@ body {
   color: var(--coral-dark);
 }
 .cash-bad {
-  color: var(--danger);
+  color: var(--danger-dark);
 }
 
 .diamond-cell .topbar-value {
@@ -197,7 +278,7 @@ body {
 
 .debt-banner {
   margin-top: 8px;
-  background: var(--danger);
+  background: var(--danger-dark);
   color: #fff;
   border-radius: 12px;
   padding: 7px 12px;
@@ -239,17 +320,17 @@ body {
   padding: 14px 20px;
   font: inherit;
   color: #fff;
-  background: var(--coral);
-  border: 4px solid var(--coral-dark);
+  background: var(--coral-action);
+  border: 4px solid var(--coral-action-dark);
   border-radius: var(--radius);
-  box-shadow: 0 6px 0 var(--coral-dark), var(--shadow-soft);
+  box-shadow: 0 6px 0 var(--coral-action-dark), var(--shadow-soft);
   cursor: pointer;
   animation: pop 160ms ease-out;
 }
 
 .action-btn:active:not(:disabled) {
   transform: translateY(4px);
-  box-shadow: 0 2px 0 var(--coral-dark);
+  box-shadow: 0 2px 0 var(--coral-action-dark);
 }
 
 .action-btn:disabled {
@@ -407,8 +488,8 @@ body {
   padding: 3px 12px;
   font-size: 12px;
   letter-spacing: 0.1em;
-  color: #fff;
-  background: #8a7f6f;
+  color: var(--ink);
+  background: #d8c8b4;
   border: 3px solid #2b2438;
   border-radius: 999px;
 }
@@ -417,7 +498,8 @@ body {
   background: var(--sky);
 }
 .client-rarity.epic {
-  background: #7a6ff0;
+  color: #fff;
+  background: var(--plum-dark);
 }
 .client-rarity.legend {
   background: #e09a12;
@@ -493,7 +575,7 @@ body {
 
 .trainer-toggle.on {
   color: #fff;
-  background: var(--plum);
+  background: var(--plum-dark);
   border-style: solid;
   border-color: var(--plum-dark);
 }
@@ -627,6 +709,10 @@ body {
 
 .phone-handle:active {
   transform: translateY(2px);
+}
+
+.phone-handle-glyph {
+  display: inline-block;
 }
 
 .phone-shell {
@@ -797,6 +883,137 @@ body {
   background: rgba(255, 255, 255, 0.32);
 }
 
+/* --- floor alerts -------------------------------------------------------- */
+
+/*
+ * Two chips, opposite the phone: what is broken and what is dirty. They hang
+ * off the same line the panel does so nothing has to be measured twice, and
+ * they are the whole notification — a count that stays up for exactly as long
+ * as the problem does beats a toast that has to be dismissed mid-queue.
+ */
+.alert-bar {
+  position: absolute;
+  top: calc(var(--safe-top) + 104px);
+  right: calc(12px + var(--safe-right));
+  z-index: 14;
+  display: flex;
+  gap: 6px;
+}
+
+.alert-chip {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 38px;
+  padding: 4px 10px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--ink);
+  background: var(--cream);
+  border: 3px solid var(--wood);
+  border-radius: 999px;
+  box-shadow: 0 3px 0 rgba(125, 74, 38, 0.35);
+  cursor: pointer;
+  animation: pop 160ms ease-out;
+}
+
+.alert-chip:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 rgba(125, 74, 38, 0.35);
+}
+
+/* Past the grace window it is no longer a warning — reputation is going down
+   right now, and the chip stops sitting quietly. */
+.alert-chip.costing {
+  color: var(--danger-dark);
+  border-color: var(--danger);
+  box-shadow: 0 3px 0 rgba(167, 46, 41, 0.4);
+  animation: pop 160ms ease-out, alert-throb 1.2s ease-in-out 160ms infinite;
+}
+
+/* The one the floor arrow is currently leading to. */
+.alert-chip.leading {
+  color: var(--wood-dark);
+  background: var(--gold);
+}
+
+.alert-glyph {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.alert-count {
+  font-variant-numeric: tabular-nums;
+}
+
+.alert-lead {
+  font-size: 10px;
+  color: var(--ink-soft);
+}
+
+.alert-chip.leading .alert-lead {
+  color: var(--wood-dark);
+}
+
+@keyframes alert-throb {
+  50% {
+    transform: scale(1.07);
+  }
+}
+
+/*
+ * The arrow itself: it orbits the player — who the follow camera keeps at the
+ * middle of the screen — and points the way to the nearest mess or wreck. A
+ * marker pinned on the target itself would be no help at all, because the
+ * whole problem is that the target is somewhere off the edge of the view.
+ *
+ * The rotation is the one thing the render loop writes, so everything else
+ * here — how far out it rides, how it bobs — stays adjustable in CSS.
+ */
+.guide {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 13;
+  --guide-radius: 92px;
+  --guide-angle: 0deg;
+  pointer-events: none;
+  transform: translate(-50%, -50%) rotate(var(--guide-angle))
+    translateY(calc(-1 * var(--guide-radius)));
+}
+
+.guide.hidden {
+  display: none;
+}
+
+.guide-head {
+  display: block;
+  font-size: 26px;
+  line-height: 1;
+  color: var(--gold);
+  /* Painted under the fill, so the outline reads against both the pale floor
+     and the dark kit without the glyph itself getting thinner. */
+  -webkit-text-stroke: 3px var(--wood-dark);
+  paint-order: stroke fill;
+  animation: guide-bob 900ms ease-in-out infinite;
+}
+
+.guide.broken .guide-head {
+  color: var(--coral);
+}
+
+.guide.dirty .guide-head {
+  color: var(--sky);
+}
+
+/* Outward along whatever direction the parent is pointing, since the child
+   inherits the rotated frame. */
+@keyframes guide-bob {
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
 /* --- overlay panels ------------------------------------------------------ */
 
 .panel {
@@ -866,7 +1083,7 @@ body {
 .btn {
   font: inherit;
   font-size: 14px;
-  color: #fff;
+  color: var(--ink);
   background: var(--leaf);
   border: 3px solid var(--leaf-dark);
   border-radius: 14px;
@@ -889,9 +1106,10 @@ body {
 }
 
 .btn.primary {
-  background: var(--coral);
-  border-color: var(--coral-dark);
-  box-shadow: 0 4px 0 var(--coral-dark);
+  color: #fff;
+  background: var(--coral-action);
+  border-color: var(--coral-action-dark);
+  box-shadow: 0 4px 0 var(--coral-action-dark);
 }
 
 .btn.ghost {
@@ -902,9 +1120,19 @@ body {
 }
 
 .btn.danger {
-  background: var(--danger);
-  border-color: var(--danger-dark);
-  box-shadow: 0 4px 0 var(--danger-dark);
+  color: #fff;
+  background: var(--danger-dark);
+  border-color: #781f1b;
+  box-shadow: 0 4px 0 #781f1b;
+}
+
+/* Variant rules sit after the base disabled rule, so restate the disabled
+   palette here; an unaffordable primary CTA must not still look tappable. */
+.btn:disabled {
+  color: #65584b;
+  background: #c7bcae;
+  border-color: #a89c8e;
+  box-shadow: 0 4px 0 #a89c8e;
 }
 
 .btn.block {
@@ -1005,7 +1233,7 @@ body {
   margin-top: 4px;
   padding: 2px 8px;
   font-size: 11px;
-  color: #fff;
+  color: var(--ink);
   background: var(--gold);
   border-radius: 999px;
 }
@@ -1014,6 +1242,179 @@ body {
   margin-top: 4px;
   font-size: 11px;
   color: var(--coral-dark);
+}
+
+/*
+ * The projected daily profit, and the one line on a campaign row the player
+ * actually decides on. Colour does the work a second sentence would: a row is
+ * either paying for itself or it is not, and the eye should find that before
+ * it reads a word.
+ */
+.shop-net {
+  margin-top: 4px;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.shop-net.good {
+  color: var(--leaf-dark);
+}
+
+.shop-net.bad {
+  color: var(--danger-dark);
+}
+
+/* --- contracts ----------------------------------------------------------- */
+
+/*
+ * A supplier is one card, not a card with five more nested inside it. The
+ * folded catalogue is what keeps a screen with two deals on it readable on a
+ * handset — see the note in `ContractsScreen`.
+ */
+.deal-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.deal {
+  background: var(--cream);
+  border: 3px solid rgba(168, 106, 61, 0.45);
+  border-radius: 16px;
+  padding: 10px 12px;
+}
+
+.deal.held {
+  border-color: var(--leaf);
+}
+
+.deal.locked {
+  opacity: 0.62;
+}
+
+.deal-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+}
+
+.deal-tag {
+  padding: 2px 8px;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: #fff;
+  background: var(--leaf-dark);
+  border-radius: 999px;
+}
+
+.deal-meta {
+  margin-top: 3px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.45;
+  color: var(--ink-soft);
+}
+
+.deal-reason {
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--coral-dark);
+}
+
+/* The fold control and the commitment on one line, in that order: the player
+   reads the catalogue before signing for it, and reaches right to commit. */
+.deal-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 9px;
+}
+
+.deal-more {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 11px;
+  font: inherit;
+  font-size: 12px;
+  color: var(--wood-dark);
+  background: var(--paper);
+  border: 2px solid rgba(168, 106, 61, 0.45);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.deal-caret {
+  font-size: 9px;
+}
+
+/* Pushes the deal's own button to the far edge, whichever one it is. */
+.deal-actions > .btn {
+  margin-left: auto;
+}
+
+.deal-body {
+  margin-top: 10px;
+  padding-top: 9px;
+  border-top: 2px solid rgba(168, 106, 61, 0.28);
+  animation: pop 140ms ease-out;
+}
+
+.deal-blurb {
+  margin: 0 0 8px;
+  font-size: 11.5px;
+  font-weight: 700;
+  line-height: 1.45;
+  color: var(--ink-soft);
+}
+
+.deal-kit {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Four columns, one line each: what it is, what it earns, what it costs. Any
+   more per rung and the fold has bought nothing. */
+.deal-kit-row {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  background: var(--paper);
+  border-radius: 10px;
+}
+
+.deal-kit-row svg {
+  width: 30px;
+  height: 30px;
+}
+
+.deal-kit-name {
+  font-size: 12.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.deal-kit-mult {
+  padding: 1px 7px;
+  font-size: 10.5px;
+  color: #fff;
+  background: var(--gold);
+  border-radius: 999px;
+  font-variant-numeric: tabular-nums;
+}
+
+.deal-kit-price {
+  font-size: 11.5px;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
 }
 
 /* --- stats --------------------------------------------------------------- */
@@ -1057,6 +1458,1085 @@ body {
   background: var(--leaf);
 }
 
+/* --- management catalogue ------------------------------------------------
+ *
+ * Shop, upgrades, advertising and supplier contracts are one family of
+ * decisions, but they are not one generic list. This scoped system gives each
+ * app the same tactile catalogue chrome while leaving the older `.shop-*` and
+ * `.stat-*` primitives alone for sponsors, recruitment and reports.
+ */
+
+.management-screen {
+  --management-accent: var(--leaf);
+  --management-accent-dark: var(--leaf-dark);
+  --card-accent: var(--management-accent-dark);
+  padding-bottom: 30px;
+}
+
+.management-upgrades {
+  --management-accent: var(--sky);
+  --management-accent-dark: #347fa1;
+}
+
+.management-marketing {
+  --management-accent: var(--coral);
+  --management-accent-dark: var(--coral-dark);
+}
+
+.management-sponsors {
+  --management-accent: var(--plum);
+  --management-accent-dark: var(--plum-dark);
+}
+
+.staff-management {
+  --management-accent: var(--gold);
+  --management-accent-dark: #9a6515;
+}
+
+.management-contracts {
+  --management-accent: var(--gold);
+  --management-accent-dark: #9a6515;
+}
+
+.management-hero {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 22px;
+  padding: 16px;
+  color: var(--paper);
+  background: #3c2b20;
+  border: 4px solid var(--wood-dark);
+  border-radius: 18px;
+  box-shadow: inset 0 0 0 2px rgba(255, 253, 247, 0.1), 0 5px 0 rgba(125, 74, 38, 0.22);
+}
+
+/* The ruled edge makes the header feel like a tabbed ledger, without adding
+   translucent layers or decorative gradients over a busy game canvas. */
+.management-hero::after {
+  content: '';
+  position: absolute;
+  right: 12px;
+  bottom: 8px;
+  left: 12px;
+  border-bottom: 2px dashed rgba(255, 253, 247, 0.16);
+}
+
+.management-hero-mark {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 58px;
+  height: 58px;
+  color: #2f241d;
+  background: var(--management-accent);
+  border: 3px solid var(--paper);
+  border-radius: 16px;
+  box-shadow: 0 4px 0 var(--management-accent-dark);
+  transform: rotate(-2deg);
+}
+
+.management-hero-mark svg {
+  width: 32px;
+  height: 32px;
+}
+
+.management-hero-copy {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+}
+
+.management-hero-copy h2 {
+  margin: 0;
+  font-size: clamp(20px, 3.2vw, 27px);
+  line-height: 1.05;
+  color: #fff;
+}
+
+.management-hero-copy p {
+  max-width: 560px;
+  margin: 6px 0 0;
+  font-size: 11.5px;
+  font-weight: 700;
+  line-height: 1.45;
+  color: rgba(255, 253, 247, 0.78);
+}
+
+.management-wallet {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  min-width: 112px;
+  padding: 9px 11px;
+  color: var(--ink);
+  background: var(--cream);
+  border: 3px solid var(--management-accent);
+  border-radius: 12px;
+  box-shadow: 0 3px 0 var(--management-accent-dark);
+  font-variant-numeric: tabular-nums;
+}
+
+.management-wallet span {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-soft);
+}
+
+.management-wallet strong {
+  margin-top: 1px;
+  font-size: 16px;
+  line-height: 1.1;
+}
+
+.management-section + .management-section {
+  margin-top: 28px;
+}
+
+.management-section-head {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 3px dashed rgba(168, 106, 61, 0.28);
+}
+
+.management-section-icon {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  color: var(--management-accent-dark);
+  background: var(--cream);
+  border: 2px solid var(--wood);
+  border-radius: 11px;
+  box-shadow: 0 2px 0 rgba(125, 74, 38, 0.25);
+}
+
+.management-section-icon svg {
+  width: 23px;
+  height: 23px;
+}
+
+.management-section-head h2 {
+  margin: 1px 0 0;
+  font-size: 15px;
+  line-height: 1.15;
+  text-transform: uppercase;
+  letter-spacing: 0.055em;
+  color: var(--wood-dark);
+}
+
+.management-section-head p {
+  max-width: 650px;
+  margin: 4px 0 0;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.4;
+  color: var(--ink-soft);
+}
+
+.management-grid,
+.supplier-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.management-card {
+  --card-accent: var(--management-accent-dark);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 15px;
+  overflow: hidden;
+  background: var(--paper);
+  border: 3px solid rgba(168, 106, 61, 0.58);
+  border-radius: 16px;
+  box-shadow: 0 4px 0 rgba(125, 74, 38, 0.18);
+}
+
+.management-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 5px;
+  background: var(--card-accent);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .management-card {
+    transition: transform 130ms ease, box-shadow 130ms ease, border-color 130ms ease;
+  }
+
+  .management-card:hover {
+    border-color: var(--wood);
+    box-shadow: 0 6px 0 rgba(125, 74, 38, 0.2);
+    transform: translateY(-2px);
+  }
+}
+
+.management-card.is-locked {
+  background: #f5f0e7;
+  border-color: #b7aa9b;
+}
+
+.management-card.is-locked::before {
+  background: #9f9182;
+}
+
+.management-card.is-complete,
+.management-card.is-held,
+.management-card.is-live {
+  border-color: var(--leaf-dark);
+  box-shadow: 0 0 0 2px rgba(70, 148, 59, 0.13), 0 4px 0 rgba(70, 148, 59, 0.22);
+}
+
+.management-card.is-complete::before,
+.management-card.is-held::before,
+.management-card.is-live::before {
+  background: var(--leaf-dark);
+}
+
+.management-card-head,
+.supplier-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.management-card-icon {
+  display: grid;
+  place-items: center;
+  width: 50px;
+  height: 50px;
+  flex: none;
+  color: var(--card-accent);
+  background: var(--cream);
+  border: 2px solid currentColor;
+  border-radius: 13px;
+}
+
+.management-card-icon > svg {
+  width: 29px;
+  height: 29px;
+}
+
+.management-card-icon.machine-art {
+  color: var(--wood);
+  background: var(--cream);
+}
+
+.management-card-icon.machine-art > svg {
+  width: 45px;
+  height: 45px;
+  padding: 2px;
+}
+
+.management-card-title {
+  min-width: 0;
+}
+
+.management-card-title h3 {
+  margin: 2px 0 0;
+  font-size: 15px;
+  line-height: 1.2;
+  color: var(--ink);
+}
+
+.management-eyebrow {
+  display: block;
+  font-size: 9px;
+  font-weight: 900;
+  line-height: 1.35;
+  text-transform: uppercase;
+  letter-spacing: 0.055em;
+  color: var(--ink-soft);
+}
+
+.management-card-copy {
+  margin: 10px 0 0;
+  font-size: 11.5px;
+  font-weight: 700;
+  line-height: 1.45;
+  color: var(--ink-soft);
+}
+
+.management-state {
+  align-self: start;
+  padding: 4px 8px;
+  font-size: 9px;
+  line-height: 1;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #fff;
+  background: var(--card-accent);
+  border-radius: 999px;
+}
+
+.management-state.complete,
+.management-state.live {
+  background: var(--leaf-dark);
+}
+
+.product-value,
+.upgrade-step,
+.campaign-metrics {
+  margin-top: 12px;
+  padding: 9px 10px;
+  color: var(--ink);
+  background: var(--cream);
+  border: 2px solid rgba(168, 106, 61, 0.3);
+  border-radius: 10px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.product-value {
+  font-weight: 900;
+  line-height: 1.35;
+}
+
+.management-notice {
+  margin-top: 10px;
+  padding: 8px 9px;
+  font-size: 10.5px;
+  font-weight: 800;
+  line-height: 1.4;
+  border: 2px solid;
+  border-radius: 10px;
+}
+
+.management-notice.warning {
+  color: #6f5019;
+  background: #fff3cf;
+  border-color: #d8a73d;
+}
+
+.management-notice.danger {
+  color: var(--danger-dark);
+  background: #fff0ec;
+  border-color: rgba(217, 64, 58, 0.45);
+}
+
+.management-cta {
+  width: 100%;
+  min-height: 43px;
+  margin-top: auto;
+  padding: 9px 12px;
+  font-size: 12.5px;
+}
+
+.product-value + .management-cta,
+.product-value + .management-notice,
+.management-card-copy + .management-cta,
+.management-notice + .management-cta,
+.upgrade-rungs + .management-cta,
+.campaign-metrics + .management-cta {
+  margin-top: 12px;
+}
+
+.compact-product-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.utility-card .management-card-copy {
+  min-height: 32px;
+}
+
+/* Upgrade tracks --------------------------------------------------------- */
+
+.tone-cleaning { --card-accent: #378a7a; }
+.tone-repair { --card-accent: #a05631; }
+.tone-earnings { --card-accent: #a66e09; }
+.tone-luck { --card-accent: #4c8d3c; }
+.tone-patience { --card-accent: #6450a4; }
+
+.upgrade-card {
+  min-height: 280px;
+}
+
+.upgrade-step strong {
+  font-size: 16px;
+  letter-spacing: 0.01em;
+}
+
+.upgrade-rungs {
+  display: flex;
+  gap: 5px;
+  margin-top: 11px;
+}
+
+.upgrade-rungs span {
+  flex: 1;
+  height: 9px;
+  background: #ded5c9;
+  border: 2px solid #b9aa99;
+  border-radius: 3px;
+}
+
+.upgrade-rungs span.done {
+  background: var(--card-accent);
+  border-color: var(--card-accent);
+}
+
+.upgrade-rungs span.next {
+  background: var(--gold);
+  border-color: var(--card-accent);
+}
+
+.management-complete-mark {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  min-height: 43px;
+  margin-top: auto;
+  color: #fff;
+  background: var(--leaf-dark);
+  border: 3px solid #357c2c;
+  border-radius: 12px;
+  box-shadow: 0 3px 0 #357c2c;
+}
+
+/* Advertising board ----------------------------------------------------- */
+
+.management-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.management-summary-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 12px;
+  background: var(--cream);
+  border: 3px solid rgba(168, 106, 61, 0.5);
+  border-radius: 14px;
+  box-shadow: 0 3px 0 rgba(125, 74, 38, 0.15);
+}
+
+.management-summary-card > span {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.065em;
+  color: var(--ink-soft);
+}
+
+.management-summary-card > strong {
+  margin-top: 3px;
+  font-size: 19px;
+  line-height: 1.1;
+}
+
+.management-summary-card > small {
+  margin-top: 4px;
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 1.35;
+  color: var(--ink-soft);
+}
+
+.active-campaigns {
+  grid-column: 1 / -1;
+  border-color: var(--leaf-dark);
+}
+
+.active-campaign-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+  margin-top: 8px;
+}
+
+.active-campaign {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  align-items: center;
+  column-gap: 7px;
+  padding: 7px 8px;
+  background: var(--paper);
+  border: 2px solid rgba(70, 148, 59, 0.34);
+  border-radius: 9px;
+}
+
+.active-campaign svg {
+  grid-row: 1 / 3;
+  width: 25px;
+  height: 25px;
+  color: var(--leaf-dark);
+}
+
+.active-campaign strong {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.active-campaign small {
+  font-size: 9px;
+  color: var(--ink-soft);
+}
+
+.tone-flyers { --card-accent: #a16c1e; }
+.tone-referral { --card-accent: #3f805a; }
+.tone-social { --card-accent: #347fa1; }
+.tone-billboards { --card-accent: #6c579e; }
+.tone-premium { --card-accent: #8b6622; }
+.tone-openDay { --card-accent: #ba523b; }
+.tone-influencer { --card-accent: #bd4c62; }
+.tone-tv { --card-accent: #3c586d; }
+.tone-national { --card-accent: #4d477f; }
+
+.campaign-card {
+  min-height: 300px;
+}
+
+.campaign-metrics {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.campaign-metrics strong {
+  font-size: 15px;
+}
+
+.campaign-metrics span {
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 1.35;
+  color: var(--ink-soft);
+}
+
+.campaign-metrics .campaign-net {
+  margin-top: 4px;
+  padding-top: 6px;
+  border-top: 2px dashed rgba(168, 106, 61, 0.3);
+  font-weight: 900;
+}
+
+.campaign-metrics .campaign-net.good {
+  color: var(--leaf-dark);
+}
+
+.campaign-metrics .campaign-net.bad {
+  color: var(--danger-dark);
+}
+
+/* Sponsor agreement board ----------------------------------------------- */
+
+.sponsor-card {
+  min-height: 292px;
+}
+
+.sponsor-juice-bar { --card-accent: #4d8a54; }
+.sponsor-city-apparel { --card-accent: #526e91; }
+.sponsor-supplements { --card-accent: #9d6820; }
+.sponsor-energy-drink { --card-accent: #b44b3f; }
+.sponsor-global {
+  --card-accent: #66509a;
+  grid-column: 1 / -1;
+}
+
+.sponsor-brand-icon {
+  background: #fff8e8;
+}
+
+.sponsor-conditions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.sponsor-condition {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 7px;
+  min-height: 40px;
+  padding: 7px 8px;
+  color: var(--ink-soft);
+  background: var(--cream);
+  border: 2px solid rgba(168, 106, 61, 0.25);
+  border-radius: 9px;
+}
+
+.sponsor-condition.is-pending {
+  color: #6f5019;
+  background: #fff3cf;
+  border-color: #d8a73d;
+  border-style: dashed;
+}
+
+/* Standing requirements block signing; daily targets can still be accepted
+   before the gym has hit them, so the former use the stronger stop state. */
+.sponsor-condition.is-pending.is-standing {
+  color: var(--danger-dark);
+  background: #fff0ec;
+  border-color: rgba(217, 64, 58, 0.55);
+  border-style: solid;
+}
+
+.sponsor-condition-mark {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  color: #fff;
+  background: var(--leaf-dark);
+  border-radius: 50%;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.sponsor-condition.is-pending .sponsor-condition-mark {
+  color: var(--ink);
+  background: var(--gold);
+}
+
+.sponsor-condition.is-pending.is-standing .sponsor-condition-mark {
+  color: #fff;
+  background: var(--danger-dark);
+}
+
+.sponsor-condition-copy {
+  min-width: 0;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1.3;
+}
+
+.sponsor-condition strong {
+  font-size: 10px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.management-state.broken {
+  background: var(--danger-dark);
+}
+
+/* Staff ledger and hiring board ----------------------------------------- */
+
+.staff-ledger-card,
+.recruit-management-card {
+  min-height: 238px;
+}
+
+.staff-ledger-card.role-reception,
+.recruit-management-card.role-reception { --card-accent: #347fa1; }
+.staff-ledger-card.role-cleaner,
+.recruit-management-card.role-cleaner { --card-accent: #378a7a; }
+.staff-ledger-card.role-repair,
+.recruit-management-card.role-repair { --card-accent: #a05631; }
+.staff-ledger-card.role-trainer,
+.recruit-management-card.role-trainer { --card-accent: #6450a4; }
+
+.staff-ledger-card.is-striking {
+  border-color: var(--danger-dark);
+  box-shadow: 0 0 0 2px rgba(217, 64, 58, 0.12), 0 4px 0 rgba(217, 64, 58, 0.2);
+}
+
+.staff-ledger-card.is-striking::before {
+  background: var(--danger-dark);
+}
+
+.staff-ledger-card .management-state.rank,
+.recruit-management-card .management-state.rank {
+  align-self: start;
+  margin: 0;
+  white-space: nowrap;
+}
+
+.staff-ledger-wage,
+.recruit-management-job {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.staff-ledger-wage strong,
+.recruit-management-job strong {
+  font-size: 14px;
+  line-height: 1.25;
+}
+
+.staff-ledger-status {
+  min-height: 30px;
+}
+
+.staff-ledger-shortfall {
+  margin-top: 6px;
+}
+
+.staff-ledger-arrears {
+  margin: -7px 0 16px;
+}
+
+.staff-ledger-empty {
+  min-height: 126px;
+}
+
+.staff-ledger-locked {
+  max-width: 520px;
+  min-height: 170px;
+}
+
+.staff-ledger-empty .management-card-copy {
+  max-width: 520px;
+}
+
+.staff-ledger-recruit {
+  width: 100%;
+  margin-top: 18px;
+}
+
+.recruit-management-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(150px, 1fr) minmax(0, 1.2fr);
+  align-items: stretch;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.recruit-management-toolbar > .btn {
+  min-height: 48px;
+  white-space: normal;
+}
+
+.recruit-management-capacity {
+  justify-content: center;
+  text-align: center;
+}
+
+.recruit-management-wage {
+  margin-bottom: 12px;
+}
+
+.recruit-management-action {
+  margin-top: auto;
+}
+
+.recruit-management-footnote {
+  margin-top: 16px;
+}
+
+/* Supplier catalogue ---------------------------------------------------- */
+
+.supplier-card {
+  --card-accent: #846047;
+  align-self: start;
+}
+
+.supplier-apex {
+  --card-accent: #535f73;
+}
+
+.supplier-mark {
+  display: grid;
+  place-items: center;
+  width: 50px;
+  height: 50px;
+  color: #fff;
+  background: var(--card-accent);
+  border: 3px double var(--paper);
+  border-radius: 50%;
+  font-size: 14px;
+  letter-spacing: 0.04em;
+}
+
+.supplier-terms {
+  display: grid;
+  grid-template-columns: 0.8fr 1.2fr;
+  gap: 7px;
+  margin-top: 12px;
+}
+
+.supplier-terms > div {
+  min-width: 0;
+  padding: 8px;
+  background: var(--cream);
+  border: 2px solid rgba(168, 106, 61, 0.28);
+  border-radius: 9px;
+}
+
+.supplier-terms span,
+.supplier-terms strong {
+  display: block;
+}
+
+.supplier-terms span {
+  font-size: 8.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-soft);
+}
+
+.supplier-terms strong {
+  margin-top: 2px;
+  font-size: 10.5px;
+  line-height: 1.3;
+}
+
+.supplier-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 0.7fr) minmax(0, 1.3fr);
+  align-items: stretch;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.supplier-actions .management-cta {
+  margin-top: 0;
+}
+
+.supplier-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 43px;
+  padding: 7px 9px;
+  font: inherit;
+  font-size: 11px;
+  color: var(--wood-dark);
+  background: var(--cream);
+  border: 3px solid var(--wood);
+  border-radius: 12px;
+  box-shadow: 0 3px 0 var(--wood);
+  cursor: pointer;
+}
+
+.supplier-toggle:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 var(--wood);
+}
+
+.supplier-toggle svg {
+  width: 20px;
+  height: 20px;
+}
+
+.supplier-caret {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  margin-left: auto;
+  color: #fff;
+  background: var(--wood-dark);
+  border-radius: 50%;
+}
+
+.supplier-kit {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin: 13px 0 0;
+  padding: 12px 0 0;
+  list-style: none;
+  border-top: 3px dashed rgba(168, 106, 61, 0.3);
+}
+
+.supplier-kit-row {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  background: var(--cream);
+  border: 2px solid rgba(168, 106, 61, 0.22);
+  border-radius: 9px;
+}
+
+.supplier-kit-art {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  background: var(--paper);
+  border-radius: 8px;
+}
+
+.supplier-kit-art svg {
+  width: 33px;
+  height: 33px;
+}
+
+.supplier-kit-row > div:nth-child(2) {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.supplier-kit-row strong {
+  overflow: hidden;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.supplier-kit-row span {
+  font-size: 9.5px;
+  color: var(--ink-soft);
+}
+
+.supplier-kit-row b {
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.management-footnote {
+  margin: 16px 0 0;
+  padding: 10px 12px;
+  font-size: 10.5px;
+  line-height: 1.4;
+  color: var(--ink-soft);
+  background: var(--cream);
+  border-left: 4px solid var(--leaf-dark);
+  border-radius: 8px;
+}
+
+@media (max-width: 600px) {
+  .management-hero {
+    grid-template-columns: 48px minmax(0, 1fr);
+    gap: 10px;
+    padding: 13px;
+  }
+
+  .management-hero-mark {
+    width: 46px;
+    height: 46px;
+    border-radius: 13px;
+  }
+
+  .management-hero-mark svg {
+    width: 27px;
+    height: 27px;
+  }
+
+  .management-hero-copy h2 {
+    font-size: 20px;
+  }
+
+  .management-hero-copy p {
+    font-size: 10.5px;
+  }
+
+  .management-wallet {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    min-width: 0;
+    padding: 8px 10px;
+  }
+
+  .management-grid,
+  .supplier-grid,
+  .compact-product-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .upgrade-card,
+  .campaign-card,
+  .sponsor-card,
+  .staff-ledger-card,
+  .recruit-management-card {
+    min-height: 0;
+  }
+
+  .sponsor-global {
+    grid-column: auto;
+  }
+
+  .active-campaign-list {
+    grid-template-columns: 1fr;
+  }
+
+  .recruit-management-toolbar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .recruit-management-capacity {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
+}
+
+@media (max-width: 390px) {
+  .management-summary-grid,
+  .supplier-terms,
+  .supplier-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .active-campaigns {
+    grid-column: auto;
+  }
+
+  .management-card {
+    padding: 13px;
+  }
+
+  .management-card-head,
+  .supplier-head {
+    grid-template-columns: 44px minmax(0, 1fr);
+  }
+
+  .management-card-icon,
+  .supplier-mark {
+    width: 44px;
+    height: 44px;
+  }
+
+  .management-card-head .management-state,
+  .supplier-head .management-state {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+
+  .sponsor-condition {
+    grid-template-columns: 22px minmax(0, 1fr);
+  }
+
+  .sponsor-condition strong {
+    grid-column: 2;
+  }
+
+  .supplier-actions .management-cta,
+  .supplier-toggle {
+    width: 100%;
+  }
+
+  .recruit-management-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .recruit-management-capacity {
+    grid-column: auto;
+  }
+}
+
 /* --- modals -------------------------------------------------------------- */
 
 .overlay,
@@ -1067,8 +2547,7 @@ body {
   display: grid;
   place-items: center;
   padding: 20px;
-  background: rgba(74, 53, 36, 0.55);
-  backdrop-filter: blur(3px);
+  background: rgba(74, 53, 36, 0.68);
 }
 
 .modal {
@@ -1082,6 +2561,14 @@ body {
   box-shadow: var(--shadow-soft);
   padding: 20px;
   animation: rise 220ms cubic-bezier(0.2, 1.2, 0.4, 1);
+}
+
+/* The dialog itself receives focus on open. Keep that location visible with a
+   themed inset ring: it does not add to the modal's size or clip at a short
+   landscape viewport edge. */
+.modal[tabindex]:focus-visible {
+  outline: 3px solid var(--wood-dark);
+  outline-offset: -7px;
 }
 
 @keyframes rise {
@@ -1110,6 +2597,107 @@ body {
   border: 3px solid rgba(168, 106, 61, 0.4);
   border-radius: 50%;
   cursor: pointer;
+}
+
+/* --- settings ------------------------------------------------------------ */
+
+.settings-modal {
+  position: relative;
+  max-width: 360px;
+}
+
+.settings-label {
+  margin: 18px 0 8px;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.settings-langs {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+/* A list of two, so each option is a full-width row rather than a segmented
+   control — the language name is what the player is scanning for, and it
+   should sit at the left edge where reading starts. */
+.settings-lang {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 14px;
+  font: inherit;
+  font-size: 15px;
+  color: var(--ink);
+  background: var(--cream);
+  border: 3px solid rgba(168, 106, 61, 0.35);
+  border-radius: 14px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.settings-lang.current {
+  color: var(--leaf-dark);
+  background: #eef8ea;
+  border-color: var(--leaf);
+}
+
+.settings-lang-mark {
+  font-size: 16px;
+  color: var(--leaf-dark);
+}
+
+/* On/off is two short words rather than two sentences, so this pair sits side
+   by side instead of stacking the way the languages do. */
+.settings-toggle {
+  display: flex;
+  gap: 8px;
+}
+
+.settings-toggle .settings-lang {
+  justify-content: center;
+}
+
+.settings-note {
+  margin: 8px 0 18px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.45;
+  color: var(--ink-soft);
+}
+
+.settings-privacy {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 3px 10px;
+  align-items: center;
+  min-height: 52px;
+  margin: 0 0 18px;
+  padding: 10px 12px;
+  color: var(--wood-dark);
+  text-decoration: none;
+  background: var(--cream);
+  border: 3px solid rgba(168, 106, 61, 0.35);
+  border-radius: 14px;
+}
+
+.settings-privacy span:nth-child(2) {
+  grid-column: 1;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.35;
+  color: var(--ink-soft);
+}
+
+.settings-privacy span:last-child {
+  grid-column: 2;
+  grid-row: 1 / 3;
+  font-size: 18px;
 }
 
 /* --- floor access ------------------------------------------------------- */
@@ -1332,7 +2920,7 @@ body {
 
 .receipt-net.bad {
   background: rgba(217, 64, 58, 0.15);
-  color: var(--danger);
+  color: var(--danger-dark);
 }
 
 .receipt-cash {
@@ -1512,7 +3100,7 @@ p.muted {
 }
 
 .warn {
-  color: var(--danger);
+  color: var(--danger-dark);
   font-size: 12.5px;
   font-weight: 800;
 }
@@ -1822,6 +3410,847 @@ p.warn {
     margin-inline: auto;
   }
 
+}
+
+/* --- touch/mobile ------------------------------------------------------- */
+
+/*
+ * Touch keeps the phone as the same right-edge drawer used on desktop. The
+ * larger grip is easy to find with a thumb, while a two-column app grid makes
+ * the menu read like a phone instead of a strip of anonymous icons. Its height
+ * is capped to the space below the measured topbar, so short landscape screens
+ * scroll inside the handset rather than pushing controls off the playfield.
+ * The same layout is used on touch tablets even when their CSS width happens
+ * to cross the desktop breakpoint.
+ */
+@media (max-width: 719px), (hover: none) and (pointer: coarse) {
+  /*
+   * Where the topbar actually ends, plus room to breathe. The phone and the
+   * panels both read this line so a taller topbar or debt banner never leaves
+   * either one stranded underneath the HUD.
+   */
+  .app {
+    --below-topbar: calc(var(--safe-top) + var(--topbar-h) + 11px);
+    /*
+     * Hosted here rather than on `.phone` because the grip floats over the
+     * room, so anything the player has to reach underneath it — the client
+     * card's close button, today — has to reserve the same width.
+     */
+    --phone-handle-width: 68px;
+  }
+
+  .topbar-wrap {
+    padding: 6px calc(6px + var(--safe-right)) 0 calc(6px + var(--safe-left));
+  }
+
+  .topbar {
+    gap: 2px;
+    padding: 6px 2px;
+    border-width: 3px;
+    border-radius: 15px;
+    box-shadow: 0 4px 0 rgba(125, 74, 38, 0.3);
+  }
+
+  .topbar-cell {
+    padding-inline: 1px;
+  }
+
+  .topbar-cell + .topbar-cell {
+    border-left-width: 1px;
+  }
+
+  .topbar-label {
+    max-width: 100%;
+    overflow: hidden;
+    font-size: 8.5px;
+    letter-spacing: 0.02em;
+    text-overflow: ellipsis;
+  }
+
+  .topbar-value {
+    max-width: 100%;
+    overflow: hidden;
+    font-size: 14px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .clock-cell .clock {
+    font-size: 18px;
+  }
+
+  .topbar-sub {
+    max-width: 100%;
+    overflow: hidden;
+    font-size: 8px;
+    text-overflow: ellipsis;
+  }
+
+  .topbar-cell:not(.clock-cell) .topbar-sub {
+    display: none;
+  }
+
+  .topbar-settings {
+    width: 44px;
+    min-height: 44px;
+    margin-left: 1px;
+    padding: 0 5px;
+    font-size: 20px;
+    border-left-width: 1px;
+  }
+
+  .day-bar {
+    height: 9px;
+    margin-top: 4px;
+    border-width: 2px;
+    box-shadow: 0 3px 0 rgba(125, 74, 38, 0.3);
+  }
+
+  .debt-banner {
+    margin-top: 5px;
+    padding: 6px 10px;
+    font-size: 10.5px;
+  }
+
+  .phone,
+  .phone.open {
+    --phone-drawer-content-width: min(
+      276px,
+      calc(
+        100vw - var(--safe-left) - var(--safe-right) - var(--phone-handle-width) - 12px
+      )
+    );
+    --phone-drawer-width: calc(
+      var(--phone-drawer-content-width) + var(--safe-right)
+    );
+    --phone-drawer-max-height: min(
+      520px,
+      calc(100dvh - var(--below-topbar) - var(--safe-bottom) - 12px)
+    );
+    top: calc(
+      var(--below-topbar) +
+        (100dvh - var(--below-topbar) - var(--safe-bottom)) / 2
+    );
+    right: 0;
+    bottom: auto;
+    left: auto;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 0;
+    padding: 0;
+    transform: translate(
+      calc(100% - var(--phone-handle-width) - var(--safe-right)),
+      -50%
+    );
+    transition: transform 300ms cubic-bezier(0.22, 1, 0.3, 1);
+    pointer-events: none;
+  }
+
+  .phone.open {
+    transform: translate(0, -50%);
+  }
+
+  /*
+   * The grip remains visible at the right edge when the drawer is folded. It is
+   * deliberately larger than the desktop control: in landscape it is reached
+   * with the hand that is not steering the joystick.
+   */
+  .phone-handle {
+    order: 0;
+    width: var(--phone-handle-width);
+    min-width: var(--phone-handle-width);
+    height: 88px;
+    font-size: 30px;
+    border: 4px solid var(--wood);
+    border-right: 0;
+    border-radius: 20px 0 0 20px;
+    box-shadow: -4px 5px 0 rgba(125, 74, 38, 0.3);
+    pointer-events: auto;
+  }
+
+  .phone.open .phone-handle-glyph {
+    display: inline-block;
+  }
+
+  .phone-shell {
+    display: flex;
+    flex-direction: column;
+    width: var(--phone-drawer-width);
+    max-height: var(--phone-drawer-max-height);
+    padding: 10px calc(10px + var(--safe-right)) 12px 10px;
+    overflow: hidden;
+    border: 5px solid #17121f;
+    border-right: 0;
+    border-radius: 30px 0 0 30px;
+    box-shadow: 0 8px 28px rgba(23, 18, 31, 0.38);
+    visibility: visible;
+    transition: visibility 0s linear;
+    pointer-events: auto;
+  }
+
+  .phone:not(.open) .phone-shell {
+    display: flex;
+    visibility: hidden;
+    transition-delay: 300ms;
+    pointer-events: none;
+  }
+
+  .phone.open .phone-shell {
+    transition-delay: 0s;
+  }
+
+  .phone-apps {
+    min-height: 0;
+    flex: 1 1 auto;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-auto-rows: 78px;
+    gap: 7px;
+    padding: 9px 8px;
+    border-radius: 20px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    touch-action: pan-y;
+    scrollbar-width: none;
+  }
+
+  .phone-apps::-webkit-scrollbar {
+    display: none;
+  }
+
+  .phone-app,
+  .phone-app.soon {
+    grid-column: auto;
+    width: auto;
+    min-width: 0;
+    min-height: 78px;
+    flex-direction: column;
+    justify-content: center;
+    gap: 5px;
+    padding: 7px 4px;
+    border-radius: 16px;
+  }
+
+  .phone-icon {
+    width: 48px;
+    height: 48px;
+    font-size: 26px;
+    border-radius: 15px;
+  }
+
+  .phone-label {
+    position: static;
+    width: auto;
+    height: auto;
+    max-width: 100%;
+    overflow: visible;
+    clip: auto;
+    clip-path: none;
+    font-size: 10.5px;
+    text-overflow: ellipsis;
+    white-space: normal;
+  }
+
+  .phone-lock,
+  .phone-soon {
+    position: absolute;
+    left: 50%;
+    margin: 0;
+    padding: 0 4px;
+    font-size: 8px;
+    letter-spacing: 0;
+    white-space: nowrap;
+    transform: translateX(-50%);
+  }
+
+  .phone-lock {
+    top: 4px;
+    bottom: auto;
+    left: calc(50% + 20px);
+    font-size: 7.5px;
+  }
+
+  .phone-soon {
+    bottom: 2px;
+  }
+
+  .alert-bar {
+    top: var(--below-topbar);
+    right: calc(6px + var(--safe-right));
+    gap: 5px;
+  }
+
+  .alert-chip {
+    min-height: 42px;
+    padding: 4px 11px;
+    font-size: 14px;
+  }
+
+  .alert-glyph {
+    font-size: 18px;
+  }
+
+  /* Closer in and larger: less screen to cross, and a thumb is about to be
+     covering the bottom third of it. */
+  .guide {
+    --guide-radius: 78px;
+  }
+
+  .guide-head {
+    font-size: 30px;
+  }
+
+  .joystick {
+    left: calc(12px + var(--safe-left));
+    bottom: calc(88px + var(--safe-bottom));
+    width: 116px;
+    height: 116px;
+  }
+
+  .joystick-knob {
+    width: 52px;
+    height: 52px;
+  }
+
+  .action-btn {
+    right: calc(12px + var(--safe-right));
+    bottom: calc(96px + var(--safe-bottom));
+    min-width: 140px;
+    min-height: 58px;
+    padding: 11px 15px;
+  }
+
+  .action-label {
+    font-size: 15px;
+  }
+
+  .carry-banner {
+    top: var(--below-topbar);
+    max-width: calc(100vw - var(--safe-left) - var(--safe-right) - 20px);
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .build-bar {
+    left: calc(8px + var(--safe-left));
+    right: calc(8px + var(--safe-right));
+    bottom: calc(84px + var(--safe-bottom));
+    gap: 6px;
+    padding: 8px;
+    border-width: 3px;
+    border-radius: 16px;
+  }
+
+  .build-hint {
+    flex: 1 0 100%;
+    margin: 0;
+    font-size: 11.5px;
+    text-align: center;
+  }
+
+  .build-bar .btn {
+    flex: 1 1 auto;
+    min-height: 44px;
+    padding: 7px 9px;
+  }
+
+  /*
+   * The right edge stops short of the phone grip, the way the desktop rule
+   * has always kept clear of the desktop one and the way an open panel keeps
+   * its rows clear of it. Without that the close button sits directly under
+   * the grip — it is 44 wide, pinned 10 in from a card edge 8 from the
+   * screen, and the grip covers the outer 68 — so the player could open a
+   * client and then not get out of them.
+   *
+   * Measured down to a 320-wide screen: the card still holds its rows and the
+   * scan button at full text, and the button clears the grip by 22.
+   */
+  .client-card {
+    left: calc(8px + var(--safe-left));
+    right: calc(8px + var(--safe-right) + var(--phone-handle-width));
+    bottom: calc(84px + var(--safe-bottom));
+    max-height: calc(100dvh - var(--safe-top) - var(--safe-bottom) - 178px);
+    overflow-y: auto;
+    padding: 13px 14px 15px;
+  }
+
+  .client-close,
+  .modal-x {
+    width: 44px;
+    height: 44px;
+  }
+
+  /*
+   * Full width, and clear of the walk stick above it. At 84px the bar covered
+   * 68 of the stick's 116, leaving a sliver of ring poking out of the top —
+   * the player was steering a control they could not see. The stick sits at
+   * 88px and is 116 tall, so 214 puts the bar ten pixels above it.
+   *
+   * Insetting the left edge past the stick was the other way to clear it and
+   * costs too much: at 402px wide that leaves 258px for the row, and the
+   * message clamps to half its length.
+   */
+  .closing-bar {
+    width: auto;
+    max-width: none;
+    left: calc(8px + var(--safe-left));
+    right: calc(8px + var(--safe-right));
+    bottom: calc(214px + var(--safe-bottom));
+    gap: 8px;
+    transform: none;
+  }
+
+  /* After hours both controls are intentionally present: one edits the room,
+     the other closes the day. Stack them instead of placing both on the same
+     bottom coordinate. Lower than the figure above on purpose — build mode
+     hides the stick, so here the bar only has to clear the build bar. */
+  .closing-bar.building {
+    bottom: calc(176px + var(--safe-bottom));
+  }
+
+  .closing-text small {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .panel {
+    top: var(--below-topbar);
+    left: calc(6px + var(--safe-left));
+    right: calc(6px + var(--safe-right));
+    bottom: calc(84px + var(--safe-bottom));
+    border-width: 3px;
+    border-radius: 16px;
+  }
+
+  .panel-close {
+    display: block;
+    width: 44px;
+    height: 44px;
+  }
+
+  .app.panelled .screen,
+  .screen {
+    padding: 14px;
+  }
+
+  .app.panelled .screen {
+    padding-top: 14px;
+    padding-right: 78px;
+  }
+
+  .btn {
+    min-height: 44px;
+  }
+
+  .btn.tiny {
+    min-height: 44px;
+  }
+
+  .overlay,
+  .modal-backdrop {
+    align-items: end;
+    padding: calc(12px + var(--safe-top)) calc(8px + var(--safe-right))
+      0 calc(8px + var(--safe-left));
+  }
+
+  .modal,
+  .modal.inventory,
+  .settings-modal,
+  .floor-access-modal {
+    width: 100%;
+    max-width: none;
+    max-height: min(88dvh, calc(100dvh - var(--safe-top) - 12px));
+    padding: 18px 16px calc(18px + var(--safe-bottom));
+    border-width: 4px;
+    border-bottom: 0;
+    border-radius: 22px 22px 0 0;
+  }
+
+  .inv-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  /* Development shortcuts otherwise cover the compact HUD entirely. */
+  .dev-panel {
+    display: none;
+  }
+}
+
+@media (max-width: 380px) {
+  .topbar-label {
+    font-size: 7.5px;
+  }
+
+  .topbar-value {
+    font-size: 12.5px;
+  }
+
+  .clock-cell .clock {
+    font-size: 16px;
+  }
+
+  .topbar-settings {
+    width: 44px;
+    min-height: 44px;
+  }
+
+  .shop-row {
+    display: grid;
+    grid-template-columns: 46px minmax(0, 1fr);
+  }
+
+  .shop-row > .btn {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+
+  .candidate-stats {
+    flex-direction: column;
+    gap: 2px;
+  }
+}
+
+/* Small portrait phones leave a little more room around the walk stick. The
+   phone drawer already caps itself to the measured space above it. */
+@media (max-height: 660px) and (orientation: portrait) and (max-width: 719px),
+  (max-height: 660px) and (orientation: portrait) and (hover: none) and (pointer: coarse) {
+  .joystick {
+    bottom: calc(76px + var(--safe-bottom));
+    width: 104px;
+    height: 104px;
+  }
+
+  .joystick-knob {
+    width: 48px;
+    height: 48px;
+  }
+}
+
+/*
+ * A phone held sideways is a game viewport, not a rotated portrait screen.
+ * The world remains full-bleed while every control sits inside the live safe
+ * area. Opaque surfaces and hard shadows keep the HUD crisp over WebGL; the
+ * menu folds away until asked for and uses all five compact two-column rows.
+ */
+@media (max-height: 520px) and (orientation: landscape) and (max-width: 719px),
+  (max-height: 520px) and (orientation: landscape) and (hover: none) and (pointer: coarse) {
+  .app {
+    --below-topbar: calc(var(--safe-top) + var(--topbar-h) + 5px);
+    --landscape-action-width: 164px;
+  }
+
+  .topbar-wrap {
+    max-width: none;
+    margin: 0;
+    padding: 3px calc(6px + var(--safe-right)) 0 calc(6px + var(--safe-left));
+  }
+
+  .topbar {
+    gap: 1px;
+    padding-block: 3px;
+    background: var(--cream);
+    box-shadow: 0 4px 0 rgba(125, 74, 38, 0.3);
+  }
+
+  .topbar-label {
+    display: block;
+    font-size: 8px;
+    letter-spacing: 0.015em;
+  }
+
+  .topbar-sub {
+    display: none;
+  }
+
+  .topbar-value {
+    font-size: 14px;
+    line-height: 1.05;
+  }
+
+  .clock-cell .clock {
+    font-size: 15px;
+  }
+
+  .topbar-settings {
+    min-height: 44px;
+    width: 44px;
+    padding-inline: 4px;
+  }
+
+  .day-bar {
+    height: 7px;
+    margin-top: 2px;
+    background: var(--cream);
+    box-shadow: 0 3px 0 rgba(125, 74, 38, 0.3);
+  }
+
+  .debt-banner {
+    margin-top: 3px;
+    padding-block: 4px;
+  }
+
+  .alert-bar {
+    top: calc(var(--below-topbar) + 4px);
+    right: calc(8px + var(--safe-right));
+  }
+
+  .alert-chip {
+    min-height: 44px;
+  }
+
+  .carry-banner {
+    top: calc(var(--below-topbar) + 4px);
+  }
+
+  .phone,
+  .phone.open {
+    --phone-handle-width: 68px;
+    --phone-drawer-content-width: min(
+      300px,
+      calc(
+        100vw - var(--safe-left) - var(--safe-right) - var(--phone-handle-width) - 12px
+      )
+    );
+    --phone-drawer-max-height: calc(
+      100dvh - var(--below-topbar) - var(--safe-bottom) - 8px
+    );
+  }
+
+  .phone-handle {
+    height: 80px;
+    border-radius: 18px 0 0 18px;
+    box-shadow: -4px 4px 0 rgba(125, 74, 38, 0.32);
+  }
+
+  .phone-shell {
+    padding: 6px calc(8px + var(--safe-right)) 8px 8px;
+    background: #30283f;
+    border-radius: 24px 0 0 24px;
+    box-shadow: 0 5px 0 rgba(23, 18, 31, 0.42);
+  }
+
+  /* The topbar already carries this information. Removing duplicate phone
+     chrome gives all nine apps a complete, non-fading home screen. */
+  .phone-speaker,
+  .phone-status,
+  .phone-home {
+    display: none;
+  }
+
+  .phone-apps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-auto-rows: 48px;
+    gap: 5px;
+    padding: 5px 6px;
+    border-radius: 16px;
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+
+  .phone-app,
+  .phone-app.soon {
+    min-height: 48px;
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: 7px;
+    padding: 4px 6px;
+    border-radius: 13px;
+  }
+
+  .phone-icon {
+    width: 36px;
+    height: 36px;
+    font-size: 20px;
+    border-radius: 11px;
+    box-shadow: 0 3px 0 rgba(0, 0, 0, 0.3);
+  }
+
+  .phone-label {
+    min-width: 0;
+    overflow: hidden;
+    font-size: 10px;
+    line-height: 1.1;
+    text-align: left;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .phone-lock {
+    top: 2px;
+    left: 31px;
+    font-size: 7px;
+    transform: none;
+  }
+
+  .phone-soon {
+    right: 4px;
+    bottom: 2px;
+    left: auto;
+    font-size: 7px;
+    transform: none;
+  }
+
+  .app.talking .phone {
+    visibility: hidden;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .panel {
+    top: calc(var(--below-topbar) + 4px);
+    right: calc(6px + var(--safe-right));
+    bottom: calc(8px + var(--safe-bottom));
+    left: calc(6px + var(--safe-left));
+    max-width: none;
+    margin: 0;
+    box-shadow: 0 4px 0 rgba(125, 74, 38, 0.32);
+  }
+
+  .app.panelled .screen,
+  .screen {
+    padding: 10px 12px;
+  }
+
+  .app.panelled .screen {
+    padding-right: 76px;
+  }
+
+  .screen-head {
+    margin-bottom: 8px;
+  }
+
+  .shop-list,
+  .deal-list,
+  .staff-list,
+  .candidate-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .stat-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .joystick {
+    left: calc(12px + var(--safe-left));
+    bottom: calc(12px + var(--safe-bottom));
+    width: 108px;
+    height: 108px;
+    background: rgba(255, 246, 227, 0.84);
+    border-color: var(--paper);
+    box-shadow: 0 4px 0 rgba(125, 74, 38, 0.32);
+  }
+
+  .joystick-knob {
+    width: 48px;
+    height: 48px;
+  }
+
+  .action-btn {
+    right: calc(12px + var(--safe-right));
+    bottom: calc(12px + var(--safe-bottom));
+    width: var(--landscape-action-width);
+    min-width: var(--landscape-action-width);
+    max-width: var(--landscape-action-width);
+    min-height: 54px;
+    padding: 9px 14px;
+    box-shadow: 0 5px 0 var(--coral-action-dark);
+  }
+
+  .action-label,
+  .action-hint {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+
+  .guide {
+    --guide-radius: 70px;
+  }
+
+  .build-bar {
+    right: auto;
+    bottom: calc(10px + var(--safe-bottom));
+    left: 50%;
+    width: min(
+      680px,
+      calc(100vw - var(--safe-left) - var(--safe-right) - 24px)
+    );
+    max-width: none;
+    margin: 0;
+    padding: 5px 7px;
+    flex-wrap: nowrap;
+    transform: translateX(-50%);
+    box-shadow: 0 4px 0 rgba(125, 74, 38, 0.32);
+  }
+
+  .closing-bar {
+    right: calc(var(--landscape-action-width) + 24px + var(--safe-right));
+    bottom: calc(10px + var(--safe-bottom));
+    left: calc(132px + var(--safe-left));
+    width: auto;
+    max-width: 460px;
+    margin-inline: auto;
+    padding: 7px 9px;
+    transform: none;
+    box-shadow: 0 4px 0 rgba(125, 74, 38, 0.32);
+  }
+
+  .closing-bar.building {
+    bottom: calc(74px + var(--safe-bottom));
+  }
+
+  .build-hint {
+    flex: 1 1 auto;
+    text-align: left;
+  }
+
+  .client-card {
+    top: calc(var(--below-topbar) + 6px);
+    right: calc(8px + var(--safe-right));
+    bottom: calc(8px + var(--safe-bottom));
+    left: auto;
+    width: min(390px, calc(100vw - var(--safe-left) - var(--safe-right) - 16px));
+    max-width: none;
+    max-height: none;
+    margin: 0;
+    overflow-y: auto;
+    box-shadow: 0 4px 0 rgba(125, 74, 38, 0.32);
+  }
+
+  .overlay,
+  .modal-backdrop {
+    align-items: center;
+    padding-block: calc(6px + var(--safe-top)) calc(6px + var(--safe-bottom));
+    background: rgba(74, 53, 36, 0.72);
+  }
+
+  .modal,
+  .modal.inventory,
+  .settings-modal,
+  .floor-access-modal {
+    max-width: 600px;
+    max-height: calc(100dvh - var(--safe-top) - var(--safe-bottom) - 12px);
+    padding: 14px;
+    border: 4px solid var(--wood);
+    border-radius: 18px;
+    box-shadow: 0 5px 0 rgba(125, 74, 38, 0.38);
+  }
+
+  .inv-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .dev-panel {
+    display: none;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
   .joystick {
     display: none;
   }
@@ -1946,4 +4375,15 @@ p.warn {
   color: var(--leaf-dark);
   background: rgba(97, 185, 84, 0.14);
   border: 2px solid rgba(97, 185, 84, 0.4);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

@@ -1,4 +1,5 @@
-import type { DecorTypeId, MachineTypeId } from '../../game/types'
+import type { BaseMachineTypeId, DecorTypeId, MachineTypeId } from '../../game/types'
+import { bySupplierMachine } from '../../game/content/suppliers'
 
 /**
  * How much floor a thing actually takes up, as half-extents in its own local
@@ -15,13 +16,24 @@ export interface Footprint {
   hz: number
 }
 
-export const MACHINE_FOOTPRINT: Record<MachineTypeId, Footprint> = {
+const BASE_FOOTPRINT: Record<BaseMachineTypeId, Footprint> = {
   dumbbells: { hx: 0.78, hz: 0.34 },
   bench: { hx: 0.78, hz: 0.3 },
   treadmill: { hx: 0.46, hz: 0.84 },
   latpulldown: { hx: 0.46, hz: 0.62 },
   bike: { hx: 0.42, hz: 0.72 },
   cable: { hx: 0.82, hz: 0.5 },
+}
+
+/**
+ * Supplier kit is the same equipment built properly, so it stands in the same
+ * amount of room as the machine it is a better version of. Deriving it rather
+ * than restating it means a rung added to a catalogue cannot arrive with a
+ * footprint of zero and let clients walk straight through it.
+ */
+export const MACHINE_FOOTPRINT: Record<MachineTypeId, Footprint> = {
+  ...BASE_FOOTPRINT,
+  ...bySupplierMachine(archetype => BASE_FOOTPRINT[archetype]),
 }
 
 export const DECOR_FOOTPRINT: Record<DecorTypeId, Footprint> = {

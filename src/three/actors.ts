@@ -5,14 +5,24 @@ import { stanceFor } from './models/stance'
 import { buildStain } from './models/stain'
 import { isAtStaffDoor, tileToWorld } from '../game/layout'
 import { STAIN_OLD_MS } from '../game/stains'
+import { currentLanguage } from '../i18n'
 import { queueAnchorFor } from '../game/clientMove'
 import { bookingFor } from '../game/staff'
 import { PALETTE, blockAt, sphere } from './style'
-import { queuePatienceMs } from '../game/upgrades'
+import { queuePatienceMs } from '../game/diamondUpgrades'
 
 const BAR_WIDTH = 0.62
 const BAR_FULL = new THREE.Color(PALETTE.ghost)
 const BAR_EMPTY = new THREE.Color(PALETTE.ghostBad)
+
+/** Queue-facing angles stay pure so multi-desk routing can be regression-tested. */
+export function clientQueueFacing(state: GameState, client: Client): number {
+  return queueAnchorFor(state, client.receptionUid ?? null).angle + Math.PI
+}
+
+export function receptionistFacing(state: GameState, staff: Staff): number {
+  return queueAnchorFor(state, staff.targetUid).angle
+}
 
 // Moved here verbatim from scene.ts, which no longer needs it.
 export function buildPatienceBar(): { group: THREE.Group; fill: THREE.Mesh } {
@@ -97,10 +107,34 @@ function disposeSubtree(root: THREE.Object3D, ownMaterial: boolean): void {
 export class ActorLayer {
   private readonly views = new Map<string, ActorView>()
   private readonly stains = new Map<string, THREE.Mesh>()
+  /** Language the current rigs were built in; see `dropViews`. */
+  private builtLanguage = currentLanguage()
 
   constructor(private readonly scene: THREE.Scene) {}
 
+  /**
+   * Throws every rig away so the next `sync` rebuilds them. Only the language
+   * switch needs this: job titles are painted into a sprite when the employee
+   * is first drawn, so an employee already on the floor would otherwise keep
+   * the old language over their head for as long as they stay hired.
+   */
+  private dropViews(): void {
+    for (const view of this.views.values()) {
+      this.scene.remove(view.rig.root)
+      this.scene.remove(view.bar)
+      disposeSubtree(view.rig.root, false)
+      disposeSubtree(view.bar, true)
+    }
+    this.views.clear()
+  }
+
   sync(state: GameState, elapsed: number): void {
+    const language = currentLanguage()
+    if (language !== this.builtLanguage) {
+      this.dropViews()
+      this.builtLanguage = language
+    }
+
     const seen = new Set<string>()
 
     for (const client of state.clients) {
@@ -240,7 +274,7 @@ export class ActorLayer {
     const dx = client.x - view.rig.root.position.x
     const dz = client.z - view.rig.root.position.z
     if (client.phase === 'queue' && client.path.length === 0) {
-      view.rig.root.rotation.y = queueAnchorFor(state).angle + Math.PI
+      view.rig.root.rotation.y = clientQueueFacing(state, client)
     } else if (dx * dx + dz * dz > 1e-4) {
       view.rig.root.rotation.y = Math.atan2(dx, dz)
     }
@@ -274,7 +308,8 @@ export class ActorLayer {
     else view.rig.root.position.lerp(target, 0.25)
 
     const walking = staff.path.length > 0
-    const atDesk = staff.role === 'reception' && staff.targetUid !== null && !walking
+    const atDesk = staff.role === 'reception' && staff.targetUid !== null && !walking &&
+      state.decor.some(d => d.type === 'reception' && d.uid === staff.targetUid)
 
     // A trainer who has arrived turns to the person they are coaching — the
     // whole point of the booking is that the two are working together, and a
@@ -287,7 +322,7 @@ export class ActorLayer {
     // the desk into the queue instead, not whichever way the last step of the
     // walk-up happened to leave them.
     if (atDesk) {
-      view.rig.root.rotation.y = queueAnchorFor(state).angle
+      view.rig.root.rotation.y = receptionistFacing(state, staff)
     } else if (coaching) {
       const dx = coaching.x - staff.x
       const dz = coaching.z - staff.z

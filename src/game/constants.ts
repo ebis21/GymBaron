@@ -22,10 +22,19 @@ export const DEBT_LIMIT = -20_000
  * How long somebody waits at the desk before walking out. Generous on
  * purpose: the player has a whole room to cross, and losing a visitor because
  * they were three tiles away reads as a punishment for moving around.
+ *
+ * This is the *base*, level 0 of the `patience` upgrade track. What the engine
+ * actually reads is `patienceMs(state)` — see `content/upgrades.ts`.
  */
 export const PATIENCE_MS = 26_000
 export const OFFLINE_CAP_MS = 8 * 60 * 60 * 1000
-export const SAVE_VERSION = 9
+export const SAVE_VERSION = 10
+/**
+ * Deliberately still the old name. This is a storage key, not a label — nobody
+ * ever sees it, and renaming it would orphan the save of every player who
+ * already has one. It stays `iron-empire-save` for as long as those saves are
+ * worth keeping.
+ */
 export const SAVE_KEY = 'iron-empire-save'
 export const XP_PER_LEVEL = 100
 export const MAX_STEP_MS = 1_000
@@ -84,6 +93,10 @@ export const MEMBER_DISCOUNT = 0.5
 export const MEMBER_FEE = 200
 /** Towels, water, cleaning — charged per member on every day's bill. */
 export const MEMBER_UPKEEP = 14
+/**
+ * Length of the gym's billing week. Passes are collected on one shared cycle
+ * rather than per member — days divisible by this are payday. See `isPayday`.
+ */
 export const BILLING_PERIOD_DAYS = 7
 export const DAILY_RENT = 60
 

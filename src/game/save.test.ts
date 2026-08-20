@@ -139,67 +139,142 @@ describe('migration to version 7', () => {
 })
 
 describe('migration to version 8', () => {
-  it('adds a neutral diamond wallet and upgrades to a version 7 save', () => {
-    const current = initialState(31, 0)
-    const v7 = JSON.stringify({
-      ...current,
-      version: 7,
-      cash: 7654,
-      diamonds: undefined,
-      upgrades: undefined,
-      lastDiamondRewardDay: undefined,
+  it('loads a version 7 save with every track unbought', () => {
+    const { upgrades: _dropped, ...v7 } = initialState(7, 0)
+    const raw = JSON.stringify({ ...v7, version: 7, cash: 8765, day: 12 })
+
+    const loaded = deserialize(raw, 0)
+
+    expect(loaded.version).toBe(SAVE_VERSION)
+    expect(loaded.cash).toBe(8765)
+    expect(loaded.day).toBe(12)
+    expect(loaded.upgrades).toEqual({
+      cleaning: 0,
+      repair: 0,
+      earnings: 0,
+      luck: 0,
+      patience: 0,
     })
+  })
+
+  it('keeps levels a version 8 save already carries', () => {
+    const bought = { ...initialState(7, 0), upgrades: { cleaning: 3, repair: 1, earnings: 5, luck: 2, patience: 4 } }
+    expect(deserialize(serialize(bought), 0).upgrades).toEqual(bought.upgrades)
+  })
+
+  it('rejects a version 8 save whose tracks are missing or malformed', () => {
+    const fresh = initialState(0, 0)
+
+    for (const upgrades of [undefined, null, {}, { cleaning: 1 }, { cleaning: 1.5, repair: 0, earnings: 0, luck: 0, patience: 0 }, { cleaning: -1, repair: 0, earnings: 0, luck: 0, patience: 0 }]) {
+      const raw = JSON.stringify({ ...initialState(7, 0), version: SAVE_VERSION, cash: 999, upgrades })
+      // Corrupt, not old — a fresh gym beats handing undefined to the economy.
+      expect(deserialize(raw, 0).cash).toBe(fresh.cash)
+    }
+  })
+})
+
+/**
+ * The weekly pass collection was split out of the receipt's single pass line
+ * after some saves had already been written. It rides on `hydrateFeatures`
+ * rather than a version of its own, for the reason that pass exists: a
+ * receipt missing a number prints `NaN` instead of failing loudly.
+ */
+describe('payday breakdown on a stored receipt', () => {
+  const oldReport = {
+    day: 4, entryFees: 900, trainerFees: 0, subscriptions: 400, counterfeitLoss: 0,
+    signups: 2, churn: 0, rent: 60, power: 6, memberUpkeep: 28, wages: 0,
+    marketingSpend: 0, contractFees: 0, sponsorIncome: 0,
+    bill: 94, net: 1206, cashBefore: 1000, cashAfter: 2206,
+    clientsServed: 12, clientsLost: 1, diamondReward: 0,
+  }
+
+  it('fills the breakdown in rather than rejecting the save', () => {
+    const raw = JSON.stringify({
+      ...initialState(9, 0), version: SAVE_VERSION, cash: 7777, dayReport: oldReport,
+    })
+
+    const loaded = deserialize(raw, 0)
+
+    expect(loaded.cash).toBe(7777)
+    expect(loaded.dayReport!.renewals).toBe(0)
+    expect(loaded.dayReport!.renewalCount).toBe(0)
+    // The totals it already carried are not re-derived or guessed at.
+    expect(loaded.dayReport!.subscriptions).toBe(400)
+  })
+
+  it('carries the receipt of an older save all the way up the chain', () => {
+    const v7 = JSON.stringify({ ...initialState(9, 0), version: 7, dayReport: oldReport })
 
     const loaded = deserialize(v7, 0)
 
     expect(loaded.version).toBe(SAVE_VERSION)
+    expect(loaded.dayReport!.renewals).toBe(0)
+    expect(loaded.dayReport!.subscriptions).toBe(400)
+  })
+
+  it('leaves a save with no receipt at all alone', () => {
+    const raw = JSON.stringify({ ...initialState(9, 0), version: 7, dayReport: null })
+    expect(deserialize(raw, 0).dayReport).toBeNull()
+  })
+
+  it('keeps a breakdown the receipt already carries', () => {
+    const collected = {
+      ...initialState(9, 0),
+      dayReport: { ...oldReport, renewals: 5200, renewalCount: 4 },
+    }
+    const loaded = deserialize(serialize(collected), 0)
+
+    expect(loaded.dayReport!.renewals).toBe(5200)
+    expect(loaded.dayReport!.renewalCount).toBe(4)
+  })
+})
+
+describe('migration to version 10', () => {
+  it('adds neutral diamonds and social state to a version 9 save', () => {
+    const current = initialState(31, 0)
+    const v9 = JSON.stringify({
+      ...current,
+      version: 9,
+      cash: 7654,
+      diamonds: undefined,
+      diamondUpgrades: undefined,
+      lastDiamondRewardDay: undefined,
+      allianceIncomeMultiplier: undefined,
+      appliedSabotageIds: undefined,
+    })
+
+    const loaded = deserialize(v9, 0)
+    expect(loaded.version).toBe(SAVE_VERSION)
     expect(loaded.cash).toBe(7654)
     expect(loaded.diamonds).toBe(0)
-    expect(loaded.upgrades).toEqual({
+    expect(loaded.diamondUpgrades).toEqual({
       queue_patience: 0,
       repair_discount: 0,
       xp_boost: 0,
     })
     expect(loaded.lastDiamondRewardDay).toBe(0)
-  })
-
-  it('adds a zero reward to an old receipt', () => {
-    const closed = closeDayForMigration()
-    const v7 = JSON.stringify({
-      ...closed,
-      version: 7,
-      diamonds: undefined,
-      upgrades: undefined,
-      lastDiamondRewardDay: undefined,
-      dayReport: { ...closed.dayReport, diamondReward: undefined },
-    })
-
-    expect(deserialize(v7, 0).dayReport!.diamondReward).toBe(0)
-  })
-})
-
-describe('migration to version 9', () => {
-  it('defaults a version 8 save to the neutral offline income multiplier', () => {
-    const current = initialState(41, 0)
-    const v8 = JSON.stringify({
-      ...current,
-      version: 8,
-      cash: 8123,
-      allianceIncomeMultiplier: undefined,
-    })
-
-    const loaded = deserialize(v8, 0)
-
-    expect(loaded.version).toBe(SAVE_VERSION)
-    expect(loaded.cash).toBe(8123)
     expect(loaded.allianceIncomeMultiplier).toBe(1)
     expect(loaded.appliedSabotageIds).toEqual([])
+  })
+
+  it('adds a zero diamond reward to an old receipt', () => {
+    const closed = closeDayForMigration()
+    const v9 = JSON.stringify({
+      ...closed,
+      version: 9,
+      diamonds: undefined,
+      diamondUpgrades: undefined,
+      lastDiamondRewardDay: undefined,
+      allianceIncomeMultiplier: undefined,
+      appliedSabotageIds: undefined,
+      dayReport: { ...closed.dayReport, diamondReward: undefined },
+    })
+    expect(deserialize(v9, 0).dayReport!.diamondReward).toBe(0)
   })
 
   it('rejects a current save with a forged multiplier', () => {
     const corrupt = JSON.stringify({ ...initialState(41, 0), allianceIncomeMultiplier: 10 })
     const loaded = deserialize(corrupt, 0)
-
     expect(loaded.cash).toBe(500)
     expect(loaded.allianceIncomeMultiplier).toBe(1)
   })

@@ -1,5 +1,7 @@
 import { create } from 'zustand'
-import type { DecorTypeId, GameState, MachineTypeId, UpgradeId } from '../game/types'
+import { Capacitor } from '@capacitor/core'
+import { App as NativeApp } from '@capacitor/app'
+import type { DecorTypeId, DiamondUpgradeId, GameState, MachineTypeId } from '../game/types'
 import { initialState } from '../game/economy'
 import { machineType } from '../game/content/machines'
 import { decorType, WALL_PRICE } from '../game/content/decor'
@@ -24,11 +26,16 @@ import { advance } from '../game/tick'
 import { serialize, deserialize } from '../game/save'
 import { settleOffline } from '../game/offline'
 import { hire, fire, payArrears } from '../game/staff'
+import { buyUpgrade } from '../game/upgrades'
+import type { UpgradeId } from '../game/content/upgrades'
 import { refreshPool, ensurePool } from '../game/recruit'
+import { applyMarketing, type MarketingAction } from '../game/marketing'
+import { applyContracts, machineUnlocked, type ContractAction } from '../game/contracts'
+import { applySponsors, type SponsorAction } from '../game/sponsors'
 import { loadRaw, saveRaw } from './storage'
 import { AUTOSAVE_MS, SAVE_KEY } from '../game/constants'
 import { switchActiveFloor, unlockNextFloor } from '../game/floors'
-import { buyUpgrade as purchaseUpgrade, repairPrice } from '../game/upgrades'
+import { buyDiamondUpgrade, repairPrice } from '../game/diamondUpgrades'
 import { getAccountService, type CloudSaveEvent } from '../cloud'
 import {
   getMultiplayerApi,
@@ -60,8 +67,11 @@ interface GameStore {
   /** `trainerUid` books a personal trainer for this visit; null is the plain fee. */
   scan: (clientUid: string, trainerUid?: string | null) => void
   buyExpansion: () => void
-  buyNextFloor: () => void
+  /** Buys the next rung of one upgrade track; ignored at the top of the ladder. */
   buyUpgrade: (id: UpgradeId) => void
+  /** Buys a permanent premium track using only earned diamonds. */
+  buyDiamondUpgrade: (id: DiamondUpgradeId) => void
+  buyNextFloor: () => void
   switchFloor: (floor: number) => void
   /** Cashes up the day. Only offered once the clock has run out. */
   endDay: () => void
@@ -71,6 +81,16 @@ interface GameStore {
   fireStaff: (staffUid: string) => void
   settleArrears: (staffUid: string) => void
   rerollCandidates: () => void
+  /**
+   * The three v2 systems each get exactly one action, carrying a union the
+   * feature owns. A new campaign type or a new kind of deal is a change to
+   * that union and to the screen that dispatches it — never to this file,
+   * which is why three branches can grow three feature sets without ever
+   * meeting here.
+   */
+  marketing: (action: MarketingAction) => void
+  contracts: (action: ContractAction) => void
+  sponsors: (action: SponsorAction) => void
   advanceDay: () => void
   dismissWelcome: () => void
   restart: () => void
@@ -84,20 +104,27 @@ interface GameStore {
 let rafId: number | null = null
 let lastFrameAt = 0
 let sinceSaveMs = 0
-let visibilityBound = false
 let onlineServicesBound = false
 let lastSessionUserId: string | null = null
 let lastMultiplayerSyncAt = 0
+let lifecycleBound = false
+let hydration: Promise<void> | null = null
+let appActive = typeof document === 'undefined' || !document.hidden
+let lifecycleGeneration = 0
 
 const MULTIPLAYER_SYNC_MS = 60_000
+
+/** Control Centre and other brief interruptions still settle, but do not need
+ * a full welcome-back receipt when the player returns immediately. */
+const WELCOME_BACK_MIN_MS = 30_000
 
 export const useGameStore = create<GameStore>((set, get) => {
   const account = getAccountService()
   const multiplayer = getMultiplayerApi()
 
-  const persist = (state: GameState) => {
-    const raw = serialize({ ...state, lastSeenAt: Date.now() })
-    void saveRaw(SAVE_KEY, raw)
+  const persist = async (state: GameState): Promise<void> => {
+    const raw = serialize(state)
+    await saveRaw(SAVE_KEY, raw)
     void account.cloud.push(raw)
   }
 
@@ -116,7 +143,7 @@ export const useGameStore = create<GameStore>((set, get) => {
   const commit = (next: GameState) => {
     if (next === get().state) return
     set({ state: next })
-    persist(next)
+    void persist({ ...next, lastSeenAt: Date.now() })
   }
 
   const adoptCloudSave = (event: Extract<CloudSaveEvent, { type: 'adopt' }>) => {
@@ -225,8 +252,11 @@ export const useGameStore = create<GameStore>((set, get) => {
       if (rafId !== null) {
         cancelAnimationFrame(rafId)
         rafId = null
+        lastFrameAt = 0
       }
-      persist(get().state)
+      const state = { ...get().state, lastSeenAt: Date.now() }
+      set({ state })
+      await persist(state)
       const result = await account.cloud.flush()
       if (result.outcome === 'offline' || result.outcome === 'error' || result.outcome === 'local-only') {
         throw new Error(result.message ?? 'Nie udało się zsynchronizować salda przed operacją.')
@@ -234,7 +264,7 @@ export const useGameStore = create<GameStore>((set, get) => {
     })
 
     onAfterMultiplayerWalletMutation(() => {
-      if (resumeAfterWalletMutation && get().ready) startLoop()
+      if (resumeAfterWalletMutation && get().ready && appActive) startLoop()
       resumeAfterWalletMutation = false
     })
   }
@@ -245,6 +275,10 @@ export const useGameStore = create<GameStore>((set, get) => {
     const dtMs = lastFrameAt === 0 ? 0 : now - lastFrameAt
     lastFrameAt = now
     if (dtMs <= 0) return
+
+    if (Date.now() - lastMultiplayerSyncAt >= MULTIPLAYER_SYNC_MS) {
+      void syncMultiplayer()
+    }
 
     const current = get().state
     if (current.gameOver || current.dayEnded) return
@@ -257,14 +291,14 @@ export const useGameStore = create<GameStore>((set, get) => {
     // live for building, so the ordinary autosave carries on below.
     if (isClosingTime(next.dayMs) && !isClosingTime(current.dayMs)) {
       sinceSaveMs = 0
-      persist(next)
+      void persist({ ...next, lastSeenAt: Date.now() })
       return
     }
 
     sinceSaveMs += dtMs
     if (sinceSaveMs >= AUTOSAVE_MS) {
       sinceSaveMs = 0
-      persist(next)
+      void persist({ ...next, lastSeenAt: Date.now() })
     }
   }
 
@@ -275,13 +309,75 @@ export const useGameStore = create<GameStore>((set, get) => {
   }
 
   const stopLoop = () => {
-    if (rafId !== null) {
-      cancelAnimationFrame(rafId)
-      rafId = null
-    }
+    if (rafId !== null) cancelAnimationFrame(rafId)
+    rafId = null
+    lastFrameAt = 0
+
+    // StrictMode mounts, cleans up and mounts effects once more in development.
+    // More importantly, the OS can background the WebView while Preferences is
+    // still loading. Never let either path overwrite a real save with the
+    // temporary initial state shown behind the loading screen.
     if (!get().ready) return
-    persist(get().state)
+
+    // Keep the departure timestamp in live state too. A native app is often
+    // resumed without reloading JavaScript, so serializing a stamped copy is
+    // not enough for the later offline settlement.
+    const state = { ...get().state, lastSeenAt: Date.now() }
+    set({ state })
+    void persist(state)
     void account.cloud.flush()
+  }
+
+  const resumeLoop = () => {
+    if (!get().ready) return
+
+    const now = Date.now()
+    const current = get().state
+    const settled = settleOffline(current, now)
+    const state = ensurePool(settled.state)
+    syncRoomSize(state)
+
+    set({
+      state,
+      welcomeBack:
+        settled.awayMs >= WELCOME_BACK_MIN_MS
+          ? { earned: settled.earned, awayMs: settled.awayMs }
+          : get().welcomeBack,
+    })
+    void persist(state)
+    startLoop()
+  }
+
+  const bindLifecycle = () => {
+    if (lifecycleBound) return
+    lifecycleBound = true
+
+    const applyAppState = (isActive: boolean) => {
+      lifecycleGeneration += 1
+      appActive = isActive
+      if (isActive) resumeLoop()
+      else stopLoop()
+    }
+
+    if (Capacitor.isNativePlatform()) {
+      const snapshotGeneration = lifecycleGeneration
+      void NativeApp.addListener('appStateChange', ({ isActive }) => {
+        applyAppState(isActive)
+      }).catch(() => undefined)
+      void NativeApp.getState()
+        .then(({ isActive }) => {
+          // An event delivered after getState was requested is newer than the
+          // snapshot. Never let that stale response restart a background app.
+          if (lifecycleGeneration === snapshotGeneration) applyAppState(isActive)
+        })
+        .catch(() => undefined)
+      return
+    }
+
+    appActive = !document.hidden
+    document.addEventListener('visibilitychange', () => {
+      applyAppState(!document.hidden)
+    })
   }
 
   return {
@@ -290,16 +386,21 @@ export const useGameStore = create<GameStore>((set, get) => {
     ready: false,
 
     start: () => {
+      bindLifecycle()
       bindOnlineServices()
       if (get().ready) {
-        startLoop()
+        if (appActive) startLoop()
         void account.start()
         return
       }
 
-      void (async () => {
-        const now = Date.now()
+      // React StrictMode can call start twice before the first Preferences.get
+      // resolves. One hydration owns the save and the offline settlement.
+      if (hydration) return
+
+      hydration = (async () => {
         const raw = await loadRaw(SAVE_KEY)
+        const now = Date.now()
         const loaded = raw ? deserialize(raw, now) : initialState(now, now)
         // Before a single engine call: an expanded gym must be restored at its
         // real size, or the first offline tick would route everyone around
@@ -312,22 +413,15 @@ export const useGameStore = create<GameStore>((set, get) => {
         set({
           state,
           ready: true,
-          welcomeBack: awayMs > 0 ? { earned, awayMs } : null,
+          welcomeBack: awayMs >= WELCOME_BACK_MIN_MS ? { earned, awayMs } : null,
         })
-        persist(state)
-        startLoop()
+        void persist(state)
+        if (appActive) startLoop()
         await account.start()
         void syncMultiplayer()
-      })()
-
-      // A backgrounded tab must not drain battery or bank frames.
-      if (!visibilityBound) {
-        visibilityBound = true
-        document.addEventListener('visibilitychange', () => {
-          if (document.hidden) stopLoop()
-          else if (get().ready) startLoop()
-        })
-      }
+      })().finally(() => {
+        hydration = null
+      })
     },
 
     stop: stopLoop,
@@ -336,6 +430,12 @@ export const useGameStore = create<GameStore>((set, get) => {
       const state = get().state
       const spec = machineType(type)
       if (state.gameOver || state.level < spec.minLevel || state.cash < spec.price) return
+      // The shop already hides kit behind an unsigned contract, but the shop
+      // is a view. This is where a purchase is actually decided, so this is
+      // where the gate has to be — see `contracts.ts`. With no contracts in
+      // the game yet the predicate passes everything, which is why the branch
+      // that adds them is also the one that tests it.
+      if (!machineUnlocked(state, type)) return
 
       commit(addToInventory(charge(state, spec.price), { kind: 'machine', type }))
     },
@@ -390,9 +490,14 @@ export const useGameStore = create<GameStore>((set, get) => {
       commit(grown)
     },
 
-    buyNextFloor: () => commit(unlockNextFloor(get().state)),
+    // `buyUpgrade` already charges the price and books the spend, so it does
+    // not go through `charge` — unlike the shop, where the purchase and the
+    // payment are two separate steps.
+    buyUpgrade: id => commit(buyUpgrade(get().state, id)),
 
-    buyUpgrade: id => commit(purchaseUpgrade(get().state, id)),
+    buyDiamondUpgrade: id => commit(buyDiamondUpgrade(get().state, id)),
+
+    buyNextFloor: () => commit(unlockNextFloor(get().state)),
 
     switchFloor: floor => {
       const current = get().state
@@ -467,13 +572,35 @@ export const useGameStore = create<GameStore>((set, get) => {
       commit(refreshPool(state))
     },
 
+    // Each dispatcher is deliberately identical and deliberately thin: the
+    // guard, then the feature's own reducer, then `commit`. A reducer that
+    // refuses an action returns the state it was given, and `commit` skips the
+    // render and the write on identity — same contract as the build functions.
+    marketing: action => {
+      const state = get().state
+      if (state.gameOver) return
+      commit(applyMarketing(state, action))
+    },
+
+    contracts: action => {
+      const state = get().state
+      if (state.gameOver) return
+      commit(applyContracts(state, action))
+    },
+
+    sponsors: action => {
+      const state = get().state
+      if (state.gameOver) return
+      commit(applySponsors(state, action))
+    },
+
     advanceDay: () => {
       const next = nextDay(get().state)
       if (next === get().state) return
 
       sinceSaveMs = 0
       set({ state: next })
-      persist(next)
+      void persist({ ...next, lastSeenAt: Date.now() })
       void syncMultiplayer()
     },
 
@@ -486,7 +613,7 @@ export const useGameStore = create<GameStore>((set, get) => {
       syncRoomSize(fresh)
       sinceSaveMs = 0
       set({ state: fresh, welcomeBack: null, ready: true })
-      persist(fresh)
+      void persist(fresh)
       startLoop()
     },
 

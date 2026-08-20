@@ -1,11 +1,13 @@
-node_modules/
+# No trailing slash: the parallel v2 worktrees reach the packages through a
+# symlink of this name, and `node_modules/` would not match one.
+node_modules
 dist/
 .DS_Store
 *.local
 *.log
 
-# The native projects are committed — they carry the portrait-orientation
-# edits, which `npx cap add` would not regenerate. Their build output is not.
+# The native projects are committed — they carry platform configuration that
+# `npx cap add` would not regenerate. Their build output is not.
 android/build/
 android/app/build/
 android/.gradle/
@@ -13,7 +15,13 @@ android/local.properties
 android/.idea/
 android/app/src/main/assets/public/
 android/app/release/
+android/keystore.properties
+*.jks
+*.keystore
 ios/App/Pods/
 ios/App/build/
 ios/App/App/public/
 ios/DerivedData/
+
+# Claude Code worktrees live inside the repo; never commit them.
+.claude/worktrees/

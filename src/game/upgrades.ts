@@ -1,83 +1,64 @@
-import { PATIENCE_MS } from './constants'
-import type { GameState, UpgradeId, UpgradeLevels } from './types'
+import type { GameState } from './types'
+import {
+  type UpgradeId,
+  nextUpgrade,
+  upgradeValueAt,
+} from './content/upgrades'
 
-export interface UpgradeSpec {
-  id: UpgradeId
-  name: string
-  description: string
-  costs: readonly number[]
-  effectPerLevel: string
+/**
+ * How many rungs of a track the player has paid for. Reads through a missing
+ * or corrupt entry as zero, so a hand-edited save degrades to the unupgraded
+ * game rather than to `NaN` spreading through the economy.
+ */
+export function upgradeLevel(state: GameState, id: UpgradeId): number {
+  const level = state.upgrades?.[id]
+  return typeof level === 'number' && Number.isFinite(level) ? level : 0
 }
 
-export const UPGRADE_SPECS: readonly UpgradeSpec[] = [
-  {
-    id: 'queue_patience',
-    name: 'Spokojna kolejka',
-    description: 'Klienci dłużej czekają na obsługę przy recepcji.',
-    costs: [5, 8, 12],
-    effectPerLevel: '+10% czasu',
-  },
-  {
-    id: 'repair_discount',
-    name: 'Warsztat premium',
-    description: 'Ręczne naprawy maszyn kosztują mniej kredytów.',
-    costs: [5, 8, 12],
-    effectPerLevel: '−10% kosztu',
-  },
-  {
-    id: 'xp_boost',
-    name: 'Akademia trenera',
-    description: 'Każde źródło doświadczenia daje więcej XP.',
-    costs: [6, 10, 15],
-    effectPerLevel: '+10% XP',
-  },
-] as const
-
-const byId = new Map(UPGRADE_SPECS.map(spec => [spec.id, spec]))
-
-export const emptyUpgrades = (): UpgradeLevels => ({
-  queue_patience: 0,
-  repair_discount: 0,
-  xp_boost: 0,
-})
-
-export function upgradeSpec(id: UpgradeId): UpgradeSpec {
-  const spec = byId.get(id)
-  if (!spec) throw new Error(`Unknown upgrade: ${id}`)
-  return spec
+/** What a track is worth right now. */
+export function upgradeValue(state: GameState, id: UpgradeId): number {
+  return upgradeValueAt(id, upgradeLevel(state, id))
 }
 
-export function upgradeCost(state: GameState, id: UpgradeId): number | null {
-  return upgradeSpec(id).costs[state.upgrades[id]] ?? null
-}
+// Named readers for the five call sites. They exist so the engine never has to
+// remember which string keys a track, and so a renamed id is a compile error in
+// one file rather than a silent `base` value everywhere.
 
-/** Refuses invalid, unaffordable and post-game purchases without mutating state. */
+/** Hold time on a stain, in ms. */
+export const cleanHoldMs = (state: GameState): number => upgradeValue(state, 'cleaning')
+
+/** Hold time on a dead machine, in ms. */
+export const repairHoldMs = (state: GameState): number => upgradeValue(state, 'repair')
+
+/** Multiplier on the door fee. Passes are priced by gym class and stay out of it. */
+export const earningsMult = (state: GameState): number => upgradeValue(state, 'earnings')
+
+/** Weights the rarity table and nudges pass conversion. */
+export const luckMult = (state: GameState): number => upgradeValue(state, 'luck')
+
+/** How long somebody waits at the desk before walking out, in ms. */
+export const patienceMs = (state: GameState): number => upgradeValue(state, 'patience')
+
+/**
+ * Buys the next rung of a track. Returns the state unchanged when it refuses,
+ * which is what the store's identity check reads as "nothing happened" — same
+ * contract as `hire` and the build functions.
+ *
+ * There is deliberately no level gate. Machines and expansions have one;
+ * upgrades are a reward for playing rather than another lock, and the prices
+ * order the purchases on their own — 600 is out of reach of a gym opening on
+ * 500, and 1 200 000 stays out of reach for days.
+ */
 export function buyUpgrade(state: GameState, id: UpgradeId): GameState {
-  const cost = upgradeCost(state, id)
-  if (state.gameOver || cost === null || state.diamonds < cost) return state
+  if (state.gameOver) return state
+
+  const next = nextUpgrade(id, upgradeLevel(state, id))
+  if (!next || state.cash < next.price) return state
 
   return {
     ...state,
-    diamonds: state.diamonds - cost,
-    upgrades: { ...state.upgrades, [id]: state.upgrades[id] + 1 },
+    cash: state.cash - next.price,
+    upgrades: { ...state.upgrades, [id]: upgradeLevel(state, id) + 1 },
+    stats: { ...state.stats, totalSpent: state.stats.totalSpent + next.price },
   }
-}
-
-export function queuePatienceMs(state: GameState): number {
-  return PATIENCE_MS * (1 + state.upgrades.queue_patience * 0.1)
-}
-
-export function repairPrice(state: GameState, basePrice: number): number {
-  return Math.ceil(basePrice * (1 - state.upgrades.repair_discount * 0.1))
-}
-
-export function xpMultiplier(state: GameState): number {
-  return 1 + state.upgrades.xp_boost * 0.1
-}
-
-/** Satisfaction rewards are intentionally small and require real footfall. */
-export function dailyDiamondReward(state: GameState): number {
-  if (state.satisfaction >= 90 && state.today.clientsServed >= 20) return 2
-  if (state.satisfaction >= 75 && state.today.clientsServed >= 10) return 1
-  return 0
 }

@@ -1,9 +1,9 @@
-import type { GameState, UpgradeId } from '../game/types'
-import { UPGRADE_SPECS, upgradeCost } from '../game/upgrades'
+import type { DiamondUpgradeId, GameState } from '../game/types'
+import { DIAMOND_UPGRADE_SPECS, diamondUpgradeCost } from '../game/diamondUpgrades'
 
 interface Props {
   state: GameState
-  onBuy: (id: UpgradeId) => void
+  onBuy: (id: DiamondUpgradeId) => void
 }
 
 export default function UpgradeScreen({ state, onBuy }: Props) {
@@ -27,9 +27,9 @@ export default function UpgradeScreen({ state, onBuy }: Props) {
       </div>
 
       <div className="upgrade-list">
-        {UPGRADE_SPECS.map(spec => {
-          const level = state.upgrades[spec.id]
-          const cost = upgradeCost(state, spec.id)
+        {DIAMOND_UPGRADE_SPECS.map(spec => {
+          const level = state.diamondUpgrades[spec.id]
+          const cost = diamondUpgradeCost(state, spec.id)
           const maxed = cost === null
           const affordable = cost !== null && state.diamonds >= cost
 

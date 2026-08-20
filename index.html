@@ -1,15 +1,37 @@
 <!doctype html>
-<html lang="pl">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#12141a" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="icon" type="image/png" href="/assets/icon-192.png" />
     <link rel="apple-touch-icon" href="/assets/icon-192.png" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <title>IRON EMPIRE</title>
+
+    <title>GYMBARON</title>
+    <meta name="description" content="A gym management simulator. Start with an empty floor and $500." />
+
+    <!--
+      Absolute URLs on purpose: scrapers fetch these out of context and a
+      relative path resolves against whatever host they happened to crawl, so
+      these must name the canonical host explicitly.
+    -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="GYMBARON" />
+    <meta property="og:title" content="GYMBARON" />
+    <meta property="og:description" content="A gym management simulator. Start with an empty floor and $500." />
+    <meta property="og:url" content="https://gymbaron.com/" />
+    <meta property="og:image" content="https://gymbaron.com/assets/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:locale" content="en_GB" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="GYMBARON" />
+    <meta name="twitter:description" content="A gym management simulator. Start with an empty floor and $500." />
+    <meta name="twitter:image" content="https://gymbaron.com/assets/og.png" />
   </head>
   <body>
     <div id="root"></div>

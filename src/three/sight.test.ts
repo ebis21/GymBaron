@@ -3,14 +3,17 @@ import { describe, it, expect } from 'vitest'
 import { buildWallSegment } from './models/decor'
 import { TILE, tileToWorld } from './layout'
 import { blockingSight } from './sight'
+import { FOLLOW_DEPTH, FOLLOW_HEIGHT } from './scene'
 
 /**
- * The follow camera's offset from the player, copied from `followCamera`. The
- * whole question these tests answer is whether a partition is tall enough to
- * cut that particular sight line — a shallower camera would be blocked by
- * everything, a steeper one by nothing.
+ * The follow camera's offset from the player, taken from `followCamera` rather
+ * than copied, so moving the camera moves these tests with it. The whole
+ * question they answer is whether a partition is tall enough to cut that
+ * particular sight line — a shallower camera would be blocked by everything, a
+ * steeper one by nothing.
  */
-const eye = (x: number, z: number) => new THREE.Vector3(x - 1.5, 12.5, z + 13.5)
+const eye = (x: number, z: number) =>
+  new THREE.Vector3(x - 1.5, FOLLOW_HEIGHT, z + FOLLOW_DEPTH)
 
 /** One partition, placed exactly the way `syncWalls` places it. */
 function wall(uid: string, x: number, y: number, side: 'n' | 'w'): THREE.Mesh[] {

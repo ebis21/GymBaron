@@ -1,5 +1,6 @@
 import * as THREE from 'three'
-import type { MachineTypeId } from '../../game/types'
+import type { BaseMachineTypeId, MachineTypeId } from '../../game/types'
+import { bySupplierMachine, supplierOf, type SupplierId } from '../../game/content/suppliers'
 import { PALETTE, blockAt, cylinder, toon } from '../style'
 
 /**
@@ -268,13 +269,44 @@ function buildCable(): THREE.Group {
   return g
 }
 
-const BUILDERS: Record<MachineTypeId, () => THREE.Group> = {
+const BASE_BUILDERS: Record<BaseMachineTypeId, () => THREE.Group> = {
   dumbbells: buildDumbbells,
   bench: buildBench,
   treadmill: buildTreadmill,
   latpulldown: buildLatPulldown,
   bike: buildBike,
   cable: buildCable,
+}
+
+/**
+ * The badge bolted to the foot of a supplier's machine. It is the only thing
+ * that distinguishes their kit from the equipment it is a better version of,
+ * and that is the point: a player should recognise a bench as a bench across
+ * the room, and read the tier off the colour once they are standing at it.
+ */
+const SUPPLIER_TINT: Record<SupplierId, string> = {
+  ferrum: PALETTE.frameBlue,
+  apex: PALETTE.frameYellow,
+}
+
+function badged(model: THREE.Group, tint: string): THREE.Group {
+  model.add(blockAt(0.34, 0.1, 0.06, tint, 0, 0.06, 0.42, { radius: 0.03 }))
+  return model
+}
+
+/**
+ * Supplier kit reuses the archetype's model rather than getting one of its
+ * own. Ten bespoke meshes would be ten chances to ship a machine nobody
+ * modelled, and the fiction does not want them anyway — a Ferrum bench is a
+ * bench, made better.
+ */
+const BUILDERS: Record<MachineTypeId, () => THREE.Group> = {
+  ...BASE_BUILDERS,
+  ...bySupplierMachine((archetype, id) => () => {
+    const owner = supplierOf(id)
+    const model = BASE_BUILDERS[archetype]()
+    return owner ? badged(model, SUPPLIER_TINT[owner]) : model
+  }),
 }
 
 export function buildMachine(type: MachineTypeId): THREE.Group {
