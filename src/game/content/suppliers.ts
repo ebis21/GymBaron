@@ -10,11 +10,17 @@ import type { BaseMachineTypeId, MachineType } from '../types'
  * union is a change to this file alone.
  *
  * The point of the whole feature is that the game's only revenue lever,
- * `revenueMultiplier`, currently stops at the cable crossover's 1.9. Fill the
+ * `revenueMultiplier`, currently stops at the cable crossover's 2.02. Fill the
  * floor with those and there is nothing left to buy. This is the ladder that
- * carries on: ten rungs from 2.1 to 6.2, each one strictly better earning than
- * the last and strictly dearer, gated behind contracts the player has to keep
- * paying for.
+ * carries on: ten rungs from 2.27 to 7.44, each one strictly better earning
+ * than the last and strictly dearer, gated behind contracts the player has to
+ * keep paying for.
+ *
+ * Prices are untouched from the original ladder while the multipliers climb by
+ * a graded amount — nothing on the starting kit, a fifth at the top two rungs.
+ * That is the "better tech earns more" lever, and it is deliberately the *only*
+ * thing that moved here: how many people walk through the door to use the kit
+ * is `equipmentDraw`'s job, over in `economy.ts`.
  */
 export type SupplierId = 'ferrum' | 'apex'
 
@@ -64,11 +70,11 @@ const FERRUM: Supplier = {
   minLevel: 6,
   requires: null,
   catalogue: [
-    { id: 'ferrum-rack',     price: 2_400, powerPerDay: 4,  workoutMs: 13_000, satisfaction: 20, wearPerUse: 11.0,  repairCost: 380, minLevel: 6, xpPerUse: 15, revenueMultiplier: 2.1 },
-    { id: 'ferrum-bench',    price: 3_200, powerPerDay: 5,  workoutMs: 16_000, satisfaction: 23, wearPerUse: 12.5,  repairCost: 460, minLevel: 6, xpPerUse: 17, revenueMultiplier: 2.4 },
-    { id: 'ferrum-bike',     price: 4_100, powerPerDay: 16, workoutMs: 18_000, satisfaction: 26, wearPerUse: 14.3, repairCost: 560, minLevel: 7, xpPerUse: 19, revenueMultiplier: 2.7 },
-    { id: 'ferrum-pulldown', price: 5_400, powerPerDay: 9,  workoutMs: 19_000, satisfaction: 29, wearPerUse: 12.5, repairCost: 700, minLevel: 7, xpPerUse: 22, revenueMultiplier: 3.0 },
-    { id: 'ferrum-cable',    price: 7_200, powerPerDay: 18, workoutMs: 22_000, satisfaction: 33, wearPerUse: 16.7, repairCost: 900, minLevel: 8, xpPerUse: 26, revenueMultiplier: 3.4 },
+    { id: 'ferrum-rack',     price: 2_400, powerPerDay: 4,  workoutMs: 13_000, satisfaction: 20, wearPerUse: 11.0,  repairCost: 380, minLevel: 6, xpPerUse: 15, revenueMultiplier: 2.27 },
+    { id: 'ferrum-bench',    price: 3_200, powerPerDay: 5,  workoutMs: 16_000, satisfaction: 23, wearPerUse: 12.5,  repairCost: 460, minLevel: 6, xpPerUse: 17, revenueMultiplier: 2.62 },
+    { id: 'ferrum-bike',     price: 4_100, powerPerDay: 16, workoutMs: 18_000, satisfaction: 26, wearPerUse: 14.3, repairCost: 560, minLevel: 7, xpPerUse: 19, revenueMultiplier: 2.99 },
+    { id: 'ferrum-pulldown', price: 5_400, powerPerDay: 9,  workoutMs: 19_000, satisfaction: 29, wearPerUse: 12.5, repairCost: 700, minLevel: 7, xpPerUse: 22, revenueMultiplier: 3.36 },
+    { id: 'ferrum-cable',    price: 7_200, powerPerDay: 18, workoutMs: 22_000, satisfaction: 33, wearPerUse: 16.7, repairCost: 900, minLevel: 8, xpPerUse: 26, revenueMultiplier: 3.86 },
   ],
 }
 
@@ -88,11 +94,11 @@ const APEX: Supplier = {
   minLevel: 10,
   requires: 'ferrum',
   catalogue: [
-    { id: 'apex-bench',     price: 11_000, powerPerDay: 8,  workoutMs: 16_000, satisfaction: 38, wearPerUse: 14.3, repairCost: 1_300, minLevel: 10, xpPerUse: 30, revenueMultiplier: 3.9 },
-    { id: 'apex-treadmill', price: 15_000, powerPerDay: 34, workoutMs: 20_000, satisfaction: 42, wearPerUse: 16.7, repairCost: 1_700, minLevel: 11, xpPerUse: 34, revenueMultiplier: 4.4 },
-    { id: 'apex-pulldown',  price: 19_500, powerPerDay: 12, workoutMs: 19_000, satisfaction: 46, wearPerUse: 14.3, repairCost: 2_100, minLevel: 12, xpPerUse: 38, revenueMultiplier: 4.9 },
-    { id: 'apex-cable',     price: 26_000, powerPerDay: 24, workoutMs: 22_000, satisfaction: 52, wearPerUse: 16.7, repairCost: 2_800, minLevel: 13, xpPerUse: 44, revenueMultiplier: 5.5 },
-    { id: 'apex-rig',       price: 36_000, powerPerDay: 30, workoutMs: 24_000, satisfaction: 60, wearPerUse: 20.0, repairCost: 3_600, minLevel: 14, xpPerUse: 52, revenueMultiplier: 6.2 },
+    { id: 'apex-bench',     price: 11_000, powerPerDay: 8,  workoutMs: 16_000, satisfaction: 38, wearPerUse: 14.3, repairCost: 1_300, minLevel: 10, xpPerUse: 30, revenueMultiplier: 4.49 },
+    { id: 'apex-treadmill', price: 15_000, powerPerDay: 34, workoutMs: 20_000, satisfaction: 42, wearPerUse: 16.7, repairCost: 1_700, minLevel: 11, xpPerUse: 34, revenueMultiplier: 5.15 },
+    { id: 'apex-pulldown',  price: 19_500, powerPerDay: 12, workoutMs: 19_000, satisfaction: 46, wearPerUse: 14.3, repairCost: 2_100, minLevel: 12, xpPerUse: 38, revenueMultiplier: 5.78 },
+    { id: 'apex-cable',     price: 26_000, powerPerDay: 24, workoutMs: 22_000, satisfaction: 52, wearPerUse: 16.7, repairCost: 2_800, minLevel: 13, xpPerUse: 44, revenueMultiplier: 6.60 },
+    { id: 'apex-rig',       price: 36_000, powerPerDay: 30, workoutMs: 24_000, satisfaction: 60, wearPerUse: 20.0, repairCost: 3_600, minLevel: 14, xpPerUse: 52, revenueMultiplier: 7.44 },
   ],
 }
 

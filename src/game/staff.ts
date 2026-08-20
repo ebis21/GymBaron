@@ -3,11 +3,46 @@ import type { Tile } from './layout'
 import { staffDoorTile, tileBehind, tileToWorld } from './layout'
 import { wipeStain } from './stains'
 import { freeTrainers, scanClient } from './clients'
-import { workMsFor, STAFF_LIMIT, roleUnlockLevel } from './content/staff'
+import {
+  workMsFor,
+  STAFF_PER_FLOOR,
+  STAFF_PER_EXPANSION,
+  roleUnlockLevel,
+} from './content/staff'
+import { clampExpansion } from './content/expansion'
 import { walkable } from './pathfind'
 
 /** How close somebody must be standing to actually do the job. */
 const WORK_REACH = 1.6
+
+/**
+ * How many people the gym may have on the payroll: room to grow into, bought.
+ * Every unlocked storey is worth `STAFF_PER_FLOOR`, and each expansion rung on
+ * that storey another `STAFF_PER_EXPANSION`. So the starting hall allows the
+ * five it always did, a fully expanded ground floor allows eleven, and a second
+ * storey brings its own five along with room to expand it in turn.
+ *
+ * Counted across every floor rather than off the one being looked at. The
+ * engine mirrors the active storey at the top level while the others live in
+ * their plans, so reading `state.expansion` alone would have the cap drop the
+ * moment the player stepped upstairs into a room they had not expanded yet —
+ * and with it, silently, their ability to replace anybody they sacked.
+ */
+export function staffLimit(state: GameState): number {
+  const rungOf = (plan: { expansion: number }, floor: number) =>
+    clampExpansion(floor === state.activeFloor ? state.expansion : plan.expansion)
+
+  // A state assembled by hand — every test in this repo builds one — may have
+  // no plans at all. That is one floor at whatever rung it claims, not nought.
+  if (state.floorPlans.length === 0) {
+    return STAFF_PER_FLOOR + STAFF_PER_EXPANSION * clampExpansion(state.expansion)
+  }
+
+  return state.floorPlans.reduce(
+    (total, plan, floor) => total + STAFF_PER_FLOOR + STAFF_PER_EXPANSION * rungOf(plan, floor),
+    0,
+  )
+}
 
 /** Out of service, and so worth a repairer walking over to. */
 export const needsRepair = (m: Machine): boolean => m.durability <= 0
@@ -55,6 +90,29 @@ export function standTileNear(state: GameState, at: Tile, preferred: Tile | null
  */
 export function deskPost(state: GameState, desk: Decor): Tile | null {
   return standTileNear(state, { x: desk.x, y: desk.y }, tileBehind(desk.x, desk.y, desk.rotation))
+}
+
+/**
+ * Reception desks somebody can actually stand at. A counter boxed in by walls
+ * or shoved into a corner with no free neighbour is not a workplace — see
+ * `deskPost` — and counting it would let the player hire somebody who then
+ * stands at the staff door drawing a wage.
+ */
+export function staffedDesks(state: GameState): Decor[] {
+  return state.decor.filter(d => d.type === 'reception' && deskPost(state, d) !== null)
+}
+
+/**
+ * Desks with nobody assigned to them.
+ *
+ * `pickJob` gives one desk to one receptionist, so a fourth hire in a gym with
+ * three counters scans nothing at all and simply costs a wage every evening.
+ * Hiring already refused when there was no desk whatsoever; this is the same
+ * rule counted properly, now that a gym is expected to run several.
+ */
+export function freeDesks(state: GameState): number {
+  const working = state.staff.filter(s => s.role === 'reception').length
+  return staffedDesks(state).length - working
 }
 
 /** The desk this employee actually claimed — not merely *a* desk. */
@@ -307,8 +365,8 @@ export function hire(state: GameState, candidateUid: string): GameState {
   // Per role, not one gate for the payroll: a trainer is a desk decision the
   // player makes long before automation is on the table.
   if (state.level < roleUnlockLevel(candidate.role)) return state
-  if (state.staff.length >= STAFF_LIMIT) return state
-  if (candidate.role === 'reception' && !state.decor.some(d => d.type === 'reception')) return state
+  if (state.staff.length >= staffLimit(state)) return state
+  if (candidate.role === 'reception' && freeDesks(state) <= 0) return state
   if (state.cash < candidate.price) return state
 
   // New hires walk in through the staff door like everybody else.

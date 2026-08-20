@@ -129,7 +129,14 @@ export const pl: Strings = {
     equipmentHint:
       'Mnożnik podbija wejściówkę na danej maszynie, a jego nadwyżka ponad 1,0 dokłada się do klasy siłowni, czyli do ceny każdego karnetu. Kupione rzeczy trafiają do ekwipunku.',
     furniture: 'Meble',
-    furnitureHint: 'Nic nie zarabiają i zajmują pole w sali — kupujesz je dla wyglądu.',
+    furnitureHint: 'Poza recepcją nic nie zarabiają i zajmują pole w sali — kupujesz je dla wyglądu.',
+    deskSection: 'Recepcja',
+    deskHint:
+      'Każde biurko to jedno stanowisko: jeden recepcjonista na jedno biurko, a wszyscy skanują tę samą kolejkę. To najczęstszy sufit przepustowości — dostawisz biurko i zatrudnisz kogoś, obsłużysz więcej ludzi dziennie.',
+    deskCount: (desks: number, staff: number) =>
+      `Masz ${desks} ${desks === 1 ? 'biurko' : 'biurek'} i ${staff} ${staff === 1 ? 'recepcjonistę' : 'recepcjonistów'}.`,
+    deskIdle: (n: number) => `${n} ${n === 1 ? 'biurko stoi puste' : 'biurek stoi pustych'} — zatrudnij obsługę.`,
+    deskShortStaff: 'Wszystkie biurka obsadzone — dostaw kolejne, żeby zatrudnić więcej.',
     partitions: 'Ścianki',
     partitionsHint:
       'Stają na krawędziach kafli, więc nie zabierają miejsca pod sprzęt. W trybie budowania weź ściankę z ekwipunku i kliknij krawędź kafla. Kliknięcie postawionej ścianki wybiera ją — wtedy możesz ją przestawić albo schować z powrotem do ekwipunku.',
@@ -228,7 +235,7 @@ export const pl: Strings = {
     perDay: amount => `${amount} / dzień`,
     tooPoor: amount => `Za mało gotówki — brakuje ${amount}`,
     fromLevel: level => `Od poziomu ${level}`,
-    needsDesk: 'Brak biurka',
+    needsDesk: 'Brak wolnego biurka',
     full: 'Komplet',
     hire: price => `Zatrudnij za ${price}`,
     footer:

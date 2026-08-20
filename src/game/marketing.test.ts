@@ -15,7 +15,7 @@ import {
 
 const base = () => initialState(1, 0)
 const rich = () => ({ ...base(), cash: 100_000 })
-const start = (id: 'flyers' | 'social' | 'billboards' = 'flyers') =>
+const start = (id: 'flyers' | 'social' | 'billboards' | 'influencer' | 'tv' = 'flyers') =>
   applyMarketing(rich(), { type: 'start', campaignId: id })
 
 describe('starting a campaign', () => {
@@ -25,9 +25,8 @@ describe('starting a campaign', () => {
     const after = applyMarketing(before, { type: 'start', campaignId: 'social' })
 
     expect(after.marketing).toEqual({
-      activeCampaignId: 'social',
-      remainingMs: campaign.durationDays * DAY_MS,
-      billableCampaignId: 'social',
+      running: [{ id: 'social', remainingMs: campaign.durationDays * DAY_MS }],
+      billable: ['social'],
     })
     expect(after.cash).toBe(before.cash)
     expect(after.stats.totalSpent).toBe(before.stats.totalSpent)
@@ -39,12 +38,29 @@ describe('starting a campaign', () => {
     const midday = { ...rich(), dayMs: DAY_MS / 2 }
     const after = applyMarketing(midday, { type: 'start', campaignId: 'flyers' })
 
-    expect(after.marketing.remainingMs).toBe(campaign.durationDays * DAY_MS - DAY_MS / 2)
+    expect(after.marketing.running[0]!.remainingMs).toBe(campaign.durationDays * DAY_MS - DAY_MS / 2)
   })
 
-  it('refuses another campaign while one is running', () => {
+  it('refuses to re-order an offer that is already live', () => {
     const running = start()
-    expect(applyMarketing(running, { type: 'start', campaignId: 'social' })).toBe(running)
+    expect(applyMarketing(running, { type: 'start', campaignId: 'flyers' })).toBe(running)
+  })
+
+  it('runs several offers side by side and compounds them', () => {
+    const both = applyMarketing(start('billboards'), { type: 'start', campaignId: 'tv' })
+
+    expect(both.marketing.running.map(r => r.id)).toEqual(['billboards', 'tv'])
+    expect(spawnRateMultiplier(both)).toBeCloseTo(
+      campaignById('billboards').spawnMultiplier * campaignById('tv').spawnMultiplier,
+      10,
+    )
+  })
+
+  it('prices the first invoice against everything that would then be live', () => {
+    // Enough for the television spot on its own, but not on top of billboards.
+    const tv = campaignById('tv').dailyCost
+    const tight = { ...applyMarketing(rich(), { type: 'start', campaignId: 'billboards' }), cash: tv }
+    expect(applyMarketing(tight, { type: 'start', campaignId: 'tv' })).toBe(tight)
   })
 
   it('refuses when the first daily bill is not covered', () => {
@@ -70,10 +86,8 @@ describe('the campaign clock', () => {
     const almost = advanceMarketing(afterFirstDay, DAY_MS - 1)
     const expired = advanceMarketing(almost, 1)
 
-    expect(almost.marketing.activeCampaignId).toBe('flyers')
-    expect(almost.marketing.remainingMs).toBe(1)
-    expect(expired.marketing.activeCampaignId).toBeNull()
-    expect(expired.marketing.remainingMs).toBe(0)
+    expect(almost.marketing.running).toEqual([{ id: 'flyers', remainingMs: 1 }])
+    expect(expired.marketing.running).toEqual([])
     expect(spawnRateMultiplier(expired)).toBe(1)
   })
 
@@ -98,8 +112,8 @@ describe('daily settlement', () => {
     expect(after.cash).toBe(running.cash - cost)
     expect(after.today.marketingSpend).toBe(running.today.marketingSpend + cost)
     expect(after.stats.totalSpent).toBe(running.stats.totalSpent + cost)
-    expect(after.marketing.activeCampaignId).toBe('social')
-    expect(after.marketing.billableCampaignId).toBeNull()
+    expect(after.marketing.running.map(r => r.id)).toEqual(['social'])
+    expect(after.marketing.billable).toEqual([])
   })
 
   it('cannot charge the same day twice', () => {
@@ -113,8 +127,8 @@ describe('daily settlement', () => {
     const expired = advanceMarketing(afterFirstDay, DAY_MS)
     const settled = settleMarketing(expired)
 
-    expect(expired.marketing.activeCampaignId).toBeNull()
-    expect(expired.marketing.billableCampaignId).toBe('flyers')
+    expect(expired.marketing.running).toEqual([])
+    expect(expired.marketing.billable).toEqual(['flyers'])
     expect(settled.today.marketingSpend).toBe(campaignById('flyers').dailyCost)
   })
 
@@ -125,7 +139,7 @@ describe('daily settlement', () => {
     }
     const nextDay = advanceMarketing(afterClose, 1)
 
-    expect(nextDay.marketing.billableCampaignId).toBe('social')
+    expect(nextDay.marketing.billable).toEqual(['social'])
   })
 
   it('bills every advertised closing and then disappears from the receipt', () => {
@@ -152,45 +166,51 @@ describe('reading stored marketing state', () => {
     }
   })
 
-  it('keeps a valid running campaign and its pending invoice', () => {
+  it('keeps every valid running campaign and its pending invoices', () => {
+    expect(normalizeMarketing({
+      running: [{ id: 'billboards', remainingMs: 123 }, { id: 'tv', remainingMs: 456 }],
+      billable: ['billboards', 'tv'],
+    })).toEqual({
+      running: [{ id: 'billboards', remainingMs: 123 }, { id: 'tv', remainingMs: 456 }],
+      billable: ['billboards', 'tv'],
+    })
+  })
+
+  /**
+   * The single-campaign shape this feature shipped with. A save written before
+   * offers could stack is a perfectly good save; reading it as a one-entry list
+   * is the whole of the upgrade, and is why there is no version bump.
+   */
+  it('reads a save from before campaigns could stack', () => {
     expect(normalizeMarketing({
       activeCampaignId: 'billboards',
       remainingMs: 123,
       billableCampaignId: 'billboards',
     })).toEqual({
-      activeCampaignId: 'billboards',
-      remainingMs: 123,
-      billableCampaignId: 'billboards',
+      running: [{ id: 'billboards', remainingMs: 123 }],
+      billable: ['billboards'],
     })
   })
 
   it('drops corrupt ids and impossible remaining time', () => {
     expect(normalizeMarketing({
-      activeCampaignId: 'television',
-      remainingMs: Number.POSITIVE_INFINITY,
-      billableCampaignId: 'radio',
+      running: [{ id: 'television', remainingMs: 5 }, { id: 'flyers', remainingMs: -10 }],
+      billable: ['radio'],
     })).toEqual(initialMarketing())
-    expect(normalizeMarketing({
-      activeCampaignId: 'flyers',
-      remainingMs: -10,
-      billableCampaignId: 'flyers',
-    })).toEqual({
-      activeCampaignId: null,
-      remainingMs: 0,
-      billableCampaignId: 'flyers',
-    })
   })
 
-  it('caps runaway clocks and drops an invoice for the wrong live offer', () => {
+  it('caps a runaway clock at what the offer actually sells', () => {
     const max = campaignById('social').durationDays * DAY_MS
     expect(normalizeMarketing({
-      activeCampaignId: 'social',
-      remainingMs: max * 99,
-      billableCampaignId: 'billboards',
-    })).toEqual({
-      activeCampaignId: 'social',
-      remainingMs: max,
-      billableCampaignId: null,
-    })
+      running: [{ id: 'social', remainingMs: max * 99 }],
+      billable: [],
+    })).toEqual({ running: [{ id: 'social', remainingMs: max }], billable: [] })
+  })
+
+  it('never lets one offer hold two clocks, which would bill it twice', () => {
+    expect(normalizeMarketing({
+      running: [{ id: 'flyers', remainingMs: 10 }, { id: 'flyers', remainingMs: 20 }],
+      billable: ['flyers', 'flyers'],
+    })).toEqual({ running: [{ id: 'flyers', remainingMs: 10 }], billable: ['flyers'] })
   })
 })
