@@ -23,36 +23,11 @@ export default function BaronClub({
   onRedeemPremiumPurchases,
   onClose,
 }: Props) {
-  const { language, money } = useI18n()
+  const { t, money } = useI18n()
   const [section, setSection] = useState<ClubSection>('home')
   const leave = () => section === 'home' ? onClose() : setSection('home')
   const dialogRef = useDialogFocus<HTMLElement>(leave)
-
-  const copy = language === 'pl'
-    ? {
-        title: 'Baron Club',
-        subtitle: 'Konto, znajomi, diamentowe ulepszenia i sklep premium w jednym miejscu.',
-        back: 'Wróć do klubu',
-        close: 'Zamknij Baron Club',
-        wallet: 'Twój portfel',
-        store: { title: 'Sklep premium', description: 'Kredyty, diamenty, maszyny i stałe bonusy.' },
-        diamonds: { title: 'Ulepszenia za diamenty', description: 'Wydawaj zdobyte i kupione diamenty na stałe ulepszenia.' },
-        friends: { title: 'Znajomi i sojusze', description: 'Odwiedzaj bazy, wysyłaj środki, pożyczki i LIL D.' },
-        account: { title: 'Konto i chmura', description: 'Zabezpiecz progres i przenoś go między urządzeniami.' },
-        open: 'Otwórz',
-      }
-    : {
-        title: 'Baron Club',
-        subtitle: 'Account, friends, diamond upgrades and the premium store in one place.',
-        back: 'Back to club',
-        close: 'Close Baron Club',
-        wallet: 'Your wallet',
-        store: { title: 'Premium store', description: 'Credits, diamonds, machines and permanent boosts.' },
-        diamonds: { title: 'Diamond upgrades', description: 'Spend earned and purchased diamonds on permanent upgrades.' },
-        friends: { title: 'Friends and alliances', description: 'Visit gyms, send funds, loans and LIL D.' },
-        account: { title: 'Account and cloud', description: 'Protect your progress and move it between devices.' },
-        open: 'Open',
-      }
+  const copy = t.club.home
 
   const tiles: Array<{
     id: Exclude<ClubSection, 'home'>

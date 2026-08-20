@@ -7,6 +7,7 @@ import {
   type SaveRepository,
   type SaveState,
 } from './types'
+import { strings } from '../i18n'
 
 const TABLE = 'game_saves'
 const COLUMNS = 'user_id, state, revision, save_version, updated_at'
@@ -88,11 +89,11 @@ export class SupabaseSaveRepository implements SaveRepository {
         // caller's answer to that is the same as for a lost CAS — go and read
         // what is actually stored.
         if (isDuplicate(error)) {
-          throw new CloudError('conflict', 'W chmurze jest już zapis tego konta.', { cause: error })
+          throw new CloudError('conflict', strings().club.account.service.saveExists, { cause: error })
         }
         throw toCloudError(error, 'server')
       }
-      if (!data) throw new CloudError('server', 'Serwer nie zwrócił zapisanego stanu.')
+      if (!data) throw new CloudError('server', strings().club.account.service.saveMissing)
       return toRecord(data)
     } catch (cause) {
       throw toCloudError(cause, 'offline')
@@ -121,7 +122,7 @@ export class SupabaseSaveRepository implements SaveRepository {
       if (!data) {
         throw new CloudError(
           'conflict',
-          'W chmurze jest nowsza wersja zapisu. Pobieram ją.',
+          strings().club.account.service.conflict,
         )
       }
       return toRecord(data)

@@ -39,8 +39,8 @@ export type CloudErrorCode =
   | 'unknown'
 
 /**
- * Everything the cloud layer throws. `message` is written for the player, in
- * Polish; `code` is what calling code should branch on.
+ * Everything the cloud layer throws. `message` is written for the player in
+ * the selected language; `code` is what calling code should branch on.
  */
 export class CloudError extends Error {
   readonly code: CloudErrorCode

@@ -1,4 +1,5 @@
 import { useAccount } from '../cloud'
+import { useI18n } from '../i18n'
 import { getMultiplayerApi } from '../multiplayer/runtime'
 import MultiplayerScreen from './MultiplayerScreen'
 
@@ -8,15 +9,14 @@ interface Props {
 
 export default function MultiplayerPanel({ onOpenAccount }: Props) {
   const { state } = useAccount()
+  const { t } = useI18n()
+  const copy = t.club.multiplayer
 
   if (!state.configured) {
     return (
       <div className="screen multiplayer-gate">
         <h2 className="section-title">Multiplayer</h2>
-        <p className="hint">
-          Ta wersja aplikacji nie ma konfiguracji Supabase. Gra lokalna nadal działa,
-          ale znajomi i zapis konta są niedostępne.
-        </p>
+        <p className="hint">{copy.notConfigured}</p>
       </div>
     )
   }
@@ -25,13 +25,10 @@ export default function MultiplayerPanel({ onOpenAccount }: Props) {
     return (
       <div className="screen multiplayer-gate">
         <div className="multiplayer-gate-icon">🤝</div>
-        <h2 className="section-title">Zaloguj się do multiplayera</h2>
-        <p className="hint">
-          Konto jest potrzebne, żeby znaleźć znajomych, oglądać ich bazy, zawierać
-          sojusze i wysyłać LIL D.
-        </p>
+        <h2 className="section-title">{copy.signInTitle}</h2>
+        <p className="hint">{copy.signInHint}</p>
         <button className="btn primary" type="button" onClick={onOpenAccount}>
-          Otwórz konto
+          {copy.openAccount}
         </button>
       </div>
     )

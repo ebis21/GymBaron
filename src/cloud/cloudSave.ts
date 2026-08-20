@@ -24,7 +24,7 @@ export interface CloudSaveSnapshot {
   /** Revision this device last agreed with the cloud on. */
   revision: number | null
   lastSyncedAt: number | null
-  /** Player-facing Polish text for the current status, when there is one. */
+  /** Player-facing localized text for the current status, when there is one. */
   message: string | null
   /** True while a local change is waiting to reach the cloud. */
   pending: boolean

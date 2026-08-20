@@ -7,6 +7,7 @@ import {
   type PurchasesPackage,
 } from '@revenuecat/purchases-capacitor'
 import { getAccountService } from '../cloud'
+import { strings } from '../i18n'
 import { PREMIUM_PRODUCTS, premiumProduct } from './catalog'
 import type { PremiumProductId, StorePurchaseReceipt } from './types'
 
@@ -43,16 +44,18 @@ const UNAVAILABLE_SNAPSHOT: BillingSnapshot = {
   message: null,
 }
 
+const billingCopy = () => strings().club.store.billing
+
 /** Never opens a fake checkout and never grants a reward. */
 export const unavailableBillingGateway: BillingGateway = {
   snapshot: () => UNAVAILABLE_SNAPSHOT,
   subscribe: () => () => undefined,
   refresh: async () => undefined,
   purchase: async () => {
-    throw new Error('Native billing is not configured.')
+    throw new Error(billingCopy().notConfigured)
   },
   restore: async () => {
-    throw new Error('Native billing is not configured.')
+    throw new Error(billingCopy().notConfigured)
   },
 }
 
@@ -75,16 +78,16 @@ const errorCode = (cause: unknown): PURCHASES_ERROR_CODE | null => {
 function friendlyError(cause: unknown): Error {
   const code = errorCode(cause)
   if (code === PURCHASES_ERROR_CODE.PURCHASE_CANCELLED_ERROR) {
-    return new Error('Zakup został anulowany.')
+    return new Error(billingCopy().cancelled)
   }
   if (code === PURCHASES_ERROR_CODE.PAYMENT_PENDING_ERROR) {
-    return new Error('Płatność oczekuje na potwierdzenie sklepu. Nagroda nie została jeszcze naliczona.')
+    return new Error(billingCopy().pending)
   }
   if (code === PURCHASES_ERROR_CODE.NETWORK_ERROR || code === PURCHASES_ERROR_CODE.OFFLINE_CONNECTION_ERROR) {
-    return new Error('Brak połączenia ze sklepem. Spróbuj ponownie za chwilę.')
+    return new Error(billingCopy().offline)
   }
   if (cause instanceof Error && cause.message) return cause
-  return new Error('Sklep nie mógł dokończyć operacji.')
+  return new Error(billingCopy().failed)
 }
 
 const restoredReceipts = (info: CustomerInfo): StorePurchaseReceipt[] => {
@@ -179,8 +182,8 @@ export class RevenueCatBillingGateway implements BillingGateway {
         status: 'configuration-required',
         products: {},
         message: Capacitor.isNativePlatform()
-          ? 'Brakuje publicznego klucza RevenueCat dla tej platformy.'
-          : 'Zakupy mobilne są dostępne w aplikacji iOS i Android.',
+          ? billingCopy().missingKey
+          : billingCopy().mobileOnly,
       })
       return
     }
@@ -200,7 +203,7 @@ export class RevenueCatBillingGateway implements BillingGateway {
       const offerings = await Purchases.getOfferings()
       const requested = import.meta.env.VITE_REVENUECAT_OFFERING_ID?.trim()
       const offering = requested ? offerings.all[requested] ?? null : offerings.current
-      if (!offering) throw new Error(`Brak aktywnej oferty RevenueCat „${requested ?? 'current'}”.`)
+      if (!offering) throw new Error(billingCopy().missingOffering(requested ?? 'current'))
 
       const nextPackages = new Map<PremiumProductId, PurchasesPackage>()
       const products: BillingSnapshot['products'] = {}
@@ -216,7 +219,7 @@ export class RevenueCatBillingGateway implements BillingGateway {
       this.publish({
         status: nextPackages.size > 0 ? 'ready' : 'configuration-required',
         products,
-        message: missing > 0 ? `Brakuje ${missing} produktów w aktywnej ofercie RevenueCat.` : null,
+        message: missing > 0 ? billingCopy().missingProducts(missing) : null,
       })
     } catch (cause) {
       if (generation !== this.generation) return
@@ -230,14 +233,14 @@ export class RevenueCatBillingGateway implements BillingGateway {
   async purchase(id: PremiumProductId): Promise<StorePurchaseReceipt> {
     const aPackage = this.packages.get(id)
     if (this.current.status !== 'ready' || !aPackage || !this.userId) {
-      throw new Error('Ten produkt nie jest jeszcze dostępny w sklepie.')
+      throw new Error(billingCopy().productUnavailable)
     }
 
     try {
       const result = await Purchases.purchasePackage({ aPackage })
       const product = premiumProduct(id)
       if (result.productIdentifier !== product.storeProductId || !result.transaction.transactionIdentifier) {
-        throw new Error('Sklep zwrócił nieprawidłowe potwierdzenie zakupu.')
+        throw new Error(billingCopy().invalidReceipt)
       }
       return { productId: id, transactionId: result.transaction.transactionIdentifier }
     } catch (cause) {
@@ -247,7 +250,7 @@ export class RevenueCatBillingGateway implements BillingGateway {
 
   async restore(): Promise<StorePurchaseReceipt[]> {
     if (this.current.status !== 'ready' || !this.userId) {
-      throw new Error('Zaloguj się i połącz ze sklepem, aby przywrócić zakupy.')
+      throw new Error(billingCopy().restoreUnavailable)
     }
     try {
       const { customerInfo } = await Purchases.restorePurchases()
