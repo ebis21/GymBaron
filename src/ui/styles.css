@@ -2486,19 +2486,30 @@ p.warn {
     height: 44px;
   }
 
+  /*
+   * Full width, and clear of the walk stick above it. At 84px the bar covered
+   * 68 of the stick's 116, leaving a sliver of ring poking out of the top —
+   * the player was steering a control they could not see. The stick sits at
+   * 88px and is 116 tall, so 214 puts the bar ten pixels above it.
+   *
+   * Insetting the left edge past the stick was the other way to clear it and
+   * costs too much: at 402px wide that leaves 258px for the row, and the
+   * message clamps to half its length.
+   */
   .closing-bar {
     width: auto;
     max-width: none;
     left: calc(8px + var(--safe-left));
     right: calc(8px + var(--safe-right));
-    bottom: calc(84px + var(--safe-bottom));
+    bottom: calc(214px + var(--safe-bottom));
     gap: 8px;
     transform: none;
   }
 
   /* After hours both controls are intentionally present: one edits the room,
      the other closes the day. Stack them instead of placing both on the same
-     bottom coordinate. */
+     bottom coordinate. Lower than the figure above on purpose — build mode
+     hides the stick, so here the bar only has to clear the build bar. */
   .closing-bar.building {
     bottom: calc(176px + var(--safe-bottom));
   }
@@ -2721,9 +2732,14 @@ p.warn {
   }
 
   .build-bar,
-  .client-card,
-  .closing-bar {
+  .client-card {
     bottom: calc(58px + var(--safe-bottom));
+  }
+
+  /* The stick shrinks to 96 at 62px on a screen this short, so the bar clears
+     it at 168 — the same ten-pixel gap as the taller layouts. */
+  .closing-bar {
+    bottom: calc(168px + var(--safe-bottom));
   }
 
   .closing-bar.building {
