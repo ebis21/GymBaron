@@ -11,6 +11,7 @@ import { messageFor, toCloudError } from './messages'
 import { SupabaseSaveRepository } from './supabaseSaveRepository'
 import { getSupabaseClient } from './supabaseClient'
 import type { LocalSaveStore, SaveRepository } from './types'
+import { strings } from '../i18n'
 
 export interface AccountState {
   /** False when the build has no Supabase credentials. UI should hide accounts. */
@@ -19,9 +20,9 @@ export interface AccountState {
   sync: CloudSaveSnapshot
   /** A request is in flight; disable the form. */
   busy: boolean
-  /** Something went wrong, in Polish. */
+  /** Something went wrong, in the language selected when it happened. */
   error: string | null
-  /** Something went right and is worth saying, in Polish. */
+  /** Something went right and is worth saying, in the selected language. */
   notice: string | null
 }
 
@@ -36,11 +37,14 @@ export interface AccountServiceOptions {
 
 const DEFAULT_POLL_MS = 60_000
 
-const ATTACH_NOTICE: Record<AttachOutcome, string | null> = {
-  uploaded: 'Twój postęp został wysłany do chmury.',
-  downloaded: 'Wczytano postęp zapisany w chmurze.',
-  empty: null,
-  failed: null,
+const attachNotice = (outcome: AttachOutcome): string | null => {
+  const copy = strings().club.account.service
+  return {
+    uploaded: copy.uploaded,
+    downloaded: copy.downloaded,
+    empty: null,
+    failed: null,
+  }[outcome]
 }
 
 /**
@@ -171,7 +175,7 @@ export class AccountService {
 
   private async doAttach(session: AccountSession): Promise<void> {
     const result = await this.cloud.attach(session.userId)
-    this.notice = ATTACH_NOTICE[result.outcome]
+    this.notice = attachNotice(result.outcome)
     this.error = result.outcome === 'failed' ? result.message : null
     // A reconciliation that never happened must not block the next attempt.
     if (result.outcome === 'failed') this.attachedTo = null
@@ -196,7 +200,7 @@ export class AccountService {
     return this.run(async auth => {
       const { session, needsConfirmation } = await auth.signUp(email, password)
       if (needsConfirmation) {
-        this.notice = 'Konto założone. Potwierdź adres e-mail, aby się zalogować.'
+        this.notice = strings().club.account.service.signUpConfirmation
         return
       }
       this.session = session
@@ -222,7 +226,7 @@ export class AccountService {
       await auth.signOut()
       this.session = null
       this.leave()
-      this.notice = 'Wylogowano. Gra zapisuje się teraz tylko na tym urządzeniu.'
+      this.notice = strings().club.account.service.signedOut
     })
   }
 

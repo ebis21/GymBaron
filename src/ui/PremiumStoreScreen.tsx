@@ -24,7 +24,7 @@ export default function PremiumStoreScreen({
   ownedProductIds,
   billing = revenueCatBillingGateway,
 }: Props) {
-  const { language } = useI18n()
+  const { language, t } = useI18n()
   const { state: account } = useAccount()
   const snapshot = useSyncExternalStore(billing.subscribe, billing.snapshot, billing.snapshot)
   const [busy, setBusy] = useState<PremiumProductId | 'restore' | null>(null)
@@ -34,39 +34,7 @@ export default function PremiumStoreScreen({
     if (account.session) void billing.refresh()
   }, [account.session?.userId, billing])
 
-  const copy = language === 'pl'
-    ? {
-        eyebrow: 'Sklep premium',
-        title: 'Rozwijaj swoje imperium szybciej',
-        hint: 'Płatność zawsze pokazuje cenę z App Store lub Google Play przed zatwierdzeniem.',
-        login: 'Zaloguj się, żeby zakup był przypisany do konta i możliwy do odzyskania na innym urządzeniu.',
-        loginCta: 'Otwórz konto',
-        setup: 'Katalog jest gotowy. Dodaj produkty i publiczne klucze RevenueCat, aby włączyć natywne płatności.',
-        buy: 'Kup',
-        unavailable: 'Konfiguracja IAP',
-        restore: 'Przywróć zakupy',
-        restored: 'Zakupy zostały odświeżone.',
-        success: 'Zakup potwierdzony przez sklep. Nagroda została dodana i zapisana.',
-        owned: 'Posiadasz',
-        consumable: 'Do wielokrotnego zakupu',
-        permanent: 'Zakup stały',
-      }
-    : {
-        eyebrow: 'Premium store',
-        title: 'Grow your empire faster',
-        hint: 'Checkout always shows the App Store or Google Play price before confirmation.',
-        login: 'Sign in so the purchase belongs to your account and can be recovered on another device.',
-        loginCta: 'Open account',
-        setup: 'The catalogue is ready. Add the products and RevenueCat public SDK keys to enable native checkout.',
-        buy: 'Buy',
-        unavailable: 'Configure IAP',
-        restore: 'Restore purchases',
-        restored: 'Purchases refreshed.',
-        success: 'Purchase confirmed by the store. The reward was granted and saved.',
-        owned: 'Owned',
-        consumable: 'Repeatable purchase',
-        permanent: 'Permanent purchase',
-      }
+  const copy = t.club.store
 
   const purchase = async (id: PremiumProductId) => {
     setBusy(id)

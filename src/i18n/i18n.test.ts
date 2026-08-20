@@ -41,6 +41,25 @@ describe('language store', () => {
   })
 })
 
+describe('Baron Club copy', () => {
+  it('keeps every destination in English when English is selected', () => {
+    expect(en.club.home.store.title).toBe('Premium store')
+    expect(en.club.diamondUpgrades.title).toBe('Diamond upgrades')
+    expect(en.club.account.title).toBe('Account')
+    expect(en.club.multiplayer.title).toBe('Friends and alliances')
+    expect(en.club.friendGym.back).toBe('Back')
+    expect(en.club.account.service.invalidCredentials).toBe('Incorrect email or password.')
+  })
+
+  it('keeps the same destinations available in Polish', () => {
+    expect(pl.club.home.store.title).toBe('Sklep premium')
+    expect(pl.club.diamondUpgrades.title).toBe('Ulepszenia za diamenty')
+    expect(pl.club.account.title).toBe('Konto')
+    expect(pl.club.multiplayer.title).toBe('Znajomi i sojusze')
+    expect(pl.club.friendGym.back).toBe('Wróć')
+  })
+})
+
 describe('money', () => {
   it('keeps the currency in both languages — it belongs to the game, not the reader', () => {
     expect(money(1234, 'en')).toContain('kr')

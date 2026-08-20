@@ -2,6 +2,7 @@ import type { Strings } from './en'
 import { marketingPl } from './marketing'
 import { contractsPl } from './contracts'
 import { sponsorsPl } from './sponsors'
+import { clubPl } from './club'
 
 /**
  * The original wording, kept as it was written rather than translated back
@@ -338,6 +339,7 @@ export const pl: Strings = {
   marketing: marketingPl,
   contracts: contractsPl,
   sponsors: sponsorsPl,
+  club: clubPl,
 
   content: {
     machines: {

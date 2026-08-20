@@ -2,33 +2,27 @@ import { useState, type FormEvent } from 'react'
 import { useAccount } from '../cloud/useAccount'
 import type { AccountService } from '../cloud/account'
 import type { SyncStatus } from '../cloud/cloudSave'
+import { useI18n } from '../i18n'
+import type { ClubStrings } from '../i18n/club'
 
-/** What the sync light says, in the player's language. */
-const SYNC_LABEL: Record<SyncStatus, string> = {
-  disabled: 'Zapis tylko na tym urządzeniu',
-  local: 'Zapis tylko na tym urządzeniu',
-  syncing: 'Synchronizuję…',
-  synced: 'Zapisano w chmurze',
-  offline: 'Brak połączenia — zapisuję lokalnie',
-  error: 'Błąd synchronizacji',
-}
-
-function timeAgo(at: number | null): string | null {
+function timeAgo(at: number | null, copy: ClubStrings['account']): string | null {
   if (at === null) return null
   const seconds = Math.max(0, Math.round((Date.now() - at) / 1000))
-  if (seconds < 60) return 'przed chwilą'
+  if (seconds < 60) return copy.justNow
   const minutes = Math.round(seconds / 60)
-  if (minutes < 60) return `${minutes} min temu`
-  return `${Math.round(minutes / 60)} godz. temu`
+  if (minutes < 60) return copy.minutesAgo(minutes)
+  return copy.hoursAgo(Math.round(minutes / 60))
 }
 
 function SyncBadge({ status, at }: { status: SyncStatus; at: number | null }) {
-  const ago = status === 'synced' ? timeAgo(at) : null
+  const { t } = useI18n()
+  const copy = t.club.account
+  const ago = status === 'synced' ? timeAgo(at, copy) : null
   return (
     <div className={`account-sync is-${status}`}>
       <span className="account-sync-dot" />
       <span>
-        {SYNC_LABEL[status]}
+        {copy.sync[status]}
         {ago ? ` · ${ago}` : ''}
       </span>
     </div>
@@ -46,6 +40,8 @@ function SyncBadge({ status, at }: { status: SyncStatus; at: number | null }) {
 export default function AccountScreen({ service }: { service?: AccountService } = {}) {
   const account = useAccount(service)
   const { state } = account
+  const { t } = useI18n()
+  const copy = t.club.account
   const [mode, setMode] = useState<'signIn' | 'signUp'>('signIn')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -63,11 +59,8 @@ export default function AccountScreen({ service }: { service?: AccountService } 
   if (!state.configured) {
     return (
       <div className="screen">
-        <h2 className="section-title">Konto</h2>
-        <p className="hint">
-          Konto w chmurze jest niedostępne w tej wersji gry. Postęp zapisuje się na tym
-          urządzeniu i zostanie utracony po odinstalowaniu aplikacji.
-        </p>
+        <h2 className="section-title">{copy.title}</h2>
+        <p className="hint">{copy.unavailable}</p>
       </div>
     )
   }
@@ -75,21 +68,18 @@ export default function AccountScreen({ service }: { service?: AccountService } 
   if (state.session) {
     return (
       <div className="screen">
-        <h2 className="section-title">Konto</h2>
+        <h2 className="section-title">{copy.title}</h2>
         <div className="account-card">
-          <div className="account-email">{state.session.email ?? 'Zalogowano'}</div>
+          <div className="account-email">{state.session.email ?? copy.signedIn}</div>
           <SyncBadge status={state.sync.status} at={state.sync.lastSyncedAt} />
           {state.sync.pending ? (
             <p className="hint" style={{ margin: '8px 0 0' }}>
-              Zmiany czekają na wysłanie.
+              {copy.pending}
             </p>
           ) : null}
         </div>
 
-        <p className="hint">
-          Postęp jest zapisywany w chmurze. Zaloguj się na innym urządzeniu, żeby grać dalej
-          w tej samej siłowni.
-        </p>
+        <p className="hint">{copy.cloudHint}</p>
 
         {state.notice ? <p className="account-notice">{state.notice}</p> : null}
         {state.sync.message && state.sync.status !== 'synced' ? (
@@ -103,7 +93,7 @@ export default function AccountScreen({ service }: { service?: AccountService } 
           disabled={state.busy}
           onClick={() => void account.signOut()}
         >
-          {state.busy ? 'Chwileczkę…' : 'Wyloguj'}
+          {state.busy ? copy.busy : copy.signOut}
         </button>
       </div>
     )
@@ -111,15 +101,12 @@ export default function AccountScreen({ service }: { service?: AccountService } 
 
   return (
     <div className="screen">
-      <h2 className="section-title">{mode === 'signUp' ? 'Załóż konto' : 'Zaloguj się'}</h2>
-      <p className="hint">
-        Konto sprawia, że postęp przetrwa odinstalowanie gry i zmianę telefonu. Bez konta gra
-        działa normalnie — zapis zostaje na tym urządzeniu.
-      </p>
+      <h2 className="section-title">{mode === 'signUp' ? copy.signUp : copy.signIn}</h2>
+      <p className="hint">{copy.authHint}</p>
 
       <form className="account-form" onSubmit={submit}>
         <label className="account-field">
-          <span>E-mail</span>
+          <span>{copy.email}</span>
           <input
             className="account-input"
             type="email"
@@ -133,7 +120,7 @@ export default function AccountScreen({ service }: { service?: AccountService } 
         </label>
 
         <label className="account-field">
-          <span>Hasło</span>
+          <span>{copy.password}</span>
           <input
             className="account-input"
             type="password"
@@ -148,7 +135,7 @@ export default function AccountScreen({ service }: { service?: AccountService } 
         {state.notice ? <p className="account-notice">{state.notice}</p> : null}
 
         <button type="submit" className="btn primary block" disabled={state.busy}>
-          {state.busy ? 'Chwileczkę…' : mode === 'signUp' ? 'Załóż konto' : 'Zaloguj się'}
+          {state.busy ? copy.busy : mode === 'signUp' ? copy.signUp : copy.signIn}
         </button>
       </form>
 
@@ -158,7 +145,7 @@ export default function AccountScreen({ service }: { service?: AccountService } 
         disabled={state.busy}
         onClick={() => setMode(mode === 'signUp' ? 'signIn' : 'signUp')}
       >
-        {mode === 'signUp' ? 'Mam już konto' : 'Nie mam jeszcze konta'}
+        {mode === 'signUp' ? copy.haveAccount : copy.needAccount}
       </button>
     </div>
   )

@@ -3,33 +3,21 @@ import { patienceMs } from './upgrades'
 
 export interface DiamondUpgradeSpec {
   id: DiamondUpgradeId
-  name: string
-  description: string
   costs: readonly number[]
-  effectPerLevel: string
 }
 
 export const DIAMOND_UPGRADE_SPECS: readonly DiamondUpgradeSpec[] = [
   {
     id: 'queue_patience',
-    name: 'Spokojna kolejka',
-    description: 'Klienci dłużej czekają na obsługę przy recepcji.',
     costs: [5, 8, 12],
-    effectPerLevel: '+10% czasu',
   },
   {
     id: 'repair_discount',
-    name: 'Warsztat premium',
-    description: 'Ręczne naprawy maszyn kosztują mniej kredytów.',
     costs: [5, 8, 12],
-    effectPerLevel: '−10% kosztu',
   },
   {
     id: 'xp_boost',
-    name: 'Akademia trenera',
-    description: 'Każde źródło doświadczenia daje więcej XP.',
     costs: [6, 10, 15],
-    effectPerLevel: '+10% XP',
   },
 ] as const
 

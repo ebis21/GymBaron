@@ -1,6 +1,7 @@
 import type { Session, SupabaseClient, User } from '@supabase/supabase-js'
 import { toCloudError } from './messages'
 import { CloudError } from './types'
+import { strings } from '../i18n'
 
 export interface AccountSession {
   userId: string
@@ -41,13 +42,14 @@ function toAccount(user: User | null | undefined): AccountSession | null {
  * instantly, instead of a generic 400 a second later.
  */
 function validate(email: string, password: string): void {
-  if (!email.trim()) throw new CloudError('auth', 'Podaj adres e-mail.')
+  const copy = strings().club.account.service
+  if (!email.trim()) throw new CloudError('auth', copy.requiredEmail)
   if (!/^\S+@\S+\.\S+$/.test(email.trim())) {
-    throw new CloudError('auth', 'To nie wygląda na poprawny adres e-mail.')
+    throw new CloudError('auth', copy.invalidEmail)
   }
-  if (!password) throw new CloudError('auth', 'Podaj hasło.')
+  if (!password) throw new CloudError('auth', copy.requiredPassword)
   if (password.length < MIN_PASSWORD_LENGTH) {
-    throw new CloudError('auth', `Hasło musi mieć co najmniej ${MIN_PASSWORD_LENGTH} znaków.`)
+    throw new CloudError('auth', copy.shortPassword(MIN_PASSWORD_LENGTH))
   }
 }
 
@@ -107,7 +109,7 @@ export class SupabaseAuthService implements AuthService {
       if (error) throw toCloudError(error, 'auth')
 
       const session = toAccount(data.user)
-      if (!session) throw new CloudError('auth', 'Logowanie nie powiodło się. Spróbuj ponownie.')
+      if (!session) throw new CloudError('auth', strings().club.account.service.signInFailed)
       this.current = session
       return session
     } catch (cause) {

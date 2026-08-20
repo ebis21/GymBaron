@@ -4,6 +4,7 @@ import type { AccountSession, AuthService, SignUpResult } from './auth'
 import type { CloudSaveEvent } from './cloudSave'
 import { MemoryLocalStore, MemorySaveRepository } from './memorySaveRepository'
 import { CloudError } from './types'
+import { strings } from '../i18n'
 
 function save(fields: { cash: number; lastSeenAt: number }): string {
   return JSON.stringify({ version: 7, ...fields })
@@ -122,7 +123,7 @@ describe('signing in', () => {
     const ok = await h.service.signIn('gracz@example.com', 'sekret123')
 
     expect(ok).toBe(true)
-    expect(h.service.state().notice).toBe('Twój postęp został wysłany do chmury.')
+    expect(h.service.state().notice).toBe(strings().club.account.service.uploaded)
     expect((await h.repo.fetch('user-1'))?.state).toMatchObject({ cash: 100 })
   })
 
@@ -146,7 +147,7 @@ describe('signing in', () => {
 
     await h.service.signIn('gracz@example.com', 'sekret123')
 
-    expect(h.service.state().notice).toBe('Wczytano postęp zapisany w chmurze.')
+    expect(h.service.state().notice).toBe(strings().club.account.service.downloaded)
     expect(JSON.parse(h.local.peek() ?? 'null')).toMatchObject({ cash: 4200 })
     expect(h.events.filter(event => event.type === 'adopt')).toHaveLength(1)
   })
@@ -233,7 +234,7 @@ describe('reporting failures to the player', () => {
     expect(service.state().configured).toBe(false)
     expect(service.state().sync.status).toBe('disabled')
     expect(await service.signIn('a@b.pl', 'sekret123')).toBe(false)
-    expect(service.state().error).toMatch(/zapisuje się lokalnie/)
+    expect(service.state().error).toBe(strings().club.account.service.notConfigured)
   })
 })
 
@@ -264,7 +265,7 @@ describe('signing out', () => {
     await h.service.signOut()
 
     expect(JSON.parse(h.local.peek() ?? 'null')).toMatchObject({ cash: 100 })
-    expect(h.service.state().notice).toMatch(/tylko na tym urządzeniu/)
+    expect(h.service.state().notice).toBe(strings().club.account.service.signedOut)
   })
 
   it('can sign back in and reconcile again', async () => {

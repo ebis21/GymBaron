@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import {
   SABOTAGE_COST,
-  multiplayerErrorMessage,
+  multiplayerErrorCode,
   newIdempotencyKey,
   type FriendGymSnapshot,
   type FriendSummary,
@@ -20,10 +20,16 @@ interface Props {
 }
 
 const wholeNumber = (value: string): number => Number(value)
-const shortDate = (value: string): string => new Date(value).toLocaleDateString('pl-PL')
+const shortDate = (value: string, language: 'en' | 'pl'): string =>
+  new Date(value).toLocaleDateString(language === 'pl' ? 'pl-PL' : 'en-GB')
 
 export default function MultiplayerScreen({ api, onClose }: Props) {
-  const { money } = useI18n()
+  const { language, money, t } = useI18n()
+  const copy = t.club.multiplayer
+  const errorMessage = useCallback(
+    (reason: unknown) => copy.errors[multiplayerErrorCode(reason)],
+    [copy.errors],
+  )
   const [overview, setOverview] = useState<MultiplayerOverview | null>(null)
   const [query, setQuery] = useState('')
   const [searchResults, setSearchResults] = useState<PlayerSummary[]>([])
@@ -48,10 +54,10 @@ export default function MultiplayerScreen({ api, onClose }: Props) {
     setBusy(true)
     api.getOverview()
       .then(value => { if (active) setOverview(value) })
-      .catch(reason => { if (active) setError(multiplayerErrorMessage(reason)) })
+      .catch(reason => { if (active) setError(errorMessage(reason)) })
       .finally(() => { if (active) setBusy(false) })
     return () => { active = false }
-  }, [api])
+  }, [api, errorMessage])
 
   const run = useCallback(async (action: () => Promise<unknown>, success: string) => {
     setBusy(true)
@@ -63,14 +69,14 @@ export default function MultiplayerScreen({ api, onClose }: Props) {
       try {
         await reload()
       } catch {
-        setError('Operacja została wykonana, ale nie udało się odświeżyć listy. Otwórz ekran ponownie.')
+        setError(copy.refreshFailed)
       }
     } catch (reason) {
-      setError(multiplayerErrorMessage(reason))
+      setError(errorMessage(reason))
     } finally {
       setBusy(false)
     }
-  }, [reload])
+  }, [copy.refreshFailed, errorMessage, reload])
 
   const idempotent = useCallback(<T,>(
     fingerprint: string,
@@ -91,7 +97,7 @@ export default function MultiplayerScreen({ api, onClose }: Props) {
     try {
       setSearchResults(await api.searchPlayers(query))
     } catch (reason) {
-      setError(multiplayerErrorMessage(reason))
+      setError(errorMessage(reason))
     } finally {
       setBusy(false)
     }
@@ -103,7 +109,7 @@ export default function MultiplayerScreen({ api, onClose }: Props) {
     try {
       setGym(await api.getFriendGym(friend.profile.id))
     } catch (reason) {
-      setError(multiplayerErrorMessage(reason))
+      setError(errorMessage(reason))
     } finally {
       setBusy(false)
     }
@@ -111,7 +117,7 @@ export default function MultiplayerScreen({ api, onClose }: Props) {
 
   const confirmSabotage = (friend: FriendSummary) => {
     const confirmed = window.confirm(
-      `Wysłać LIL D. do gracza ${friend.profile.username}? Koszt: ${money(SABOTAGE_COST)}.`,
+      copy.sabotageConfirm(friend.profile.username, money(SABOTAGE_COST)),
     )
     if (!confirmed) return
     void run(
@@ -119,7 +125,7 @@ export default function MultiplayerScreen({ api, onClose }: Props) {
         `sabotage:${friend.profile.id}`,
         idempotencyKey => api.sabotage({ targetId: friend.profile.id, idempotencyKey }),
       ),
-      'LIL D. ruszył w drogę. Zdarzenie zaczeka, jeśli gracz jest offline.',
+      copy.sabotageSent,
     )
   }
 
@@ -130,10 +136,10 @@ export default function MultiplayerScreen({ api, onClose }: Props) {
       <header className="multiplayer-heading">
         <div>
           <p className="multiplayer-eyebrow">Gymbaron Social</p>
-          <h2 className="section-title">Znajomi i sojusze</h2>
-          {overview && <p className="hint">Zalogowano jako {overview.me.username}</p>}
+          <h2 className="section-title">{copy.title}</h2>
+          {overview && <p className="hint">{copy.signedInAs(overview.me.username)}</p>}
         </div>
-        {onClose && <button className="btn ghost tiny" type="button" onClick={onClose}>Zamknij</button>}
+        {onClose && <button className="btn ghost tiny" type="button" onClick={onClose}>{copy.close}</button>}
       </header>
 
       {(message || error) && (
@@ -143,18 +149,18 @@ export default function MultiplayerScreen({ api, onClose }: Props) {
       )}
 
       <section className="multiplayer-card">
-        <h3>Znajdź gracza</h3>
+        <h3>{copy.findPlayer}</h3>
         <form className="multiplayer-inline-form" onSubmit={search}>
           <label className="multiplayer-field grow">
-            <span>Unikalna nazwa</span>
+            <span>{copy.uniqueName}</span>
             <input
               value={query}
               onChange={event => setQuery(event.target.value)}
-              placeholder="Wpisz co najmniej 2 znaki"
+              placeholder={copy.queryPlaceholder}
               maxLength={24}
             />
           </label>
-          <button className="btn" disabled={busy} type="submit">Szukaj</button>
+          <button className="btn" disabled={busy} type="submit">{copy.search}</button>
         </form>
         {searchResults.length > 0 && (
           <div className="multiplayer-list compact">
@@ -167,10 +173,10 @@ export default function MultiplayerScreen({ api, onClose }: Props) {
                   disabled={busy}
                   onClick={() => void run(
                     () => api.sendFriendRequest(player.id),
-                    `Zaproszenie do ${player.username} zostało wysłane.`,
+                    copy.friendRequestSent(player.username),
                   )}
                 >
-                  Dodaj
+                  {copy.add}
                 </button>
               </div>
             ))}
@@ -180,20 +186,20 @@ export default function MultiplayerScreen({ api, onClose }: Props) {
 
       {overview?.incomingFriendRequests.length ? (
         <section className="multiplayer-card attention">
-          <h3>Zaproszenia do znajomych</h3>
+          <h3>{copy.friendRequests}</h3>
           <div className="multiplayer-list">
             {overview.incomingFriendRequests.map(request => (
               <div className="multiplayer-row" key={request.id}>
-                <span><strong>{request.sender.username}</strong><small>{shortDate(request.createdAt)}</small></span>
+                <span><strong>{request.sender.username}</strong><small>{shortDate(request.createdAt, language)}</small></span>
                 <span className="multiplayer-actions">
                   <button className="btn tiny" type="button" disabled={busy} onClick={() => void run(
                     () => api.respondFriendRequest(request.id, true),
-                    'Zaproszenie zostało zaakceptowane.',
-                  )}>Akceptuj</button>
+                    copy.accepted,
+                  )}>{copy.accept}</button>
                   <button className="btn ghost tiny" type="button" disabled={busy} onClick={() => void run(
                     () => api.respondFriendRequest(request.id, false),
-                    'Zaproszenie zostało odrzucone.',
-                  )}>Odrzuć</button>
+                    copy.rejected,
+                  )}>{copy.reject}</button>
                 </span>
               </div>
             ))}
@@ -203,8 +209,8 @@ export default function MultiplayerScreen({ api, onClose }: Props) {
 
       {overview?.incomingAllianceInvitations.length ? (
         <section className="multiplayer-card alliance-card">
-          <h3>Zaproszenia do sojuszu</h3>
-          <p className="hint">Aktywny sojusz daje ×1,5 do normalnych przychodów z gry.</p>
+          <h3>{copy.allianceInvitations}</h3>
+          <p className="hint">{copy.allianceHint}</p>
           <div className="multiplayer-list">
             {overview.incomingAllianceInvitations.map(invitation => (
               <div className="multiplayer-row" key={invitation.id}>
@@ -212,12 +218,12 @@ export default function MultiplayerScreen({ api, onClose }: Props) {
                 <span className="multiplayer-actions">
                   <button className="btn tiny" type="button" disabled={busy} onClick={() => void run(
                     () => api.respondAllianceInvitation(invitation.id, true),
-                    'Sojusz jest aktywny. Normalne przychody mają mnożnik ×1,5.',
-                  )}>Akceptuj</button>
+                    copy.allianceAccepted,
+                  )}>{copy.accept}</button>
                   <button className="btn ghost tiny" type="button" disabled={busy} onClick={() => void run(
                     () => api.respondAllianceInvitation(invitation.id, false),
-                    'Zaproszenie do sojuszu zostało odrzucone.',
-                  )}>Odrzuć</button>
+                    copy.allianceRejected,
+                  )}>{copy.reject}</button>
                 </span>
               </div>
             ))}
@@ -226,7 +232,7 @@ export default function MultiplayerScreen({ api, onClose }: Props) {
       ) : null}
 
       <section className="multiplayer-card">
-        <h3>Znajomi</h3>
+        <h3>{copy.friends}</h3>
         {overview?.friends.length ? (
           <div className="multiplayer-list friend-list">
             {overview.friends.map(friend => {
@@ -236,18 +242,18 @@ export default function MultiplayerScreen({ api, onClose }: Props) {
                   <div className="friend-row-main">
                     <span>
                       <strong>{friend.profile.username}</strong>
-                      <small>{friend.alliance ? 'Aktywny sojusz · przychody ×1,5' : 'Znajomy'}</small>
+                      <small>{friend.alliance ? copy.activeAlliance : copy.friend}</small>
                     </span>
                     <span className="multiplayer-actions">
                       <button className="btn tiny" type="button" disabled={busy} onClick={() => void openGym(friend)}>
-                        Obejrzyj bazę
+                        {copy.viewGym}
                       </button>
                       <button
                         className="btn ghost tiny"
                         type="button"
                         onClick={() => setExpandedFriendId(expanded ? null : friend.profile.id)}
                       >
-                        {expanded ? 'Mniej' : 'Operacje'}
+                        {expanded ? copy.less : copy.operations}
                       </button>
                     </span>
                   </div>
@@ -257,25 +263,25 @@ export default function MultiplayerScreen({ api, onClose }: Props) {
                       {friend.alliance ? (
                         <>
                           <div className="operation-block">
-                            <h4>Przelew do sojusznika</h4>
+                            <h4>{copy.transferToAlly}</h4>
                             <div className="multiplayer-inline-form">
                               <select
-                                aria-label="Rodzaj przelewu"
+                                aria-label={copy.transferAsset}
                                 value={transferAsset}
                                 onChange={event => setTransferAsset(event.target.value as TransferAsset)}
                               >
-                                <option value="cash">Kredyty</option>
-                                <option value="diamonds">Diamenty</option>
+                                <option value="cash">{copy.cash}</option>
+                                <option value="diamonds">{copy.diamonds}</option>
                               </select>
                               <input
-                                aria-label="Kwota przelewu"
+                                aria-label={copy.transferAmount}
                                 type="number"
                                 min="1"
                                 step="1"
                                 inputMode="numeric"
                                 value={transferAmount}
                                 onChange={event => setTransferAmount(event.target.value)}
-                                placeholder="Kwota"
+                                placeholder={copy.amount}
                               />
                               <button className="btn tiny" type="button" disabled={busy} onClick={() => void run(
                                 () => idempotent(
@@ -287,22 +293,22 @@ export default function MultiplayerScreen({ api, onClose }: Props) {
                                     idempotencyKey,
                                   }),
                                 ),
-                                'Przelew został wykonany.',
-                              )}>Wyślij</button>
+                                copy.transferComplete,
+                              )}>{copy.send}</button>
                             </div>
                           </div>
                           <div className="operation-block">
-                            <h4>Pożyczka bez odsetek</h4>
+                            <h4>{copy.interestFreeLoan}</h4>
                             <div className="multiplayer-inline-form">
                               <input
-                                aria-label="Kwota pożyczki"
+                                aria-label={copy.loanAmount}
                                 type="number"
                                 min="1"
                                 step="1"
                                 inputMode="numeric"
                                 value={loanAmount}
                                 onChange={event => setLoanAmount(event.target.value)}
-                                placeholder="Kredyty"
+                                placeholder={copy.cash}
                               />
                               <button className="btn tiny" type="button" disabled={busy} onClick={() => void run(
                                 () => idempotent(
@@ -313,34 +319,34 @@ export default function MultiplayerScreen({ api, onClose }: Props) {
                                     idempotencyKey,
                                   }),
                                 ),
-                                'Propozycja pożyczki została wysłana.',
-                              )}>Zaproponuj</button>
+                                copy.loanProposed,
+                              )}>{copy.propose}</button>
                             </div>
                           </div>
                           <button className="btn danger tiny" type="button" disabled={busy} onClick={() => void run(
                             () => api.endAlliance(friend.profile.id),
-                            'Sojusz został zakończony.',
-                          )}>Zerwij sojusz</button>
+                            copy.allianceEnded,
+                          )}>{copy.endAlliance}</button>
                         </>
                       ) : (
                         <>
                           <button className="btn tiny" type="button" disabled={busy} onClick={() => void run(
                             () => api.sendAllianceInvitation(friend.profile.id),
-                            'Zaproszenie do sojuszu zostało wysłane.',
-                          )}>Zaproś do sojuszu</button>
+                            copy.allianceInvitationSent,
+                          )}>{copy.inviteToAlliance}</button>
                           <div className="sabotage-warning">
-                            <strong>Sabotaż LIL D.</strong>
-                            <span>Koszt {money(SABOTAGE_COST)} · maks. jeden skuteczny atak na cel na dzień gry.</span>
+                            <strong>{copy.sabotage}</strong>
+                            <span>{copy.sabotageHint(money(SABOTAGE_COST))}</span>
                             <button className="btn danger tiny" type="button" disabled={busy} onClick={() => confirmSabotage(friend)}>
-                              Wyślij LIL D. za {money(SABOTAGE_COST)}
+                              {copy.sendLilD(money(SABOTAGE_COST))}
                             </button>
                           </div>
                         </>
                       )}
                       <button className="text-button" type="button" disabled={busy} onClick={() => void run(
                         () => api.removeFriend(friend.profile.id),
-                        'Gracz został usunięty ze znajomych.',
-                      )}>Usuń ze znajomych</button>
+                        copy.friendRemoved,
+                      )}>{copy.removeFriend}</button>
                     </div>
                   )}
                 </article>
@@ -348,18 +354,18 @@ export default function MultiplayerScreen({ api, onClose }: Props) {
             })}
           </div>
         ) : (
-          <p className="multiplayer-empty">Nie masz jeszcze znajomych. Wyszukaj gracza po nazwie.</p>
+          <p className="multiplayer-empty">{copy.noFriends}</p>
         )}
         {overview?.outgoingFriendRequests.length ? (
           <p className="hint pending-line">
-            Oczekujące: {overview.outgoingFriendRequests.map(item => item.recipient.username).join(', ')}
+            {copy.pending(overview.outgoingFriendRequests.map(item => item.recipient.username).join(', '))}
           </p>
         ) : null}
       </section>
 
       {overview?.loans.length ? (
         <section className="multiplayer-card">
-          <h3>Pożyczki</h3>
+          <h3>{copy.loans}</h3>
           <div className="multiplayer-list">
             {overview.loans.map(loan => {
               const isBorrower = loan.borrower.id === overview.me.id
@@ -369,7 +375,7 @@ export default function MultiplayerScreen({ api, onClose }: Props) {
                   <div>
                     <strong>{money(loan.amount)}</strong>
                     <small>{loan.lender.username} → {loan.borrower.username}</small>
-                    {loan.status === 'active' && <span>Pozostało: {money(remaining)}</span>}
+                    {loan.status === 'active' && <span>{copy.remaining(money(remaining))}</span>}
                   </div>
                   {loan.status === 'proposed' && isBorrower && (
                     <span className="multiplayer-actions">
@@ -378,21 +384,21 @@ export default function MultiplayerScreen({ api, onClose }: Props) {
                           `respond-loan:${loan.id}:accept`,
                           idempotencyKey => api.respondLoan({ loanId: loan.id, accept: true, idempotencyKey }),
                         ),
-                        'Pożyczka została zaakceptowana i wypłacona.',
-                      )}>Akceptuj</button>
+                        copy.loanAccepted,
+                      )}>{copy.accept}</button>
                       <button className="btn ghost tiny" type="button" disabled={busy} onClick={() => void run(
                         () => idempotent(
                           `respond-loan:${loan.id}:reject`,
                           idempotencyKey => api.respondLoan({ loanId: loan.id, accept: false, idempotencyKey }),
                         ),
-                        'Pożyczka została odrzucona.',
-                      )}>Odrzuć</button>
+                        copy.loanRejected,
+                      )}>{copy.reject}</button>
                     </span>
                   )}
                   {loan.status === 'active' && isBorrower && (
                     <div className="multiplayer-inline-form">
                       <input
-                        aria-label="Kwota spłaty"
+                        aria-label={copy.repaymentAmount}
                         type="number"
                         min="1"
                         max={remaining}
@@ -402,7 +408,7 @@ export default function MultiplayerScreen({ api, onClose }: Props) {
                           ...current,
                           [loan.id]: event.target.value,
                         }))}
-                        placeholder="Kwota spłaty"
+                        placeholder={copy.repaymentAmount}
                       />
                       <button className="btn tiny" type="button" disabled={busy} onClick={() => void run(
                         () => idempotent(
@@ -413,8 +419,8 @@ export default function MultiplayerScreen({ api, onClose }: Props) {
                             idempotencyKey,
                           }),
                         ),
-                        'Spłata została zaksięgowana.',
-                      )}>Spłać</button>
+                        copy.repaymentRecorded,
+                      )}>{copy.repay}</button>
                     </div>
                   )}
                 </div>
@@ -424,7 +430,7 @@ export default function MultiplayerScreen({ api, onClose }: Props) {
         </section>
       ) : null}
 
-      {busy && !overview && <p className="multiplayer-empty">Ładowanie multiplayera…</p>}
+      {busy && !overview && <p className="multiplayer-empty">{copy.loading}</p>}
     </section>
   )
 }

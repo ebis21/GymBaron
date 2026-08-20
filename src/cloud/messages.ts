@@ -1,4 +1,7 @@
 import { CloudError, type CloudErrorCode } from './types'
+import { strings } from '../i18n'
+
+const copy = () => strings().club.account.service
 
 /**
  * Supabase reports failures in English, and often in the vocabulary of the
@@ -6,68 +9,67 @@ import { CloudError, type CloudErrorCode } from './types'
  * Everything the account UI can surface is translated here, in one place, so
  * no screen has to invent its own wording.
  */
-const AUTH_MESSAGES: Array<{ match: RegExp; code: CloudErrorCode; message: string }> = [
+const AUTH_MESSAGES: Array<{ match: RegExp; code: CloudErrorCode; message: () => string }> = [
   {
     match: /invalid login credentials|invalid credentials/i,
     code: 'auth',
-    message: 'Nieprawidłowy e-mail lub hasło.',
+    message: () => copy().invalidCredentials,
   },
   {
     match: /email not confirmed/i,
     code: 'auth',
-    message: 'Potwierdź adres e-mail, klikając link, który wysłaliśmy.',
+    message: () => copy().confirmEmail,
   },
   {
     match: /user already registered|already been registered/i,
     code: 'auth',
-    message: 'Konto z tym adresem e-mail już istnieje. Zaloguj się.',
+    message: () => copy().alreadyRegistered,
   },
   {
     match: /password should be at least (\d+)/i,
     code: 'auth',
-    message: 'Hasło jest za krótkie — użyj co najmniej 6 znaków.',
+    message: () => copy().passwordTooShort,
   },
   {
     match: /weak password|password is too weak/i,
     code: 'auth',
-    message: 'Hasło jest zbyt proste. Dodaj cyfrę lub znak specjalny.',
+    message: () => copy().weakPassword,
   },
   {
     match: /unable to validate email|invalid email|email address .* is invalid/i,
     code: 'auth',
-    message: 'To nie wygląda na poprawny adres e-mail.',
+    message: () => copy().invalidEmail,
   },
   {
     match: /for security purposes|rate limit|too many requests|over_email_send_rate/i,
     code: 'auth',
-    message: 'Za dużo prób. Odczekaj chwilę i spróbuj ponownie.',
+    message: () => copy().tooManyAttempts,
   },
   {
     match: /signups not allowed|signup is disabled/i,
     code: 'auth',
-    message: 'Rejestracja jest chwilowo wyłączona.',
+    message: () => copy().signUpDisabled,
   },
   {
     match: /session|jwt|token .* expired|refresh_token/i,
     code: 'auth',
-    message: 'Sesja wygasła. Zaloguj się ponownie.',
+    message: () => copy().sessionExpired,
   },
   {
     match: /failed to fetch|network|fetch failed|timeout|ENOTFOUND|ECONNREFUSED/i,
     code: 'offline',
-    message: 'Brak połączenia z serwerem. Gra działa dalej offline.',
+    message: () => copy().offline,
   },
 ]
 
 /** Fallback wording per code, used when nothing more specific matched. */
-const FALLBACK: Record<CloudErrorCode, string> = {
-  offline: 'Brak połączenia z serwerem. Gra działa dalej offline.',
-  conflict: 'W chmurze jest nowsza wersja zapisu. Pobieram ją.',
-  auth: 'Problem z logowaniem. Spróbuj ponownie.',
-  'not-configured':
-    'Konto w chmurze jest niedostępne — brak konfiguracji Supabase. Gra zapisuje się lokalnie.',
-  server: 'Serwer odrzucił żądanie. Spróbuj ponownie za chwilę.',
-  unknown: 'Coś poszło nie tak. Spróbuj ponownie.',
+const FALLBACK: Record<CloudErrorCode, () => string> = {
+  offline: () => copy().offline,
+  conflict: () => copy().conflict,
+  auth: () => copy().auth,
+  'not-configured': () => copy().notConfigured,
+  server: () => copy().server,
+  unknown: () => copy().unknown,
 }
 
 function textOf(cause: unknown): string {
@@ -91,22 +93,22 @@ export function toCloudError(cause: unknown, fallbackCode: CloudErrorCode = 'unk
 
   const text = textOf(cause)
   for (const entry of AUTH_MESSAGES) {
-    if (entry.match.test(text)) return new CloudError(entry.code, entry.message, { cause })
+    if (entry.match.test(text)) return new CloudError(entry.code, entry.message(), { cause })
   }
 
   // A PostgREST/Postgres error carries a code; the RLS refusals we can hit
   // mean "not your row", which for the player means "you are not signed in".
   const status = (cause as { status?: number } | null)?.status
   if (status === 401 || status === 403) {
-    return new CloudError('auth', FALLBACK.auth, { cause })
+    return new CloudError('auth', FALLBACK.auth(), { cause })
   }
   if (typeof status === 'number' && status >= 500) {
-    return new CloudError('server', FALLBACK.server, { cause })
+    return new CloudError('server', FALLBACK.server(), { cause })
   }
 
-  return new CloudError(fallbackCode, FALLBACK[fallbackCode], { cause })
+  return new CloudError(fallbackCode, FALLBACK[fallbackCode](), { cause })
 }
 
 export function messageFor(code: CloudErrorCode): string {
-  return FALLBACK[code]
+  return FALLBACK[code]()
 }

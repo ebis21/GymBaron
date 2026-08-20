@@ -4,6 +4,7 @@ import type { UpgradeId } from '../game/content/upgrades'
 import { marketingEn } from './marketing'
 import { contractsEn } from './contracts'
 import { sponsorsEn } from './sponsors'
+import { clubEn } from './club'
 
 /**
  * English is the source of truth: `Strings` is inferred from this object, so
@@ -337,6 +338,7 @@ export const en = {
   marketing: marketingEn,
   contracts: contractsEn,
   sponsors: sponsorsEn,
+  club: clubEn,
 
   content: {
     machines: {
