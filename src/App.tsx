@@ -77,19 +77,6 @@ const ACTION_KEY = 'e'
 const HAS_KEYBOARD =
   typeof window !== 'undefined' && window.matchMedia?.('(hover: hover)').matches === true
 
-/**
- * The touch layout from `styles.css` keeps the handset on the right, but makes
- * its grip and two-column menu easier to hit. It decides only where the phone
- * starts: folded on desktop, because the grip is obvious and the room matters
- * more, and open on touch so a first-time player immediately sees where every
- * game screen lives. The player's own toggle wins from then on, and nothing
- * persists across a reload.
- */
-const TOUCH_LAYOUT =
-  typeof window !== 'undefined' &&
-  window.matchMedia?.('(max-width: 719px), (hover: none) and (pointer: coarse)').matches ===
-    true
-
 /** One in-progress hold, whichever input started it. */
 interface Hold {
   ms: number
@@ -159,7 +146,10 @@ export default function App() {
   const rerollCandidates = useGameStore(s => s.rerollCandidates)
 
   const [tab, setTab] = useState<Tab>('gym')
-  const [phoneOpen, setPhoneOpen] = useState(TOUCH_LAYOUT)
+  // Keep the playfield clear on launch, especially when the phone is held in
+  // landscape. The large edge grip remains visible and is the single way to
+  // reveal the same menu on every viewport.
+  const [phoneOpen, setPhoneOpen] = useState(false)
   const [focus, setFocus] = useState<Focus>(null)
   const [recruiting, setRecruiting] = useState(false)
   const [floorAccessOpen, setFloorAccessOpen] = useState(false)
@@ -618,7 +608,7 @@ export default function App() {
   actionRef.current = action
 
   return (
-    <div className={`app${tab === 'gym' ? '' : ' panelled'}`}>
+    <div className={`app${tab === 'gym' ? '' : ' panelled'}${talking ? ' talking' : ''}`}>
       <GymScene3D
         state={state}
         buildMode={buildMode}

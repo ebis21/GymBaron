@@ -103,9 +103,9 @@ a:focus-visible,
   width: 132px;
   height: 132px;
   border-radius: 50%;
-  background: rgba(255, 246, 227, 0.35);
-  border: 4px solid rgba(255, 253, 247, 0.65);
-  backdrop-filter: blur(3px);
+  background: rgba(255, 246, 227, 0.78);
+  border: 4px solid var(--paper);
+  box-shadow: 0 4px 0 rgba(125, 74, 38, 0.32);
   display: grid;
   place-items: center;
   touch-action: none;
@@ -2517,8 +2517,7 @@ a:focus-visible,
   display: grid;
   place-items: center;
   padding: 20px;
-  background: rgba(74, 53, 36, 0.55);
-  backdrop-filter: blur(3px);
+  background: rgba(74, 53, 36, 0.68);
 }
 
 .modal {
@@ -2532,6 +2531,14 @@ a:focus-visible,
   box-shadow: var(--shadow-soft);
   padding: 20px;
   animation: rise 220ms cubic-bezier(0.2, 1.2, 0.4, 1);
+}
+
+/* The dialog itself receives focus on open. Keep that location visible with a
+   themed inset ring: it does not add to the modal's size or clip at a short
+   landscape viewport edge. */
+.modal[tabindex]:focus-visible {
+  outline: 3px solid var(--wood-dark);
+  outline-offset: -7px;
 }
 
 @keyframes rise {
@@ -3729,48 +3736,87 @@ p.warn {
   }
 }
 
-/* Short landscape phones trade decoration for usable playfield height. */
+/*
+ * A phone held sideways is a game viewport, not a rotated portrait screen.
+ * The world remains full-bleed while every control sits inside the live safe
+ * area. Opaque surfaces and hard shadows keep the HUD crisp over WebGL; the
+ * menu folds away until asked for and uses all five compact two-column rows.
+ */
 @media (max-height: 520px) and (orientation: landscape) and (max-width: 719px),
   (max-height: 520px) and (orientation: landscape) and (hover: none) and (pointer: coarse) {
-  /* Same line, tighter: there is no vertical room to spend on breathing here. */
   .app {
-    --below-topbar: calc(var(--safe-top) + var(--topbar-h) + 4px);
+    --below-topbar: calc(var(--safe-top) + var(--topbar-h) + 5px);
+    --landscape-action-width: 164px;
   }
 
   .topbar-wrap {
-    padding-top: 3px;
+    max-width: none;
+    margin: 0;
+    padding: 3px calc(6px + var(--safe-right)) 0 calc(6px + var(--safe-left));
   }
 
   .topbar {
+    gap: 1px;
     padding-block: 3px;
+    background: var(--cream);
+    box-shadow: 0 4px 0 rgba(125, 74, 38, 0.3);
   }
 
-  .topbar-label,
+  .topbar-label {
+    display: block;
+    font-size: 8px;
+    letter-spacing: 0.015em;
+  }
+
   .topbar-sub {
     display: none;
   }
 
-  .topbar-value,
-  .clock-cell .clock {
+  .topbar-value {
     font-size: 14px;
+    line-height: 1.05;
+  }
+
+  .clock-cell .clock {
+    font-size: 15px;
   }
 
   .topbar-settings {
     min-height: 44px;
     width: 44px;
+    padding-inline: 4px;
   }
 
   .day-bar {
-    height: 6px;
+    height: 7px;
     margin-top: 2px;
+    background: var(--cream);
+    box-shadow: 0 3px 0 rgba(125, 74, 38, 0.3);
   }
 
-  /* Preserve the large grip and two-column layout in landscape. Only the
-     drawer's internal rows tighten slightly; overflow stays inside the phone. */
+  .debt-banner {
+    margin-top: 3px;
+    padding-block: 4px;
+  }
+
+  .alert-bar {
+    top: calc(var(--below-topbar) + 4px);
+    right: calc(8px + var(--safe-right));
+  }
+
+  .alert-chip {
+    min-height: 44px;
+  }
+
+  .carry-banner {
+    top: calc(var(--below-topbar) + 4px);
+  }
+
   .phone,
   .phone.open {
+    --phone-handle-width: 68px;
     --phone-drawer-content-width: min(
-      286px,
+      300px,
       calc(
         100vw - var(--safe-left) - var(--safe-right) - var(--phone-handle-width) - 12px
       )
@@ -3780,70 +3826,189 @@ p.warn {
     );
   }
 
+  .phone-handle {
+    height: 80px;
+    border-radius: 18px 0 0 18px;
+    box-shadow: -4px 4px 0 rgba(125, 74, 38, 0.32);
+  }
+
+  .phone-shell {
+    padding: 6px calc(8px + var(--safe-right)) 8px 8px;
+    background: #30283f;
+    border-radius: 24px 0 0 24px;
+    box-shadow: 0 5px 0 rgba(23, 18, 31, 0.42);
+  }
+
+  /* The topbar already carries this information. Removing duplicate phone
+     chrome gives all nine apps a complete, non-fading home screen. */
+  .phone-speaker,
+  .phone-status,
+  .phone-home {
+    display: none;
+  }
+
   .phone-apps {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    grid-auto-rows: 72px;
-    -webkit-mask-image: linear-gradient(180deg, #000 calc(100% - 14px), transparent);
-    mask-image: linear-gradient(180deg, #000 calc(100% - 14px), transparent);
+    grid-auto-rows: 48px;
+    gap: 5px;
+    padding: 5px 6px;
+    border-radius: 16px;
+    -webkit-mask-image: none;
+    mask-image: none;
   }
 
   .phone-app,
   .phone-app.soon {
-    min-height: 72px;
-    gap: 3px;
-    padding-block: 5px;
-  }
-
-  .phone-shell {
-    padding-block: 8px 10px;
+    min-height: 48px;
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: 7px;
+    padding: 4px 6px;
+    border-radius: 13px;
   }
 
   .phone-icon {
-    width: 46px;
-    height: 46px;
-    font-size: 25px;
+    width: 36px;
+    height: 36px;
+    font-size: 20px;
+    border-radius: 11px;
+    box-shadow: 0 3px 0 rgba(0, 0, 0, 0.3);
+  }
+
+  .phone-label {
+    min-width: 0;
+    overflow: hidden;
+    font-size: 10px;
+    line-height: 1.1;
+    text-align: left;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .phone-lock {
+    top: 2px;
+    left: 31px;
+    font-size: 7px;
+    transform: none;
+  }
+
+  .phone-soon {
+    right: 4px;
+    bottom: 2px;
+    left: auto;
+    font-size: 7px;
+    transform: none;
+  }
+
+  .app.talking .phone {
+    visibility: hidden;
+    opacity: 0;
+    pointer-events: none;
   }
 
   .panel {
-    top: var(--below-topbar);
-    bottom: calc(58px + var(--safe-bottom));
+    top: calc(var(--below-topbar) + 4px);
+    right: calc(6px + var(--safe-right));
+    bottom: calc(8px + var(--safe-bottom));
+    left: calc(6px + var(--safe-left));
+    max-width: none;
+    margin: 0;
+    box-shadow: 0 4px 0 rgba(125, 74, 38, 0.32);
+  }
+
+  .app.panelled .screen,
+  .screen {
+    padding: 10px 12px;
+  }
+
+  .app.panelled .screen {
+    padding-right: 76px;
+  }
+
+  .screen-head {
+    margin-bottom: 8px;
+  }
+
+  .shop-list,
+  .deal-list,
+  .staff-list,
+  .candidate-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .stat-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
   }
 
   .joystick {
-    bottom: calc(62px + var(--safe-bottom));
-    width: 96px;
-    height: 96px;
+    left: calc(12px + var(--safe-left));
+    bottom: calc(12px + var(--safe-bottom));
+    width: 108px;
+    height: 108px;
+    background: rgba(255, 246, 227, 0.84);
+    border-color: var(--paper);
+    box-shadow: 0 4px 0 rgba(125, 74, 38, 0.32);
   }
 
   .joystick-knob {
-    width: 44px;
-    height: 44px;
+    width: 48px;
+    height: 48px;
   }
 
   .action-btn {
-    bottom: calc(68px + var(--safe-bottom));
-    min-height: 50px;
-    padding: 8px 13px;
+    right: calc(12px + var(--safe-right));
+    bottom: calc(12px + var(--safe-bottom));
+    width: var(--landscape-action-width);
+    min-width: var(--landscape-action-width);
+    max-width: var(--landscape-action-width);
+    min-height: 54px;
+    padding: 9px 14px;
+    box-shadow: 0 5px 0 var(--coral-action-dark);
   }
 
-  .build-bar,
-  .client-card {
-    bottom: calc(58px + var(--safe-bottom));
+  .action-label,
+  .action-hint {
+    max-width: 100%;
+    overflow-wrap: anywhere;
   }
 
-  /* The stick shrinks to 96 at 62px on a screen this short, so the bar clears
-     it at 168 — the same ten-pixel gap as the taller layouts. */
-  .closing-bar {
-    bottom: calc(168px + var(--safe-bottom));
-  }
-
-  .closing-bar.building {
-    bottom: calc(118px + var(--safe-bottom));
+  .guide {
+    --guide-radius: 70px;
   }
 
   .build-bar {
-    flex-wrap: nowrap;
+    right: auto;
+    bottom: calc(10px + var(--safe-bottom));
+    left: 50%;
+    width: min(
+      680px,
+      calc(100vw - var(--safe-left) - var(--safe-right) - 24px)
+    );
+    max-width: none;
+    margin: 0;
     padding: 5px 7px;
+    flex-wrap: nowrap;
+    transform: translateX(-50%);
+    box-shadow: 0 4px 0 rgba(125, 74, 38, 0.32);
+  }
+
+  .closing-bar {
+    right: calc(var(--landscape-action-width) + 24px + var(--safe-right));
+    bottom: calc(10px + var(--safe-bottom));
+    left: calc(132px + var(--safe-left));
+    width: auto;
+    max-width: 460px;
+    margin-inline: auto;
+    padding: 7px 9px;
+    transform: none;
+    box-shadow: 0 4px 0 rgba(125, 74, 38, 0.32);
+  }
+
+  .closing-bar.building {
+    bottom: calc(74px + var(--safe-bottom));
   }
 
   .build-hint {
@@ -3852,26 +4017,39 @@ p.warn {
   }
 
   .client-card {
+    top: calc(var(--below-topbar) + 6px);
+    right: calc(8px + var(--safe-right));
+    bottom: calc(8px + var(--safe-bottom));
     left: auto;
-    width: min(440px, calc(100vw - var(--safe-left) - var(--safe-right) - 16px));
-    max-height: calc(100dvh - var(--safe-top) - var(--safe-bottom) - 70px);
+    width: min(390px, calc(100vw - var(--safe-left) - var(--safe-right) - 16px));
+    max-width: none;
+    max-height: none;
+    margin: 0;
+    overflow-y: auto;
+    box-shadow: 0 4px 0 rgba(125, 74, 38, 0.32);
   }
 
   .overlay,
   .modal-backdrop {
     align-items: center;
     padding-block: calc(6px + var(--safe-top)) calc(6px + var(--safe-bottom));
+    background: rgba(74, 53, 36, 0.72);
   }
 
   .modal,
   .modal.inventory,
   .settings-modal,
   .floor-access-modal {
-    max-width: 520px;
+    max-width: 600px;
     max-height: calc(100dvh - var(--safe-top) - var(--safe-bottom) - 12px);
     padding: 14px;
     border: 4px solid var(--wood);
     border-radius: 18px;
+    box-shadow: 0 5px 0 rgba(125, 74, 38, 0.38);
+  }
+
+  .inv-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
   .dev-panel {

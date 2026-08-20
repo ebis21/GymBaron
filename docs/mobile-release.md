@@ -1,6 +1,6 @@
 # GYMBARON — mobile release checklist
 
-This repository is configured as a portrait, phone-first Capacitor app with the
+This repository is configured as an adaptive, phone-first Capacitor app with the
 bundle/application id `com.ironempire.gym`. Treat that id as immutable after the
 first public release.
 
@@ -58,6 +58,9 @@ gradient the same set is under 800KB.
    no account, ads, tracking or analytics; save/preferences remain on device.
 7. Supply iPhone screenshots, age rating, support URL and the public privacy URL
    `https://gymbaron.com/privacy.html`.
+8. On a Dynamic Island iPhone Simulator, rotate portrait → landscape left →
+   landscape right → portrait. Check the safe areas, HUD, phone drawer, panels,
+   modals, build bar and thumb controls in every position before archiving.
 
 The target is intentionally iPhone-only. Re-enable iPad only together with
 landscape/window-resizing QA and iPad store artwork.
@@ -79,10 +82,11 @@ store it outside the repository and let Play App Signing hold the distribution
 key. Never commit `.jks`, `.keystore`, passwords or `keystore.properties`.
 Increment `versionCode` for every upload and update `versionName` as needed.
 
-Before production rollout, test the signed bundle on API 24 and API 36, gesture
-and three-button navigation, a display cutout, background/resume, process death,
-offline launch, hardware/predictive Back, and a low-memory device. Inspect the
-final AAB in Play Console for 16 KB page-size compatibility.
+Before production rollout, test the signed bundle on API 24 and API 36, portrait
+and landscape rotation, gesture and three-button navigation, a display cutout,
+background/resume, process death, offline launch, hardware/predictive Back, and
+a low-memory device. Inspect the final AAB in Play Console for 16 KB page-size
+compatibility.
 
 ## Store-owned inputs (not kept in Git)
 

@@ -5,7 +5,7 @@
   "lang": "en",
   "start_url": "/",
   "display": "standalone",
-  "orientation": "portrait",
+  "orientation": "any",
   "background_color": "#12141a",
   "theme_color": "#12141a",
   "icons": [
