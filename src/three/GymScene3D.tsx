@@ -32,8 +32,6 @@ interface Props {
   onFloorAccess: () => void
 }
 
-const STICK_RADIUS = 52
-
 /**
  * The only bridge between React and three.js. React owns the canvas element
  * and nothing else — the scene keeps its own render loop, because rerendering
@@ -234,15 +232,16 @@ export default function GymScene3D({
 
     let originX = 0
     let originY = 0
+    let travel = 1
 
     const move = (dx: number, dy: number) => {
       const length = Math.hypot(dx, dy)
-      const scale = length > STICK_RADIUS ? STICK_RADIUS / length : 1
+      const scale = length > travel ? travel / length : 1
       const kx = dx * scale
       const ky = dy * scale
 
       knob.style.transform = `translate(${kx}px, ${ky}px)`
-      sceneRef.current?.setStick(kx / STICK_RADIUS, ky / STICK_RADIUS)
+      sceneRef.current?.setStick(kx / travel, ky / travel)
     }
 
     const onDown = (e: PointerEvent) => {
@@ -251,8 +250,16 @@ export default function GymScene3D({
       stickPointerRef.current = e.pointerId
       pad.setPointerCapture(e.pointerId)
       const rect = pad.getBoundingClientRect()
+      const knobRect = knob.getBoundingClientRect()
       originX = rect.left + rect.width / 2
       originY = rect.top + rect.height / 2
+      // CSS intentionally uses different control sizes in portrait and
+      // landscape. Deriving the travel from the rendered circles keeps the
+      // knob inside the pad in both layouts and preserves full input range.
+      travel = Math.max(
+        1,
+        (Math.min(rect.width, rect.height) - Math.max(knobRect.width, knobRect.height)) / 2,
+      )
       move(e.clientX - originX, e.clientY - originY)
     }
 
