@@ -132,7 +132,7 @@ export const pl: Strings = {
     furnitureHint: 'Poza recepcją nic nie zarabiają i zajmują pole w sali — kupujesz je dla wyglądu.',
     deskSection: 'Recepcja',
     deskHint:
-      'Każde biurko to jedno stanowisko: jeden recepcjonista na jedno biurko, a wszyscy skanują tę samą kolejkę. To najczęstszy sufit przepustowości — dostawisz biurko i zatrudnisz kogoś, obsłużysz więcej ludzi dziennie.',
+      'Każde biurko to osobne stanowisko z własną kolejką i jednym recepcjonistą. Dostaw i obsadź kolejne, a nowi klienci rozdzielą się między stanowiska — dzięki temu obsłużysz więcej osób dziennie.',
     deskCount: (desks: number, staff: number) =>
       `Masz ${desks} ${desks === 1 ? 'biurko' : 'biurek'} i ${staff} ${staff === 1 ? 'recepcjonistę' : 'recepcjonistów'}.`,
     deskIdle: (n: number) => `${n} ${n === 1 ? 'biurko stoi puste' : 'biurek stoi pustych'} — zatrudnij obsługę.`,
@@ -147,6 +147,7 @@ export const pl: Strings = {
       `Więcej pól pod sprzęt. Wszystko, co już stoi, zostaje na swoim polu — sala rozrasta się dookoła. Teraz masz ${w} × ${h} pól.`,
     expansionMeta: (w, h, extra) => `${w} × ${h} pól · o ${extra} pól więcej`,
     biggest: 'Największa sala — nie ma czego dokupić',
+    buy: price => `Kup · ${price}`,
     needsLevel: level => `Wymaga poziomu ${level}`,
     short: amount => `Brakuje ${amount}`,
     machineMeta: (power, seconds, repair) =>
@@ -209,6 +210,12 @@ export const pl: Strings = {
 
   staff: {
     title: 'Personel',
+    hint: 'Twój rejestr zatrudnienia: limit zespołu, dzienna lista płac i gotowość do pracy.',
+    team: 'Limit zespołu',
+    slotsOpen: open => `${open} ${open === 1 ? 'wolne miejsce' : 'wolnych miejsc'}`,
+    payroll: 'Dzienna lista płac',
+    payrollDue: 'Pobierana przy każdym zamknięciu',
+    emptyTitle: 'Lista płac jest pusta',
     locked: (trainerLevel, restLevel, level) =>
       `Zatrudnianie odblokowuje się na poziomie ${trainerLevel} (trenerzy personalni), a pozostałe role na poziomie ${restLevel}. Obecny poziom: ${level}.`,
     arrears: amount => `Zaległe wypłaty: ${amount}. Nikt z zaległością nie przyjdzie do pracy.`,
@@ -225,6 +232,7 @@ export const pl: Strings = {
 
   recruit: {
     title: 'Rekrutacja',
+    hint: 'Porównaj tempo pracy, pensję i koszt zatrudnienia, zanim dopiszesz kogoś do grafiku.',
     refresh: price => `Odśwież ${price}`,
     jobHint: {
       reception: seconds => `skan co ${seconds} s`,
@@ -250,7 +258,7 @@ export const pl: Strings = {
     current: value => `Teraz ${value}`,
     step: (from, to) => `${from} → ${to}`,
     maxed: 'Ulepszone do końca',
-    buy: price => price,
+    buy: price => `Ulepsz · ${price}`,
     seconds: value => `${value}s`,
     mult: value => `×${value}`,
     blurb: {
@@ -364,7 +372,7 @@ export const pl: Strings = {
     roles: {
       reception: 'Recepcjonista',
       cleaner: 'Sprzątacz',
-      repair: 'Naprawa',
+      repair: 'Technik',
       trainer: 'Trener personalny',
     },
 

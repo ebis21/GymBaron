@@ -8,19 +8,11 @@ import {
 } from '../game/content/upgrades'
 import { upgradeLevel } from '../game/upgrades'
 import { useI18n } from '../i18n'
+import ManagementIcon from './ManagementIcon'
 
 interface Props {
   state: GameState
   onBuy: (id: UpgradeId) => void
-}
-
-/** The emoji standing in for each track, in place of the shop's drawn icons. */
-const GLYPH: Record<UpgradeId, string> = {
-  cleaning: '🧹',
-  repair: '🔧',
-  earnings: '💰',
-  luck: '🍀',
-  patience: '⏳',
 }
 
 /**
@@ -38,9 +30,10 @@ const UNIT: Record<UpgradeId, 'seconds' | 'mult'> = {
 }
 
 /**
- * Everything the player can pay to get better at, one row per track. Styled
- * with the shop's own classes on purpose — this is a shop, and it should not
- * look like a different game.
+ * Everything the player can pay to get better at, one focused card per track.
+ * The cards share the management chrome with the shop and advertising, but
+ * keep progress as their primary visual rather than pretending to sell an
+ * item that can be placed on the floor.
  */
 export default function UpgradesScreen({ state, onBuy }: Props) {
   const { t, money } = useI18n()
@@ -58,11 +51,22 @@ export default function UpgradesScreen({ state, onBuy }: Props) {
   }
 
   return (
-    <div className="screen">
-      <h2 className="section-title">{t.upgrades.title}</h2>
-      <p className="hint">{t.upgrades.hint}</p>
+    <div className="screen management-screen management-upgrades">
+      <header className="management-hero">
+        <div className="management-hero-mark">
+          <ManagementIcon name="upgrade" />
+        </div>
+        <div className="management-hero-copy">
+          <h2>{t.upgrades.title}</h2>
+          <p>{t.upgrades.hint}</p>
+        </div>
+        <div className="management-wallet">
+          <span>{t.topbar.cash}</span>
+          <strong>{money(state.cash)}</strong>
+        </div>
+      </header>
 
-      <div className="shop-list">
+      <div className="management-grid upgrade-grid">
         {UPGRADES.map(track => {
           const level = upgradeLevel(state, track.id)
           const max = maxLevel(track.id)
@@ -73,42 +77,54 @@ export default function UpgradesScreen({ state, onBuy }: Props) {
           const reason = short ? t.shop.short(money(next.price - state.cash)) : null
 
           return (
-            <div className={`shop-row${reason ? ' locked' : ''}`} key={track.id}>
-              <div className="inv-glyph">{GLYPH[track.id]}</div>
-
-              <div className="shop-info">
-                <div className="shop-name">{t.content.upgrades[track.id]}</div>
-                <div className="shop-meta">{t.upgrades.blurb[track.id]}</div>
-
-                <div className="shop-mult">
-                  {next
-                    ? t.upgrades.step(
-                        format(track.id, current),
-                        format(track.id, next.value),
-                      )
-                    : t.upgrades.current(format(track.id, current))}
+            <article
+              className={`management-card upgrade-card tone-${track.id}${reason ? ' is-locked' : ''}${!next ? ' is-complete' : ''}`}
+              key={track.id}
+            >
+              <div className="management-card-head">
+                <div className="management-card-icon">
+                  <ManagementIcon name={track.id} />
                 </div>
-
-                <div className="shop-meta">{t.upgrades.level(level, max)}</div>
-                <div className="meter">
-                  <div className="meter-fill" style={{ width: `${(level / max) * 100}%` }} />
+                <div className="management-card-title">
+                  <span className="management-eyebrow">{t.upgrades.level(level, max)}</span>
+                  <h3>{t.content.upgrades[track.id]}</h3>
                 </div>
-
-                {reason && <div className="shop-reason">{reason}</div>}
+                {!next && <span className="management-state complete">{t.upgrades.maxed}</span>}
               </div>
+
+              <p className="management-card-copy">{t.upgrades.blurb[track.id]}</p>
+
+              <div className="upgrade-step">
+                <strong>
+                  {next
+                    ? t.upgrades.step(format(track.id, current), format(track.id, next.value))
+                    : t.upgrades.current(format(track.id, current))}
+                </strong>
+              </div>
+
+              <div className="upgrade-rungs" aria-hidden="true">
+                {Array.from({ length: max }, (_, rung) => (
+                  <span
+                    className={`${rung < level ? 'done' : ''}${rung === level && next ? ' next' : ''}`}
+                    key={rung}
+                  />
+                ))}
+              </div>
+
+              {reason && <div className="management-notice danger">{reason}</div>}
 
               {next ? (
                 <button
-                  className="btn"
+                  className="btn management-cta"
                   disabled={reason !== null}
                   onClick={() => onBuy(track.id)}
                 >
-                  {money(next.price)}
+                  {t.upgrades.buy(money(next.price))}
                 </button>
               ) : (
-                <div className="shop-meta">{t.upgrades.maxed}</div>
+                <div className="management-complete-mark" aria-hidden="true">✓</div>
               )}
-            </div>
+            </article>
           )
         })}
       </div>

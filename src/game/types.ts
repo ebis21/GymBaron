@@ -119,6 +119,12 @@ export interface Client extends Walker {
   /** Set for members so a visit can be traced back to the pass holder. */
   memberUid: string | null
   /**
+   * Reception desk whose queue this visitor joined. Optional only for saves
+   * and hand-built test states from before multi-desk queues existed; the
+   * movement system assigns those visitors on its next pass.
+   */
+  receptionUid?: string | null
+  /**
    * Employee booked to coach this visit, set at the desk in exchange for a
    * `TRAINER_FEE_MULT` door fee. Doubles as the trainer's booking: an employee
    * is free exactly when no client names them here, so the booking lives in

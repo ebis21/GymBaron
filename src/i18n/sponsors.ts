@@ -77,7 +77,7 @@ export const sponsorsEn: SponsorStrings = {
     'city-apparel': 'Gym wear cut in the city. Pays for a room people actually turn up to.',
     supplements: 'Tubs by the till. Cares about the kit, not the crowd.',
     'energy-drink': 'Cans in every fridge. Busy, well thought of, and spotless.',
-    global: 'The badge everyone knows. It signs one gym in a city, and not this one yet.',
+    global: 'The badge everyone knows. It signs one gym in a city and expects it to stay at the top.',
   },
 }
 
@@ -118,6 +118,6 @@ export const sponsorsPl: SponsorStrings = {
     'city-apparel': 'Odzież szyta w mieście. Płaci za salę, do której ludzie faktycznie przychodzą.',
     supplements: 'Puszki przy ladzie. Patrzy na sprzęt, nie na tłum.',
     'energy-drink': 'Napoje w każdej lodówce. Ruch, dobra opinia i czysto.',
-    global: 'Logo, które zna każdy. Podpisuje jedną siłownię w mieście — na razie nie tę.',
+    global: 'Logo, które zna każdy. Podpisuje jedną siłownię w mieście i wymaga, żeby została na szczycie.',
   },
 }

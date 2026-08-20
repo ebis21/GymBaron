@@ -127,7 +127,7 @@ export const en = {
     furnitureHint: 'Apart from the desk none of it earns anything and it all takes a tile — you buy it for the look.',
     deskSection: 'Reception',
     deskHint:
-      'Every desk is one post: one receptionist per desk, and all of them scan the same queue. This is the most common ceiling on a gym — add a desk, hire somebody for it, and you get through more people a day.',
+      'Every desk is one post with its own line and one receptionist. Add another staffed desk and new arrivals split between them, so you can get more people through the door each day.',
     deskCount: (desks: number, staff: number) =>
       `You have ${desks} desk${desks === 1 ? '' : 's'} and ${staff} receptionist${staff === 1 ? '' : 's'}.`,
     deskIdle: (n: number) => `${n} desk${n === 1 ? '' : 's'} standing empty — hire somebody for ${n === 1 ? 'it' : 'them'}.`,
@@ -143,6 +143,7 @@ export const en = {
     expansionMeta: (w: number, h: number, extra: number) =>
       `${w} × ${h} tiles · ${extra} more`,
     biggest: 'The biggest room — nothing left to buy',
+    buy: (price: string) => `Buy · ${price}`,
     needsLevel: (level: number) => `Requires level ${level}`,
     short: (amount: string) => `${amount} short`,
     machineMeta: (power: string, seconds: number, repair: string) =>
@@ -206,6 +207,12 @@ export const en = {
 
   staff: {
     title: 'Staff',
+    hint: 'Your hiring ledger: team capacity, daily payroll and who is ready to work.',
+    team: 'Team capacity',
+    slotsOpen: (open: number) => `${open} ${open === 1 ? 'slot' : 'slots'} open`,
+    payroll: 'Daily payroll',
+    payrollDue: 'Charged at every close',
+    emptyTitle: 'No payroll yet',
     locked: (trainerLevel: number, restLevel: number, level: number) =>
       `Hiring opens at level ${trainerLevel} (personal trainers) and the other roles at level ${restLevel}. You are level ${level}.`,
     arrears: (amount: string) =>
@@ -223,6 +230,7 @@ export const en = {
 
   recruit: {
     title: 'Recruit',
+    hint: 'Compare output, wage and signing cost before adding somebody to the rota.',
     refresh: (price: string) => `Refresh ${price}`,
     jobHint: {
       reception: (seconds: string) => `scan every ${seconds}s`,
@@ -248,7 +256,7 @@ export const en = {
     current: (value: string) => `Now ${value}`,
     step: (from: string, to: string) => `${from} → ${to}`,
     maxed: 'Fully upgraded',
-    buy: (price: string) => price,
+    buy: (price: string) => `Upgrade · ${price}`,
     seconds: (value: string) => `${value}s`,
     mult: (value: string) => `×${value}`,
     blurb: {
@@ -363,7 +371,7 @@ export const en = {
     roles: {
       reception: 'Receptionist',
       cleaner: 'Cleaner',
-      repair: 'Repairs',
+      repair: 'Technician',
       trainer: 'Personal trainer',
     } satisfies Record<StaffRole, string>,
 

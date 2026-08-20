@@ -4,7 +4,7 @@ import { advanceClients, scanClient } from './clients'
 import { initialState } from './economy'
 import { PATIENCE_MS } from './constants'
 import { DOOR_X } from './layout'
-import type { Client, GameState, Machine } from './types'
+import type { Client, Decor, GameState, Machine, Staff } from './types'
 
 const machine = (over: Partial<Machine> = {}): Machine => ({
   uid: 'm1', type: 'dumbbells', x: 4, y: 2, rotation: 0,
@@ -15,6 +15,15 @@ const client = (over: Partial<Client> = {}): Client => ({
   uid: 'c1', kind: 'walkin', rarity: 'common',
   phase: 'arriving', phaseMs: 0, machineUid: null, memberUid: null, trainerUid: null,
   x: DOOR_X, z: 0, path: [], goal: null, ...over,
+})
+
+const desk = (uid: string, x: number): Decor => ({
+  uid, type: 'reception', x, y: 1, rotation: 0,
+})
+
+const receptionist = (uid: string, targetUid: string, owed = 0): Staff => ({
+  uid, name: 'Marta K.', role: 'reception', rank: 'rare', targetUid, owed,
+  workMs: 0, x: 0, z: 0, path: [], goal: null,
 })
 
 const gym = (over: Partial<GameState> = {}): GameState => ({
@@ -35,6 +44,45 @@ describe('queueAnchorFor', () => {
 })
 
 describe('moveClients', () => {
+  it('splits arrivals between all working reception desks', () => {
+    const s = moveClients(gym({
+      decor: [desk('d1', 1), desk('d2', 3), desk('d3', 6)],
+      staff: [
+        receptionist('e1', 'd1'),
+        receptionist('e2', 'd2'),
+        receptionist('e3', 'd3'),
+      ],
+      clients: [
+        client({ uid: 'c1' }), client({ uid: 'c2' }), client({ uid: 'c3' }),
+        client({ uid: 'c4' }), client({ uid: 'c5' }), client({ uid: 'c6' }),
+      ],
+    }), 16)
+
+    expect(s.clients.map(c => c.receptionUid)).toEqual(['d1', 'd2', 'd3', 'd1', 'd2', 'd3'])
+    expect(s.clients[0]!.goal).not.toEqual(s.clients[1]!.goal)
+  })
+
+  it('does not send visitors to an unstaffed extra desk', () => {
+    const s = moveClients(gym({
+      decor: [desk('d1', 1), desk('d2', 6)],
+      staff: [receptionist('e2', 'd2')],
+      clients: [client({ uid: 'c1' }), client({ uid: 'c2' })],
+    }), 16)
+
+    expect(s.clients.map(c => c.receptionUid)).toEqual(['d2', 'd2'])
+  })
+
+  it('re-routes a queue when its receptionist goes off duty', () => {
+    const s = moveClients(gym({
+      decor: [desk('d1', 1), desk('d2', 6)],
+      staff: [receptionist('e1', 'd1'), receptionist('e2', 'd2', 500)],
+      clients: [client({ receptionUid: 'd2', phase: 'queue' })],
+    }), 16)
+
+    expect(s.clients[0]!.receptionUid).toBe('d1')
+    expect(s.clients[0]!.goal).toEqual({ x: 1, y: 2 })
+  })
+
   it('promotes an arriving client to queue once it reaches its spot', () => {
     let s = gym({ clients: [client()] })
     for (let i = 0; i < 60 && s.clients[0]?.phase === 'arriving'; i++) {

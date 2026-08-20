@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import type { Decor, GameState, Machine, MachineTypeId, Wall } from '../game/types'
+import type { Client, Decor, GameState, Machine, MachineTypeId, Wall } from '../game/types'
 import { tileOccupant, type PlacedKind } from '../game/build'
 import { buildHall, disposeHall } from './models/floor'
 import { buildDecor, buildWallSegment, WALL_THICK } from './models/decor'
@@ -65,6 +65,37 @@ const PLAYER_RADIUS = 0.42
 const WALL_FADED = 0.22
 /** How close to the reception desk counts as being behind it. */
 const DESK_REACH = 2.6
+
+/** Nearest placed reception within manual interaction range. */
+export function receptionAtPoint(
+  state: GameState,
+  point: { x: number; z: number },
+): Decor | null {
+  let nearest: Decor | null = null
+  let best = DESK_REACH
+
+  for (const desk of state.decor) {
+    if (desk.type !== 'reception') continue
+    const at = tileToWorld(desk.x, desk.y)
+    const distance = Math.hypot(at.x - point.x, at.z - point.z)
+    if (distance >= best) continue
+    best = distance
+    nearest = desk
+  }
+
+  return nearest
+}
+
+/** Front of the local line at one counter, in the same order movement lays it out. */
+export function frontClientAtReception(state: GameState, receptionUid: string): Client | null {
+  const firstReception = state.decor.find(d => d.type === 'reception')?.uid ?? null
+  return state.clients.find(c =>
+    c.phase === 'queue' && (
+      c.receptionUid === receptionUid ||
+      (c.receptionUid == null && receptionUid === firstReception)
+    ),
+  ) ?? null
+}
 
 /** Where the haze starts and ends in the hall the game ships with. */
 const FOG_NEAR = 34
@@ -612,13 +643,9 @@ export class GymScene {
     return { x: this.playerPos.x, z: this.playerPos.z }
   }
 
-  /** True while the player is stood at the reception desk. */
-  private atReception(state: GameState): boolean {
-    const desk = state.decor.find(d => d.type === 'reception')
-    if (!desk) return false
-
-    const at = tileToWorld(desk.x, desk.y)
-    return Math.hypot(at.x - this.playerPos.x, at.z - this.playerPos.z) < DESK_REACH
+  /** The reception the player is stood at, across every counter on the floor. */
+  private atReception(state: GameState): Decor | null {
+    return receptionAtPoint(state, this.playerPos)
   }
 
   // --- build mode -----------------------------------------------------------
@@ -899,7 +926,9 @@ export class GymScene {
    * whoever is waiting is immediately within reach of the action prompt.
    */
   teleportToReception(state: GameState): void {
-    const anchor = queueAnchorFor(state)
+    // The first placed desk is a stable destination even with several queues.
+    const firstDesk = state.decor.find(d => d.type === 'reception')
+    const anchor = queueAnchorFor(state, firstDesk?.uid ?? null)
     const spot = queueSpot(0, anchor)
 
     // One pace to the attendant's left of the first person in line, so the
@@ -998,8 +1027,9 @@ export class GymScene {
       // Standing at the desk serves whoever is at the front of the line, even
       // when the line itself trails off across the room. Working the counter
       // is the job; chasing individual visitors around the floor is not.
-      if (!next && this.atReception(state)) {
-        const front = state.clients.find(c => c.phase === 'queue')
+      const desk = this.atReception(state)
+      if (!next && desk) {
+        const front = frontClientAtReception(state, desk.uid)
         if (front) next = { kind: 'scan', clientUid: front.uid }
       }
 

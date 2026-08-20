@@ -4,7 +4,7 @@ import { App as NativeApp } from '@capacitor/app'
 import { useGameStore } from './store/gameStore'
 import type { PlacedKind } from './game/build'
 import { machineType } from './game/content/machines'
-import { FLOOR_UNLOCK_COST, HIRING_UNLOCK_LEVEL, STAFF_UNLOCK_LEVEL } from './game/constants'
+import { FLOOR_UNLOCK_COST, HIRING_UNLOCK_LEVEL } from './game/constants'
 import { isClosingTime } from './game/clock'
 import GymScene3D from './three/GymScene3D'
 import type { Focus, PickResult } from './three/scene'
@@ -17,7 +17,7 @@ import MarketingScreen from './ui/MarketingScreen'
 import ContractsScreen from './ui/ContractsScreen'
 import SponsorsScreen from './ui/SponsorsScreen'
 import { cleanHoldMs, repairHoldMs } from './game/upgrades'
-import StaffPanel from './ui/StaffPanel'
+import StaffPanel, { StaffLockedScreen } from './ui/StaffPanel'
 import RecruitScreen from './ui/RecruitScreen'
 import GameOverScreen from './ui/GameOverScreen'
 import DayReportModal from './ui/DayReportModal'
@@ -759,14 +759,7 @@ export default function App() {
             />
           ) : tab === 'staff' ? (
             state.level < HIRING_UNLOCK_LEVEL ? (
-              <div className="screen">
-                <header className="screen-head">
-                  <h2>{t.staff.title}</h2>
-                </header>
-                <p className="hint">
-                  {t.staff.locked(HIRING_UNLOCK_LEVEL, STAFF_UNLOCK_LEVEL, state.level)}
-                </p>
-              </div>
+              <StaffLockedScreen state={state} />
             ) : recruiting ? (
               <RecruitScreen
                 state={state}
