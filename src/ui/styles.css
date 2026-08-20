@@ -3231,6 +3231,12 @@ p.warn {
    */
   .app {
     --below-topbar: calc(var(--safe-top) + var(--topbar-h) + 11px);
+    /*
+     * Hosted here rather than on `.phone` because the grip floats over the
+     * room, so anything the player has to reach underneath it — the client
+     * card's close button, today — has to reserve the same width.
+     */
+    --phone-handle-width: 68px;
   }
 
   .topbar-wrap {
@@ -3308,7 +3314,6 @@ p.warn {
 
   .phone,
   .phone.open {
-    --phone-handle-width: 68px;
     --phone-drawer-content-width: min(
       276px,
       calc(
@@ -3550,9 +3555,20 @@ p.warn {
     padding: 7px 9px;
   }
 
+  /*
+   * The right edge stops short of the phone grip, the way the desktop rule
+   * has always kept clear of the desktop one and the way an open panel keeps
+   * its rows clear of it. Without that the close button sits directly under
+   * the grip — it is 44 wide, pinned 10 in from a card edge 8 from the
+   * screen, and the grip covers the outer 68 — so the player could open a
+   * client and then not get out of them.
+   *
+   * Measured down to a 320-wide screen: the card still holds its rows and the
+   * scan button at full text, and the button clears the grip by 22.
+   */
   .client-card {
     left: calc(8px + var(--safe-left));
-    right: calc(8px + var(--safe-right));
+    right: calc(8px + var(--safe-right) + var(--phone-handle-width));
     bottom: calc(84px + var(--safe-bottom));
     max-height: calc(100dvh - var(--safe-top) - var(--safe-bottom) - 178px);
     overflow-y: auto;
