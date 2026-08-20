@@ -1,12 +1,15 @@
 import { useState } from 'react'
 import type { DiamondUpgradeId, GameState } from '../game/types'
 import { useI18n } from '../i18n'
+import { useAccount } from '../cloud'
 import AccountScreen from './AccountScreen'
 import DiamondUpgradeScreen from './UpgradeScreen'
 import MultiplayerPanel from './MultiplayerPanel'
 import PremiumStoreScreen from './PremiumStoreScreen'
 import { useDialogFocus } from './useDialogFocus'
 import type { StorePurchaseReceipt } from '../storefront/types'
+import NicknameOnboarding from './NicknameOnboarding'
+import { usePlayerProfile } from './usePlayerProfile'
 
 type ClubSection = 'home' | 'store' | 'diamond-upgrades' | 'multiplayer' | 'account'
 
@@ -24,10 +27,13 @@ export default function BaronClub({
   onClose,
 }: Props) {
   const { t, money } = useI18n()
+  const { state: account } = useAccount()
+  const playerProfile = usePlayerProfile(account.session?.userId ?? null)
   const [section, setSection] = useState<ClubSection>('home')
   const leave = () => section === 'home' ? onClose() : setSection('home')
   const dialogRef = useDialogFocus<HTMLElement>(leave)
   const copy = t.club.home
+  const needsNickname = account.session !== null && playerProfile.profile?.nickname == null
 
   const tiles: Array<{
     id: Exclude<ClubSection, 'home'>
@@ -61,7 +67,7 @@ export default function BaronClub({
             </div>
           </div>
 
-          {section !== 'home' && (
+          {section !== 'home' && !needsNickname && (
             <button className="club-back" type="button" onClick={() => setSection('home')}>
               ← {copy.back}
             </button>
@@ -73,7 +79,16 @@ export default function BaronClub({
         </header>
 
         <div className="club-body">
-          {section === 'home' ? (
+          {needsNickname ? (
+            <NicknameOnboarding
+              ready={playerProfile.profile !== null}
+              loading={playerProfile.loading}
+              saving={playerProfile.saving}
+              error={playerProfile.error}
+              onChoose={playerProfile.chooseNickname}
+              onRetry={playerProfile.retry}
+            />
+          ) : section === 'home' ? (
             <div className="club-home">
               <header className="club-hero">
                 <div>
@@ -120,7 +135,7 @@ export default function BaronClub({
             </div>
           ) : (
             <div className="club-section club-embedded">
-              <AccountScreen />
+              <AccountScreen nickname={playerProfile.profile?.nickname} />
             </div>
           )}
         </div>

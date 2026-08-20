@@ -31,6 +31,9 @@ export type MultiplayerErrorCode =
   | 'MP_INVALID_AMOUNT'
   | 'MP_INVALID_ASSET'
   | 'MP_INVALID_USERNAME_QUERY'
+  | 'MP_INVALID_NICKNAME'
+  | 'MP_NICKNAME_TAKEN'
+  | 'MP_NICKNAME_ALREADY_SET'
   | 'MP_INVALID_IDEMPOTENCY_KEY'
   | 'MP_IDEMPOTENCY_CONFLICT'
   | 'MP_OPERATION_IN_PROGRESS'
@@ -70,6 +73,9 @@ const POLISH_MESSAGES: Record<MultiplayerErrorCode, string> = {
   MP_INVALID_AMOUNT: 'Kwota musi być dodatnią liczbą całkowitą.',
   MP_INVALID_ASSET: 'Nieobsługiwany rodzaj środków.',
   MP_INVALID_USERNAME_QUERY: 'Wpisz od 2 do 24 znaków nazwy gracza.',
+  MP_INVALID_NICKNAME: 'Nick musi mieć od 3 do 20 znaków i może zawierać litery, cyfry, spacje, _ oraz -.',
+  MP_NICKNAME_TAKEN: 'Ten nick jest już zajęty.',
+  MP_NICKNAME_ALREADY_SET: 'Nick został już ustawiony dla tego konta.',
   MP_INVALID_IDEMPOTENCY_KEY: 'Nieprawidłowy identyfikator operacji. Spróbuj ponownie.',
   MP_IDEMPOTENCY_CONFLICT: 'Ta operacja została już użyta z innymi danymi.',
   MP_OPERATION_IN_PROGRESS: 'Operacja jest już przetwarzana. Odśwież za chwilę.',

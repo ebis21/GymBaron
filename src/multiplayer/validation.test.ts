@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { multiplayerErrorMessage, toMultiplayerError } from './errors'
 import {
+  normalizePlayerNickname,
   normalizePlayerQuery,
   requireIdempotencyKey,
   requirePositiveInteger,
@@ -12,6 +13,17 @@ describe('multiplayer validation', () => {
     expect(normalizePlayerQuery('  Żaneta  ')).toBe('żaneta')
     expect(() => normalizePlayerQuery('x')).toThrowError('MP_INVALID_USERNAME_QUERY')
     expect(() => normalizePlayerQuery('x'.repeat(25))).toThrowError('MP_INVALID_USERNAME_QUERY')
+  })
+
+  it('normalizes safe nicknames and keeps Polish letters', () => {
+    expect(normalizePlayerNickname('  Żelazny   Baron  ')).toBe('Żelazny Baron')
+    expect(normalizePlayerNickname('LIL_D-21')).toBe('LIL_D-21')
+  })
+
+  it('rejects nicknames that are too short, too long or unsafe', () => {
+    for (const nickname of ['ab', 'a'.repeat(21), '-baron', 'baron-', 'baron!', '🔥baron']) {
+      expect(() => normalizePlayerNickname(nickname)).toThrowError('MP_INVALID_NICKNAME')
+    }
   })
 
   it('accepts only positive safe integers', () => {

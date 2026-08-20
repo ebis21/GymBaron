@@ -83,6 +83,7 @@ export const clubEn = {
 
   account: {
     title: 'Account',
+    publicNickname: 'Public nickname',
     unavailable: 'Cloud accounts are unavailable in this version of the game. Progress is saved on this device and will be lost if you uninstall the app.',
     signedIn: 'Signed in',
     pending: 'Changes are waiting to upload.',
@@ -134,6 +135,21 @@ export const clubEn = {
       saveExists: 'A cloud save already exists for this account.',
       saveMissing: 'The server did not return the saved state.',
     },
+  },
+
+  nickname: {
+    loading: 'Loading your player profile…',
+    loadFailed: 'Your player profile could not be loaded.',
+    retry: 'Try again',
+    eyebrow: 'One last step',
+    title: 'What should everyone call you?',
+    subtitle: 'This is the nickname your friends will search for and see in multiplayer.',
+    label: 'Nickname',
+    placeholder: 'e.g. Iron Baron',
+    rules: 'Use 3–20 characters: letters, numbers, spaces, _ or -.',
+    oneTime: 'Choose carefully — this name can only be set once.',
+    confirm: 'That’s my name',
+    saving: 'Checking name…',
   },
 
   multiplayer: {
@@ -230,6 +246,9 @@ export const clubEn = {
       MP_INVALID_AMOUNT: 'The amount must be a positive whole number.',
       MP_INVALID_ASSET: 'Unsupported asset type.',
       MP_INVALID_USERNAME_QUERY: 'Enter between 2 and 24 characters of the player name.',
+      MP_INVALID_NICKNAME: 'Use 3–20 characters. A nickname may contain letters, numbers, spaces, _ and -.',
+      MP_NICKNAME_TAKEN: 'That nickname is already taken.',
+      MP_NICKNAME_ALREADY_SET: 'A nickname has already been set for this account.',
       MP_INVALID_IDEMPOTENCY_KEY: 'Invalid operation identifier. Try again.',
       MP_IDEMPOTENCY_CONFLICT: 'This operation identifier was already used with different data.',
       MP_OPERATION_IN_PROGRESS: 'This operation is already being processed. Refresh in a moment.',
@@ -343,6 +362,7 @@ export const clubPl: ClubStrings = {
 
   account: {
     title: 'Konto',
+    publicNickname: 'Publiczny nick',
     unavailable: 'Konto w chmurze jest niedostępne w tej wersji gry. Postęp zapisuje się na tym urządzeniu i zostanie utracony po odinstalowaniu aplikacji.',
     signedIn: 'Zalogowano',
     pending: 'Zmiany czekają na wysłanie.',
@@ -394,6 +414,21 @@ export const clubPl: ClubStrings = {
       saveExists: 'W chmurze jest już zapis tego konta.',
       saveMissing: 'Serwer nie zwrócił zapisanego stanu.',
     },
+  },
+
+  nickname: {
+    loading: 'Wczytywanie profilu gracza…',
+    loadFailed: 'Nie udało się wczytać profilu gracza.',
+    retry: 'Spróbuj ponownie',
+    eyebrow: 'Jeszcze jeden krok',
+    title: 'Jak mają Cię nazywać?',
+    subtitle: 'Po tym nicku znajomi będą mogli Cię wyszukać i zobaczą go w multiplayerze.',
+    label: 'Nick',
+    placeholder: 'np. Żelazny Baron',
+    rules: 'Użyj 3–20 znaków: liter, cyfr, spacji, _ lub -.',
+    oneTime: 'Wybierz uważnie — ten nick można ustawić tylko raz.',
+    confirm: 'To mój nick',
+    saving: 'Sprawdzanie nicku…',
   },
 
   multiplayer: {
@@ -490,6 +525,9 @@ export const clubPl: ClubStrings = {
       MP_INVALID_AMOUNT: 'Kwota musi być dodatnią liczbą całkowitą.',
       MP_INVALID_ASSET: 'Nieobsługiwany rodzaj środków.',
       MP_INVALID_USERNAME_QUERY: 'Wpisz od 2 do 24 znaków nazwy gracza.',
+      MP_INVALID_NICKNAME: 'Użyj 3–20 znaków. Nick może zawierać litery, cyfry, spacje, _ oraz -.',
+      MP_NICKNAME_TAKEN: 'Ten nick jest już zajęty.',
+      MP_NICKNAME_ALREADY_SET: 'Nick został już ustawiony dla tego konta.',
       MP_INVALID_IDEMPOTENCY_KEY: 'Nieprawidłowy identyfikator operacji. Spróbuj ponownie.',
       MP_IDEMPOTENCY_CONFLICT: 'Ta operacja została już użyta z innymi danymi.',
       MP_OPERATION_IN_PROGRESS: 'Operacja jest już przetwarzana. Odśwież za chwilę.',

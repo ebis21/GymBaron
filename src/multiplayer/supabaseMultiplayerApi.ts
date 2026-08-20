@@ -4,6 +4,7 @@ import {
   requirePlayerId,
   requirePositiveInteger,
   requireTransferAsset,
+  normalizePlayerNickname,
   normalizePlayerQuery,
 } from './validation'
 import { MultiplayerError, toMultiplayerError } from './errors'
@@ -21,6 +22,7 @@ import type {
   LoanStatus,
   MultiplayerApi,
   MultiplayerOverview,
+  PlayerProfile,
   OutgoingFriendRequest,
   PlayerSummary,
   ProposeLoanCommand,
@@ -94,6 +96,14 @@ function rotation(value: unknown): 0 | 1 | 2 | 3 {
 function player(value: unknown): PlayerSummary {
   const row = record(value, 'player')
   return { id: text(row.id, 'player.id'), username: text(row.username, 'player.username') }
+}
+
+function playerProfile(value: unknown): PlayerProfile {
+  const row = record(value, 'player profile')
+  if (row.nickname !== null && (typeof row.nickname !== 'string' || row.nickname.length === 0)) {
+    invalidPayload('player profile.nickname')
+  }
+  return { nickname: row.nickname as string | null }
 }
 
 function alliance(value: unknown): AllianceSummary | null {
@@ -328,6 +338,16 @@ export class SupabaseMultiplayerApi implements MultiplayerApi {
 
   private async relationshipChanged(): Promise<void> {
     try { await this.hooks.afterRelationshipMutation?.() } catch { /* refresh can retry */ }
+  }
+
+  async getPlayerProfile(): Promise<PlayerProfile> {
+    return playerProfile(await this.rpc('get_player_profile'))
+  }
+
+  async setPlayerNickname(nickname: string): Promise<PlayerProfile> {
+    return playerProfile(await this.rpc('set_player_nickname', {
+      p_nickname: normalizePlayerNickname(nickname),
+    }))
   }
 
   async searchPlayers(query: string): Promise<PlayerSummary[]> {
