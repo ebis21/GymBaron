@@ -177,3 +177,30 @@ describe('migration to version 8', () => {
     expect(deserialize(v7, 0).dayReport!.diamondReward).toBe(0)
   })
 })
+
+describe('migration to version 9', () => {
+  it('defaults a version 8 save to the neutral offline income multiplier', () => {
+    const current = initialState(41, 0)
+    const v8 = JSON.stringify({
+      ...current,
+      version: 8,
+      cash: 8123,
+      allianceIncomeMultiplier: undefined,
+    })
+
+    const loaded = deserialize(v8, 0)
+
+    expect(loaded.version).toBe(SAVE_VERSION)
+    expect(loaded.cash).toBe(8123)
+    expect(loaded.allianceIncomeMultiplier).toBe(1)
+    expect(loaded.appliedSabotageIds).toEqual([])
+  })
+
+  it('rejects a current save with a forged multiplier', () => {
+    const corrupt = JSON.stringify({ ...initialState(41, 0), allianceIncomeMultiplier: 10 })
+    const loaded = deserialize(corrupt, 0)
+
+    expect(loaded.cash).toBe(500)
+    expect(loaded.allianceIncomeMultiplier).toBe(1)
+  })
+})

@@ -25,9 +25,11 @@ import FloorAccessModal from './ui/FloorAccessModal'
 import { floorName } from './game/floors'
 import UpgradeScreen from './ui/UpgradeScreen'
 import { repairPrice } from './game/upgrades'
+import AccountScreen from './ui/AccountScreen'
+import MultiplayerPanel from './ui/MultiplayerPanel'
 
 /** Which full-screen panel is over the room, if any. */
-type Tab = 'gym' | 'shop' | 'upgrades' | 'stats' | 'staff'
+type Tab = 'gym' | 'shop' | 'upgrades' | 'stats' | 'staff' | 'account' | 'multiplayer'
 
 const RARITY_NAME: Record<ClientRarity, string> = {
   common: 'Zwykły',
@@ -656,6 +658,10 @@ export default function App() {
             />
           ) : tab === 'upgrades' ? (
             <UpgradeScreen state={state} onBuy={buyUpgrade} />
+          ) : tab === 'account' ? (
+            <AccountScreen />
+          ) : tab === 'multiplayer' ? (
+            <MultiplayerPanel onOpenAccount={() => setTab('account')} />
           ) : tab === 'staff' ? (
             state.level < HIRING_UNLOCK_LEVEL ? (
               <div className="screen">

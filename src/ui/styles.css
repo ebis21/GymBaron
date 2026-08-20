@@ -750,6 +750,29 @@ body {
 .phone-icon.diamond {
   background: linear-gradient(145deg, #baf2ff, #45aee2);
 }
+.phone-icon.social {
+  background: linear-gradient(145deg, #9ce691, #46943b);
+}
+.phone-icon.cloud {
+  background: linear-gradient(145deg, #dff8ff, #62c1e8);
+}
+
+.multiplayer-gate {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.multiplayer-gate .hint {
+  max-width: 440px;
+}
+
+.multiplayer-gate-icon {
+  margin-bottom: 12px;
+  font-size: 54px;
+}
 
 .phone-label {
   font-size: 10.5px;

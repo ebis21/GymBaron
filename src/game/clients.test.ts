@@ -134,6 +134,19 @@ describe('scanClient', () => {
     expect(s.machines[0]!.occupiedBy).toBe('c1')
   })
 
+  it('applies the alliance multiplier only to earned entry income', () => {
+    const ordinary: GameState = { ...gym(), clients: [client()] }
+    const allied: GameState = {
+      ...gym(),
+      allianceIncomeMultiplier: 1.5,
+      clients: [client()],
+    }
+    const ordinaryIncome = scanClient(ordinary, 'c1').cash - ordinary.cash
+    const alliedIncome = scanClient(allied, 'c1').cash - allied.cash
+
+    expect(alliedIncome).toBeCloseTo(ordinaryIncome * 1.5, 5)
+  })
+
   it('resets the phase timer when the client starts training', () => {
     const s0: GameState = { ...gym(),
       clients: [client({ phaseMs: 5000 })] }

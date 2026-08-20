@@ -222,6 +222,24 @@ function looksLikeV8(s: Record<string, unknown>): boolean {
   )
 }
 
+/** Version 9 persists the server-confirmed alliance bonus for offline play. */
+function migrateV8(raw: Record<string, unknown>): Record<string, unknown> {
+  return {
+    ...raw,
+    version: 9,
+    allianceIncomeMultiplier: 1,
+    appliedSabotageIds: [],
+  }
+}
+
+function looksLikeV9(s: Record<string, unknown>): boolean {
+  return (
+    (s.allianceIncomeMultiplier === 1 || s.allianceIncomeMultiplier === 1.5) &&
+    Array.isArray(s.appliedSabotageIds) &&
+    s.appliedSabotageIds.every(id => typeof id === 'string')
+  )
+}
+
 /**
  * Returns a fresh state on unparseable, malformed, or future-version input
  * rather than throwing — a corrupt save must never brick the app.
@@ -248,6 +266,8 @@ export function deserialize(raw: string, now: number): GameState {
     if (!looksLikeV7(state)) return initialState(now, now)
     if (state.version === 7) state = migrateV7(state)
     if (!looksLikeV8(state)) return initialState(now, now)
+    if (state.version === 8) state = migrateV8(state)
+    if (!looksLikeV9(state)) return initialState(now, now)
 
     return state as unknown as GameState
   } catch {

@@ -54,7 +54,12 @@ export default function TopBar({ state }: { state: GameState }) {
         </div>
         <div className="topbar-cell">
           <span className="topbar-label">Klasa</span>
-          <span className="topbar-value">×{gymClass(state).toFixed(2)}</span>
+          <span className="topbar-value">
+            ×{gymClass(state).toFixed(2)}
+            {state.allianceIncomeMultiplier === 1.5 && (
+              <span className="topbar-sub">Sojusz ×1,5</span>
+            )}
+          </span>
         </div>
         <div className="topbar-cell">
           <span className="topbar-label">Renoma</span>

@@ -43,6 +43,8 @@ export function initialState(seed: number, now: number): GameState {
     diamonds: 0,
     upgrades: emptyUpgrades(),
     lastDiamondRewardDay: 0,
+    allianceIncomeMultiplier: 1,
+    appliedSabotageIds: [],
     reputation: 0,
     satisfaction: 50,
     level: 1,
@@ -148,7 +150,7 @@ export function entryFee(
 
 /** Face value of a pass at the gym's current class. */
 export function passPrice(state: GameState): number {
-  return MEMBER_FEE * gymClass(state)
+  return MEMBER_FEE * gymClass(state) * state.allianceIncomeMultiplier
 }
 
 export interface DailyCosts {

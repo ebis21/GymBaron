@@ -199,6 +199,10 @@ export interface GameState {
   upgrades: UpgradeLevels
   /** Last day whose satisfaction reward was evaluated, including a zero reward. */
   lastDiamondRewardDay: number
+  /** Last server-confirmed social bonus; persisted so offline settlement uses it too. */
+  allianceIncomeMultiplier: 1 | 1.5
+  /** Durable inbox receipts: a failed network acknowledgement must not summon twice. */
+  appliedSabotageIds: string[]
   reputation: number    // 0-100
   satisfaction: number  // 0-100
   level: number

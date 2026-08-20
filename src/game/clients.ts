@@ -321,10 +321,11 @@ export function scanClient(
 
   const plainFee = isLilD
     ? 0
-    : entryFee(machine.type, client.kind, client.rarity, state.reputation)
+    : entryFee(machine.type, client.kind, client.rarity, state.reputation) * state.allianceIncomeMultiplier
   const fee = isLilD
     ? LIL_D_FAKE_PAYMENT
-    : entryFee(machine.type, client.kind, client.rarity, state.reputation, coach !== null)
+    : entryFee(machine.type, client.kind, client.rarity, state.reputation, coach !== null) *
+      state.allianceIncomeMultiplier
   // A breakdown of `fee`, not income on top of it — see `DayLedger.trainerFees`.
   const trainerShare = isLilD ? 0 : fee - plainFee
   const cashDelta = isLilD ? -fee : fee

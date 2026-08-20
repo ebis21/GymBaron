@@ -208,6 +208,16 @@ describe('initialState', () => {
   })
 })
 
+describe('alliance income multiplier', () => {
+  it('multiplies membership income without changing gym class', () => {
+    const ordinary = base()
+    const allied = { ...base(), allianceIncomeMultiplier: 1.5 as const }
+
+    expect(gymClass(allied)).toBe(gymClass(ordinary))
+    expect(passPrice(allied)).toBeCloseTo(passPrice(ordinary) * 1.5, 5)
+  })
+})
+
 describe('addXp', () => {
   it('levels up once the threshold is crossed', () => {
     expect(addXp(base(), 100).level).toBe(2)

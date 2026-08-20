@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import {
   SABOTAGE_COST,
   multiplayerErrorMessage,
@@ -35,6 +35,8 @@ export default function MultiplayerScreen({ api, onClose }: Props) {
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  /** Failed/retried financial commands keep their original exactly-once key. */
+  const idempotencyKeys = useRef(new Map<string, string>())
 
   const reload = useCallback(async () => {
     setOverview(await api.getOverview())
@@ -56,14 +58,30 @@ export default function MultiplayerScreen({ api, onClose }: Props) {
     setMessage(null)
     try {
       await action()
-      await reload()
       setMessage(success)
+      try {
+        await reload()
+      } catch {
+        setError('Operacja została wykonana, ale nie udało się odświeżyć listy. Otwórz ekran ponownie.')
+      }
     } catch (reason) {
       setError(multiplayerErrorMessage(reason))
     } finally {
       setBusy(false)
     }
   }, [reload])
+
+  const idempotent = useCallback(<T,>(
+    fingerprint: string,
+    action: (key: string) => Promise<T>,
+  ): Promise<T> => {
+    const key = idempotencyKeys.current.get(fingerprint) ?? newIdempotencyKey()
+    idempotencyKeys.current.set(fingerprint, key)
+    return action(key).then(result => {
+      idempotencyKeys.current.delete(fingerprint)
+      return result
+    })
+  }, [])
 
   const search = async (event: FormEvent) => {
     event.preventDefault()
@@ -96,10 +114,10 @@ export default function MultiplayerScreen({ api, onClose }: Props) {
     )
     if (!confirmed) return
     void run(
-      () => api.sabotage({
-        targetId: friend.profile.id,
-        idempotencyKey: newIdempotencyKey(),
-      }),
+      () => idempotent(
+        `sabotage:${friend.profile.id}`,
+        idempotencyKey => api.sabotage({ targetId: friend.profile.id, idempotencyKey }),
+      ),
       'LIL D. ruszył w drogę. Zdarzenie zaczeka, jeśli gracz jest offline.',
     )
   }
@@ -259,12 +277,15 @@ export default function MultiplayerScreen({ api, onClose }: Props) {
                                 placeholder="Kwota"
                               />
                               <button className="btn tiny" type="button" disabled={busy} onClick={() => void run(
-                                () => api.transfer({
-                                  recipientId: friend.profile.id,
-                                  asset: transferAsset,
-                                  amount: wholeNumber(transferAmount),
-                                  idempotencyKey: newIdempotencyKey(),
-                                }),
+                                () => idempotent(
+                                  `transfer:${friend.profile.id}:${transferAsset}:${transferAmount}`,
+                                  idempotencyKey => api.transfer({
+                                    recipientId: friend.profile.id,
+                                    asset: transferAsset,
+                                    amount: wholeNumber(transferAmount),
+                                    idempotencyKey,
+                                  }),
+                                ),
                                 'Przelew został wykonany.',
                               )}>Wyślij</button>
                             </div>
@@ -283,11 +304,14 @@ export default function MultiplayerScreen({ api, onClose }: Props) {
                                 placeholder="Kredyty"
                               />
                               <button className="btn tiny" type="button" disabled={busy} onClick={() => void run(
-                                () => api.proposeLoan({
-                                  borrowerId: friend.profile.id,
-                                  amount: wholeNumber(loanAmount),
-                                  idempotencyKey: newIdempotencyKey(),
-                                }),
+                                () => idempotent(
+                                  `propose-loan:${friend.profile.id}:${loanAmount}`,
+                                  idempotencyKey => api.proposeLoan({
+                                    borrowerId: friend.profile.id,
+                                    amount: wholeNumber(loanAmount),
+                                    idempotencyKey,
+                                  }),
+                                ),
                                 'Propozycja pożyczki została wysłana.',
                               )}>Zaproponuj</button>
                             </div>
@@ -349,11 +373,17 @@ export default function MultiplayerScreen({ api, onClose }: Props) {
                   {loan.status === 'proposed' && isBorrower && (
                     <span className="multiplayer-actions">
                       <button className="btn tiny" type="button" disabled={busy} onClick={() => void run(
-                        () => api.respondLoan({ loanId: loan.id, accept: true, idempotencyKey: newIdempotencyKey() }),
+                        () => idempotent(
+                          `respond-loan:${loan.id}:accept`,
+                          idempotencyKey => api.respondLoan({ loanId: loan.id, accept: true, idempotencyKey }),
+                        ),
                         'Pożyczka została zaakceptowana i wypłacona.',
                       )}>Akceptuj</button>
                       <button className="btn ghost tiny" type="button" disabled={busy} onClick={() => void run(
-                        () => api.respondLoan({ loanId: loan.id, accept: false, idempotencyKey: newIdempotencyKey() }),
+                        () => idempotent(
+                          `respond-loan:${loan.id}:reject`,
+                          idempotencyKey => api.respondLoan({ loanId: loan.id, accept: false, idempotencyKey }),
+                        ),
                         'Pożyczka została odrzucona.',
                       )}>Odrzuć</button>
                     </span>
@@ -374,11 +404,14 @@ export default function MultiplayerScreen({ api, onClose }: Props) {
                         placeholder="Kwota spłaty"
                       />
                       <button className="btn tiny" type="button" disabled={busy} onClick={() => void run(
-                        () => api.repayLoan({
-                          loanId: loan.id,
-                          amount: wholeNumber(repayments[loan.id] ?? ''),
-                          idempotencyKey: newIdempotencyKey(),
-                        }),
+                        () => idempotent(
+                          `repay-loan:${loan.id}:${repayments[loan.id] ?? ''}`,
+                          idempotencyKey => api.repayLoan({
+                            loanId: loan.id,
+                            amount: wholeNumber(repayments[loan.id] ?? ''),
+                            idempotencyKey,
+                          }),
+                        ),
                         'Spłata została zaksięgowana.',
                       )}>Spłać</button>
                     </div>
