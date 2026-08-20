@@ -1,5 +1,6 @@
 import type { GameState } from './types'
 import { DAY_MS } from './constants'
+import { machinesAcrossFloors } from './floors'
 import {
   CAMPAIGNS,
   type CampaignId,
@@ -109,6 +110,11 @@ export function applyMarketing(state: GameState, action: MarketingAction): GameS
       // would silently reset its clock rather than buying anything.
       if (state.marketing.running.some(r => r.id === action.campaignId)) return state
 
+      // The screen greys a locked offer out, but the gate belongs here: the
+      // store dispatches this action blind, and an unlock the UI alone
+      // enforces is an unlock a stale screen can spend the player's money on.
+      if (unmetRequirement(state, action.campaignId) !== null) return state
+
       const campaign = campaignById(action.campaignId)
       // No up-front fee, but the first invoice must be credible when the ad is
       // ordered — and that invoice now covers everything running at once.
@@ -195,6 +201,62 @@ export function spawnRateMultiplier(state: GameState): number {
 /** Ids live right now, for the screen and for the traffic projection. */
 export const runningCampaigns = (state: GameState): CampaignId[] =>
   state.marketing.running.map(r => r.id)
+
+/** Which bar an offer is short of, in the order the screen reports them. */
+export type RequirementKind = 'reputation' | 'machines' | 'members'
+
+/**
+ * The one bar a locked offer is short of, or null when the gym has earned it.
+ *
+ * Only the first shortfall is reported. A player two rungs below a national
+ * campaign is not helped by a paragraph — they are helped by the next thing to
+ * go and do, and the second bar becomes the answer once the first is cleared.
+ *
+ * Machines are counted across the whole building rather than the room on
+ * screen: an unlock is a statement about the gym, and taking the stairs is not
+ * meant to lock an offer the player has already paid for.
+ */
+export function unmetRequirement(
+  state: GameState,
+  id: CampaignId,
+): RequirementKind | null {
+  const requires = campaignById(id).requires
+  if (!requires) return null
+
+  if (requires.reputation !== undefined && state.reputation < requires.reputation) {
+    return 'reputation'
+  }
+  if (requires.machines !== undefined && machinesAcrossFloors(state).length < requires.machines) {
+    return 'machines'
+  }
+  if (requires.members !== undefined && state.members.length < requires.members) {
+    return 'members'
+  }
+  return null
+}
+
+/** Every campaign live right now, as the content rows behind them. */
+const liveCampaigns = (state: GameState) =>
+  state.marketing.running.map(r => campaignById(r.id))
+
+/**
+ * How much advertising bends the rarity table, on the same scale as the luck
+ * upgrade. 1 is the untouched table. It multiplies rather than replaces the
+ * player's own luck track, so a premium push is worth more to somebody who
+ * already invested in luck — the same shape `spawnRateMultiplier` has against
+ * reputation, for the same reason.
+ */
+export const marketingLuck = (state: GameState): number =>
+  liveCampaigns(state).reduce((luck, c) => luck * (c.clientLuck ?? 1), 1)
+
+/**
+ * How much advertising lifts conversion at the desk. Fed into the same `luck`
+ * parameter `signupChance` already takes, which means it also inherits that
+ * function's ceiling — a referral push can fill a struggling gym's books and
+ * can never make a thriving one convert everybody.
+ */
+export const marketingSignupBoost = (state: GameState): number =>
+  liveCampaigns(state).reduce((boost, c) => boost * (c.signupBoost ?? 1), 1)
 
 /** Every campaign the player could ever buy, in the order the screen lists them. */
 export const campaigns = () => CAMPAIGNS

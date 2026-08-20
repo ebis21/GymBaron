@@ -4,19 +4,44 @@ import { campaignById } from './content/campaigns'
 import { closeDay, nextDay } from './dayClose'
 import { initialState } from './economy'
 import { advance } from './tick'
+import type { Machine, Member } from './types'
 import {
   advanceMarketing,
   applyMarketing,
   initialMarketing,
+  marketingLuck,
+  marketingSignupBoost,
   normalizeMarketing,
   settleMarketing,
   spawnRateMultiplier,
+  unmetRequirement,
 } from './marketing'
+import type { CampaignId } from './content/campaigns'
 
 const base = () => initialState(1, 0)
 const rich = () => ({ ...base(), cash: 100_000 })
-const start = (id: 'flyers' | 'social' | 'billboards' | 'influencer' | 'tv' = 'flyers') =>
+const start = (id: CampaignId = 'flyers') =>
   applyMarketing(rich(), { type: 'start', campaignId: id })
+
+const manyMachines = (count: number): Machine[] =>
+  Array.from({ length: count }, (_, i) => ({
+    uid: `m${i}`,
+    type: 'bench' as const,
+    x: i,
+    y: 0,
+    rotation: 0 as const,
+    durability: 100,
+    occupiedBy: null,
+    brokenMs: 0,
+  }))
+
+const manyMembers = (count: number): Member[] =>
+  Array.from({ length: count }, (_, i) => ({ uid: `p${i}`, joinedDay: 1 }))
+
+/** A gym with the standing the premium offer asks for. */
+const famous = () => ({ ...rich(), reputation: 60 })
+/** A gym with the membership the referral offer asks for. */
+const popular = () => ({ ...rich(), members: manyMembers(20) })
 
 describe('starting a campaign', () => {
   it('starts immediately without charging before the day closes', () => {
@@ -212,5 +237,80 @@ describe('reading stored marketing state', () => {
       running: [{ id: 'flyers', remainingMs: 10 }, { id: 'flyers', remainingMs: 20 }],
       billable: ['flyers', 'flyers'],
     })).toEqual({ running: [{ id: 'flyers', remainingMs: 10 }], billable: ['flyers'] })
+  })
+})
+
+describe('what a campaign buys beyond footfall', () => {
+  it('leaves the rarity table and the desk alone when nothing is running', () => {
+    expect(marketingLuck(base())).toBe(1)
+    expect(marketingSignupBoost(base())).toBe(1)
+  })
+
+  it('bends the rarity table only for the offer that pays for it', () => {
+    const premium = { ...famous(), cash: 100_000 }
+    const running = applyMarketing(premium, { type: 'start', campaignId: 'premium' })
+
+    expect(marketingLuck(running)).toBe(campaignById('premium').clientLuck)
+    expect(marketingSignupBoost(running)).toBe(1)
+  })
+
+  it('lifts conversion only for the offer that pays for it', () => {
+    const running = applyMarketing(popular(), { type: 'start', campaignId: 'referral' })
+
+    expect(marketingSignupBoost(running)).toBe(campaignById('referral').signupBoost)
+    expect(marketingLuck(running)).toBe(1)
+  })
+
+  it('compounds both axes across everything live at once', () => {
+    const ready = { ...famous(), members: popular().members, cash: 100_000 }
+    const two = applyMarketing(
+      applyMarketing(ready, { type: 'start', campaignId: 'premium' }),
+      { type: 'start', campaignId: 'referral' },
+    )
+
+    expect(two.marketing.running.map(r => r.id)).toEqual(['premium', 'referral'])
+    expect(marketingLuck(two)).toBe(campaignById('premium').clientLuck)
+    expect(marketingSignupBoost(two)).toBe(campaignById('referral').signupBoost)
+  })
+})
+
+describe('offers the gym has not earned yet', () => {
+  it('names the bar a locked offer is short of', () => {
+    expect(unmetRequirement(rich(), 'flyers')).toBe(null)
+    expect(unmetRequirement(rich(), 'premium')).toBe('reputation')
+    expect(unmetRequirement(rich(), 'referral')).toBe('members')
+    expect(unmetRequirement(rich(), 'national')).toBe('reputation')
+  })
+
+  it('checks the bars in the order the screen lists them', () => {
+    const reputable = { ...rich(), reputation: 80 }
+    expect(unmetRequirement(reputable, 'national')).toBe('machines')
+  })
+
+  it('clears once the gym meets the bar', () => {
+    expect(unmetRequirement(famous(), 'premium')).toBe(null)
+    expect(unmetRequirement(popular(), 'referral')).toBe(null)
+  })
+
+  it('counts machines on every floor, not only the one on screen', () => {
+    const ground = rich().floorPlans[0]!
+    const upstairs = {
+      ...rich(),
+      reputation: 80,
+      activeFloor: 0,
+      machines: manyMachines(12),
+      floorPlans: [ground, { ...ground, machines: manyMachines(12) }],
+    }
+    expect(unmetRequirement(upstairs, 'national')).toBe(null)
+  })
+
+  it('refuses to start an offer the gym has not unlocked', () => {
+    const locked = rich()
+    expect(applyMarketing(locked, { type: 'start', campaignId: 'premium' })).toBe(locked)
+  })
+
+  it('starts the same offer once the bar is cleared', () => {
+    const after = applyMarketing(famous(), { type: 'start', campaignId: 'premium' })
+    expect(after.marketing.running.map(r => r.id)).toEqual(['premium'])
   })
 })

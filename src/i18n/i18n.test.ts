@@ -120,3 +120,21 @@ describe('name pools', () => {
     expect(FIRST_NAMES.en).toHaveLength(FIRST_NAMES.pl.length)
   })
 })
+
+describe('the advertising schedule line', () => {
+  /**
+   * The open day is a one-day campaign, and every other offer runs for
+   * several. A single unit is the case a length written as a bare number gets
+   * wrong, in both languages.
+   */
+  it('counts a single day in the singular', () => {
+    expect(en.marketing.schedule(1, '2,500 kr')).toContain('1 day ')
+    expect(en.marketing.schedule(1, '2,500 kr')).not.toContain('1 days')
+    expect(pl.marketing.schedule(1, '2500 kr')).toContain('1 dzień')
+  })
+
+  it('counts the rest in the plural', () => {
+    expect(en.marketing.schedule(6, '1,400 kr')).toContain('6 days')
+    expect(pl.marketing.schedule(6, '1400 kr')).toContain('6 dni')
+  })
+})

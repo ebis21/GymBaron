@@ -54,6 +54,23 @@ const luckedWeight = (rarity: ClientRarity, index: number, luck: number): number
   RARITY_WEIGHT[rarity] * Math.pow(luck, index)
 
 /**
+ * What the average walk-in is worth at the door, at a given luck, as a plain
+ * multiplier on the base fee. The same weights `rollRarity` draws from, read
+ * as an expectation rather than sampled — which is what a projection wants,
+ * since a screen cannot roll a die on the player's behalf.
+ *
+ * `secret` carries weight 0, so the named visitor never dilutes the figure.
+ */
+export function averageRarityMultiplier(luck = 1): number {
+  const weights = CLIENT_RARITIES.map((r, i) => luckedWeight(r, i, luck))
+  const total = weights.reduce((sum, w) => sum + w, 0)
+  if (total === 0) return 1
+
+  return CLIENT_RARITIES
+    .reduce((sum, r, i) => sum + weights[i]! * RARITY_MULTIPLIER[r], 0) / total
+}
+
+/**
  * Draws a rarity from the weighted table, threading the seed like the rest of
  * the engine. `luck` defaults to the unupgraded table, so every existing caller
  * and test keeps the distribution it always had.

@@ -90,14 +90,22 @@ export default function ManagementIcon({ name, className }: Props) {
         return <><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3c3 3 4 6 4 9s-1 6-4 9c-3-3-4-6-4-9s1-6 4-9Z" /></>
       case 'flyers':
         return <><path d="M7 4h11v14H7zM4 7v14h11" /><path d="M10 8h5m-5 3h5m-5 3h3" /></>
+      case 'referral':
+        return <><circle cx="7" cy="8" r="2.5" /><circle cx="17" cy="8" r="2.5" /><path d="M2.5 18a4.5 4.5 0 0 1 9 0m1 0a4.5 4.5 0 0 1 9 0" /><path d="m9.5 11 2.5 2 2.5-2" /></>
       case 'social':
         return <><rect x="6.5" y="2.5" width="11" height="19" rx="2.5" /><path d="M10 6h4m-3 12h2" /><circle cx="12" cy="12" r="2.5" /></>
       case 'billboards':
         return <><path d="M3 5h18v11H3zM8 16v5m8-5v5M6 21h12" /><path d="m7 12 3-3 2 2 3-3 2 2" /></>
       case 'influencer':
         return <><circle cx="10" cy="8" r="3" /><path d="M4.5 19a5.5 5.5 0 0 1 11 0" /><path d="m18 4 .7 1.6L20.5 6l-1.8.6L18 8l-.7-1.4L15.5 6l1.8-.4z" /></>
+      case 'premium':
+        return <><path d="m4 9 4-5h8l4 5-8 11z" /><path d="M4 9h16M8 4l4 5 4-5m-4 5v11" /></>
+      case 'openDay':
+        return <><path d="M4 6h16v14H4zM8 3v6m8-6v6M4 10h16" /><path d="m12 13 .8 1.7 1.9.2-1.4 1.3.4 1.8-1.7-.9-1.7.9.4-1.8-1.4-1.3 1.9-.2z" /></>
       case 'tv':
         return <><rect x="3" y="6" width="18" height="13" rx="2" /><path d="m9 3 3 3 3-3M8 22h8" /><path d="m10 10 5 2.5-5 2.5z" /></>
+      case 'national':
+        return <><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3c3 3 4 6 4 9s-1 6-4 9c-3-3-4-6-4-9s1-6 4-9Z" /><path d="M5.5 6.5h13m-13 11h13" /></>
     }
   })()
 

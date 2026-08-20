@@ -1,11 +1,15 @@
 import type { GameState } from './types'
-import { DAY_MS } from './constants'
+import { DAY_MS, ENTRY_FEE_BASE } from './constants'
 import { machineType } from './content/machines'
+import { averageRarityMultiplier } from './content/rarity'
 import { workMsFor } from './content/staff'
 import { arrivalsPerSecond } from './clients'
+import { passPrice, reputationBonus } from './economy'
+import { signupChance } from './members'
 import { onDuty, staffedDesks } from './staff'
+import { earningsMult, luckMult } from './upgrades'
 import { campaignById, type CampaignId } from './content/campaigns'
-import { spawnRateMultiplier } from './marketing'
+import { marketingLuck, marketingSignupBoost, spawnRateMultiplier } from './marketing'
 
 /**
  * What the gym can actually get through in a day, against what advertising
@@ -78,7 +82,46 @@ export interface TrafficOutlook {
   servable: number
   /** Which side is short, or null when the gym can cope. */
   shortOf: 'reception' | 'machines' | null
+  /** Money a day the offer would add, after its own fee. Negative loses money. */
+  net: number
 }
+
+/**
+ * What the average machine on this floor is worth at the till, weighted by how
+ * many people it can actually put through in a day. Weighting matters: a hall
+ * of slow, lucrative presses and one fast, cheap treadmill does not earn the
+ * unweighted average of the two.
+ */
+function averageMachineValue(state: GameState): number {
+  let workouts = 0
+  let weighted = 0
+  for (const m of state.machines) {
+    const type = machineType(m.type)
+    const share = DAY_MS / type.workoutMs
+    workouts += share
+    weighted += share * type.revenueMultiplier
+  }
+  return workouts === 0 ? 0 : weighted / workouts
+}
+
+/**
+ * The door fee an average visitor pays, at a given luck. Deliberately built
+ * from the same pieces `entryFee` charges rather than sampled: a screen cannot
+ * roll a die on the player's behalf, so the rarity table is read as its
+ * expectation. `luck` is the whole point — a premium campaign earns most of
+ * its keep by raising this on people who were coming anyway.
+ */
+const doorFee = (state: GameState, luck: number): number =>
+  ENTRY_FEE_BASE
+  * averageMachineValue(state)
+  * averageRarityMultiplier(luck)
+  * reputationBonus(state.reputation)
+  * earningsMult(state)
+
+/** A day's takings from `served` walk-ins, at the door and at the desk. */
+const takings = (state: GameState, served: number, luck: number, deskLuck: number): number =>
+  served * doorFee(state, luck)
+  + served * signupChance(state.satisfaction, deskLuck) * passPrice(state)
 
 /**
  * What starting `campaignId` would mean, given everything already running.
@@ -91,10 +134,30 @@ export interface TrafficOutlook {
 const OVERSHOOT_MARGIN = 1.15
 
 export function outlookFor(state: GameState, campaignId: CampaignId): TrafficOutlook {
-  const arrivals = arrivalsPerDay(state, campaignById(campaignId).spawnMultiplier)
+  const campaign = campaignById(campaignId)
+  const arrivals = arrivalsPerDay(state, campaign.spawnMultiplier)
   const scans = scanCapacityPerDay(state)
   const seats = machineCapacityPerDay(state)
   const servable = Math.min(scans, seats)
+
+  // Nobody the gym could not have served pays for anything. Clamping both
+  // sides of the comparison is what stops the projection promising a fortune
+  // exactly where the warning above says the crowd will walk back out.
+  const servedNow = Math.min(arrivalsPerDay(state), servable)
+  const servedWith = Math.min(arrivals, servable)
+
+  const luck = luckMult(state) * marketingLuck(state)
+  const deskLuck = luckMult(state) * marketingSignupBoost(state)
+
+  const net =
+    takings(
+      state,
+      servedWith,
+      luck * (campaign.clientLuck ?? 1),
+      deskLuck * (campaign.signupBoost ?? 1),
+    )
+    - takings(state, servedNow, luck, deskLuck)
+    - campaign.dailyCost
 
   return {
     arrivals,
@@ -102,5 +165,6 @@ export function outlookFor(state: GameState, campaignId: CampaignId): TrafficOut
     shortOf: arrivals <= servable * OVERSHOOT_MARGIN
       ? null
       : scans <= seats ? 'reception' : 'machines',
+    net,
   }
 }

@@ -52,10 +52,10 @@ const APPS: Tile[] = [
  * display clear for the joystick and leaves room for more apps later without
  * another row of tabs appearing from nowhere.
  *
- * Touch layouts reshape the same markup into a vertical rail under the topbar
- * — see the touch block in `styles.css`. Nothing here branches on viewport:
- * every app stays in the DOM at every size, so the rail is one CSS rule away
- * from the handset rather than a second component to keep in step.
+ * Touch layouts keep the same right-edge drawer, but enlarge its grip and cap
+ * its height so it remains comfortable in landscape — see the touch block in
+ * `styles.css`. Nothing here branches on viewport: every app stays in the DOM
+ * at every size, so there is only one menu to keep in step.
  */
 export default function Phone({ state, open, active, onToggle, onOpen }: Props) {
   const { t, money } = useI18n()
@@ -66,18 +66,18 @@ export default function Phone({ state, open, active, onToggle, onOpen }: Props) 
         className="phone-handle"
         onClick={onToggle}
         aria-label={open ? t.phone.hide : t.phone.show}
+        aria-expanded={open}
+        aria-controls="phone-menu"
       >
-        {/* Two glyphs, one of them always hidden. The touch layout folds the
-            phone upward into a rail rather than sideways into the edge, where
-            a chevron pointing back along the fold reads as decoration — so it
-            shows the close mark instead. Which one is on screen is a CSS
-            question, and answering it here would mean this component measuring
-            the viewport for a single character. */}
         <span className="phone-handle-glyph">{open ? '›' : '📱'}</span>
-        <span className="phone-handle-close" aria-hidden="true">✕</span>
       </button>
 
-      <div className="phone-shell">
+      <div
+        id="phone-menu"
+        className="phone-shell"
+        aria-hidden={!open}
+        inert={!open}
+      >
         <div className="phone-speaker" />
 
         <div className="phone-status">
