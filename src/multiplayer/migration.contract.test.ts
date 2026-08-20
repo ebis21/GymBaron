@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import migration from '../../supabase/migrations/202608200002_multiplayer.sql?raw'
+import migration from '../../supabase/migrations/20260820210000_multiplayer.sql?raw'
 
 describe('multiplayer migration security contract', () => {
   it('enables RLS on every user-facing multiplayer table and grants no direct writes', () => {
