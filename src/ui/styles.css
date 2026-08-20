@@ -1438,6 +1438,16 @@ a:focus-visible,
   --management-accent-dark: var(--coral-dark);
 }
 
+.management-sponsors {
+  --management-accent: var(--plum);
+  --management-accent-dark: var(--plum-dark);
+}
+
+.staff-management {
+  --management-accent: var(--gold);
+  --management-accent-dark: #9a6515;
+}
+
 .management-contracts {
   --management-accent: var(--gold);
   --management-accent-dark: #9a6515;
@@ -1966,6 +1976,205 @@ a:focus-visible,
   color: var(--ink-soft);
 }
 
+/* Sponsor agreement board ----------------------------------------------- */
+
+.sponsor-card {
+  min-height: 292px;
+}
+
+.sponsor-juice-bar { --card-accent: #4d8a54; }
+.sponsor-city-apparel { --card-accent: #526e91; }
+.sponsor-supplements { --card-accent: #9d6820; }
+.sponsor-energy-drink { --card-accent: #b44b3f; }
+.sponsor-global {
+  --card-accent: #66509a;
+  grid-column: 1 / -1;
+}
+
+.sponsor-brand-icon {
+  background: #fff8e8;
+}
+
+.sponsor-conditions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.sponsor-condition {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 7px;
+  min-height: 40px;
+  padding: 7px 8px;
+  color: var(--ink-soft);
+  background: var(--cream);
+  border: 2px solid rgba(168, 106, 61, 0.25);
+  border-radius: 9px;
+}
+
+.sponsor-condition.is-pending {
+  color: #6f5019;
+  background: #fff3cf;
+  border-color: #d8a73d;
+  border-style: dashed;
+}
+
+/* Standing requirements block signing; daily targets can still be accepted
+   before the gym has hit them, so the former use the stronger stop state. */
+.sponsor-condition.is-pending.is-standing {
+  color: var(--danger-dark);
+  background: #fff0ec;
+  border-color: rgba(217, 64, 58, 0.55);
+  border-style: solid;
+}
+
+.sponsor-condition-mark {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  color: #fff;
+  background: var(--leaf-dark);
+  border-radius: 50%;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.sponsor-condition.is-pending .sponsor-condition-mark {
+  color: var(--ink);
+  background: var(--gold);
+}
+
+.sponsor-condition.is-pending.is-standing .sponsor-condition-mark {
+  color: #fff;
+  background: var(--danger-dark);
+}
+
+.sponsor-condition-copy {
+  min-width: 0;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1.3;
+}
+
+.sponsor-condition strong {
+  font-size: 10px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.management-state.broken {
+  background: var(--danger-dark);
+}
+
+/* Staff ledger and hiring board ----------------------------------------- */
+
+.staff-ledger-card,
+.recruit-management-card {
+  min-height: 238px;
+}
+
+.staff-ledger-card.role-reception,
+.recruit-management-card.role-reception { --card-accent: #347fa1; }
+.staff-ledger-card.role-cleaner,
+.recruit-management-card.role-cleaner { --card-accent: #378a7a; }
+.staff-ledger-card.role-repair,
+.recruit-management-card.role-repair { --card-accent: #a05631; }
+.staff-ledger-card.role-trainer,
+.recruit-management-card.role-trainer { --card-accent: #6450a4; }
+
+.staff-ledger-card.is-striking {
+  border-color: var(--danger-dark);
+  box-shadow: 0 0 0 2px rgba(217, 64, 58, 0.12), 0 4px 0 rgba(217, 64, 58, 0.2);
+}
+
+.staff-ledger-card.is-striking::before {
+  background: var(--danger-dark);
+}
+
+.staff-ledger-card .management-state.rank,
+.recruit-management-card .management-state.rank {
+  align-self: start;
+  margin: 0;
+  white-space: nowrap;
+}
+
+.staff-ledger-wage,
+.recruit-management-job {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.staff-ledger-wage strong,
+.recruit-management-job strong {
+  font-size: 14px;
+  line-height: 1.25;
+}
+
+.staff-ledger-status {
+  min-height: 30px;
+}
+
+.staff-ledger-shortfall {
+  margin-top: 6px;
+}
+
+.staff-ledger-arrears {
+  margin: -7px 0 16px;
+}
+
+.staff-ledger-empty {
+  min-height: 126px;
+}
+
+.staff-ledger-locked {
+  max-width: 520px;
+  min-height: 170px;
+}
+
+.staff-ledger-empty .management-card-copy {
+  max-width: 520px;
+}
+
+.staff-ledger-recruit {
+  width: 100%;
+  margin-top: 18px;
+}
+
+.recruit-management-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(150px, 1fr) minmax(0, 1.2fr);
+  align-items: stretch;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.recruit-management-toolbar > .btn {
+  min-height: 48px;
+  white-space: normal;
+}
+
+.recruit-management-capacity {
+  justify-content: center;
+  text-align: center;
+}
+
+.recruit-management-wage {
+  margin-bottom: 12px;
+}
+
+.recruit-management-action {
+  margin-top: auto;
+}
+
+.recruit-management-footnote {
+  margin-top: 16px;
+}
+
 /* Supplier catalogue ---------------------------------------------------- */
 
 .supplier-card {
@@ -2185,12 +2394,28 @@ a:focus-visible,
   }
 
   .upgrade-card,
-  .campaign-card {
+  .campaign-card,
+  .sponsor-card,
+  .staff-ledger-card,
+  .recruit-management-card {
     min-height: 0;
+  }
+
+  .sponsor-global {
+    grid-column: auto;
   }
 
   .active-campaign-list {
     grid-template-columns: 1fr;
+  }
+
+  .recruit-management-toolbar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .recruit-management-capacity {
+    grid-column: 1 / -1;
+    grid-row: 1;
   }
 }
 
@@ -2226,9 +2451,25 @@ a:focus-visible,
     justify-self: start;
   }
 
+  .sponsor-condition {
+    grid-template-columns: 22px minmax(0, 1fr);
+  }
+
+  .sponsor-condition strong {
+    grid-column: 2;
+  }
+
   .supplier-actions .management-cta,
   .supplier-toggle {
     width: 100%;
+  }
+
+  .recruit-management-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .recruit-management-capacity {
+    grid-column: auto;
   }
 }
 

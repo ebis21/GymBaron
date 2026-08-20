@@ -4,6 +4,7 @@ import { freeDesks, staffLimit } from '../game/staff'
 import { REFRESH_PRICE, displayName } from '../game/recruit'
 import { TRAINER_FEE_MULT } from '../game/constants'
 import { useI18n, type I18n } from '../i18n'
+import ManagementIcon from './ManagementIcon'
 
 interface Props {
   state: GameState
@@ -25,48 +26,98 @@ function jobHint(role: StaffRole, ms: number, t: I18n['t']): string {
   return hints.trainer(TRAINER_FEE_MULT)
 }
 
+/** The hiring board is the second leaf of the owner's staff ledger. */
 export default function RecruitScreen({ state, onHire, onReroll, onBack }: Props) {
   const { t, money, language } = useI18n()
-  const full = state.staff.length >= staffLimit(state)
+  const limit = staffLimit(state)
+  const full = state.staff.length >= limit
   // A desk already claimed by somebody is not a vacancy: `pickJob` gives one
   // counter to one receptionist, so hiring past that buys a wage and no scans.
   const deskFree = freeDesks(state) > 0
 
   return (
-    <div className="screen recruit">
-      <header className="screen-head">
-        <button className="btn ghost tiny" onClick={onBack}>‹</button>
-        <h2>{t.recruit.title}</h2>
-        <button className="btn ghost tiny" onClick={onReroll} disabled={state.cash < REFRESH_PRICE}>
-          {t.recruit.refresh(money(REFRESH_PRICE))}
-        </button>
+    <div className="screen management-screen staff-management recruit-management">
+      <header className="management-hero recruit-management-hero">
+        <div className="management-hero-mark">
+          <ManagementIcon name="recruit" />
+        </div>
+        <div className="management-hero-copy">
+          <h2 id="recruit-management-title">{t.recruit.title}</h2>
+          <p>{t.recruit.hint}</p>
+        </div>
+        <div className="management-wallet">
+          <span>{t.topbar.cash}</span>
+          <strong>{money(state.cash)}</strong>
+        </div>
       </header>
 
-      <ul className="candidate-list">
+      <div className="recruit-management-toolbar">
+        <button type="button" className="btn ghost" onClick={onBack}>
+          ‹ {t.staff.title}
+        </button>
+        <div className="management-summary-card recruit-management-capacity">
+          <span>{t.staff.team}</span>
+          <strong>{state.staff.length} / {limit}</strong>
+          <small>
+            {full ? t.staff.full : t.staff.slotsOpen(Math.max(0, limit - state.staff.length))}
+          </small>
+        </div>
+        <button
+          type="button"
+          className="btn ghost"
+          onClick={onReroll}
+          disabled={state.cash < REFRESH_PRICE}
+        >
+          {t.recruit.refresh(money(REFRESH_PRICE))}
+        </button>
+      </div>
+
+      <div
+        className="management-grid recruit-management-grid"
+        role="list"
+        aria-labelledby="recruit-management-title"
+      >
         {state.candidates.map(c => {
           const needsDesk = c.role === 'reception' && !deskFree
           const needsLevel = roleUnlockLevel(c.role)
           const locked = state.level < needsLevel
           const afford = state.cash >= c.price
+
           return (
-            <li key={c.uid} className="candidate">
-              <div className="candidate-id">
-                <strong>{displayName(c.name, language)}</strong>
-                <span className="staff-role">{t.content.roles[c.role]}</span>
-                <span className={`rank rank-${c.rank}`}>{RANK_LABEL[c.rank]}</span>
+            <article
+              key={c.uid}
+              className={`management-card recruit-management-card role-${c.role}${full || needsDesk || locked || !afford ? ' is-locked' : ''}`}
+              role="listitem"
+            >
+              <div className="management-card-head">
+                <div className="management-card-icon">
+                  <ManagementIcon name={c.role} />
+                </div>
+                <div className="management-card-title">
+                  <span className="management-eyebrow">{t.content.roles[c.role]}</span>
+                  <h3>{displayName(c.name, language)}</h3>
+                </div>
+                <span className={`management-state rank rank-${c.rank}`}>
+                  {RANK_LABEL[c.rank]}
+                </span>
               </div>
 
-              <div className="candidate-stats">
-                <span>{jobHint(c.role, workMsFor(c.role, c.rank), t)}</span>
-                <span>{t.recruit.perDay(money(wageFor(c.role, c.rank)))}</span>
+              <div className="product-value recruit-management-job">
+                <strong>{jobHint(c.role, workMsFor(c.role, c.rank), t)}</strong>
               </div>
+              <p className="management-card-copy recruit-management-wage">
+                {t.staff.payroll}: {t.recruit.perDay(money(wageFor(c.role, c.rank)))}
+              </p>
 
               {!afford && !full && !needsDesk && !locked && (
-                <div className="shop-reason">{t.recruit.tooPoor(money(c.price - state.cash))}</div>
+                <div className="management-notice danger">
+                  {t.recruit.tooPoor(money(c.price - state.cash))}
+                </div>
               )}
 
               <button
-                className="btn primary block"
+                type="button"
+                className="btn primary management-cta recruit-management-action"
                 onClick={() => onHire(c.uid)}
                 disabled={full || needsDesk || locked || !afford}
               >
@@ -76,12 +127,10 @@ export default function RecruitScreen({ state, onHire, onReroll, onBack }: Props
                   : full ? t.recruit.full
                   : t.recruit.hire(money(c.price))}
               </button>
-            </li>
+            </article>
           )
         })}
-      </ul>
-
-      <p className="muted">{t.recruit.footer}</p>
+      </div>
     </div>
   )
 }

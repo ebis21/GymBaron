@@ -210,6 +210,12 @@ export const pl: Strings = {
 
   staff: {
     title: 'Personel',
+    hint: 'Twój rejestr zatrudnienia: limit zespołu, dzienna lista płac i gotowość do pracy.',
+    team: 'Limit zespołu',
+    slotsOpen: open => `${open} ${open === 1 ? 'wolne miejsce' : 'wolnych miejsc'}`,
+    payroll: 'Dzienna lista płac',
+    payrollDue: 'Pobierana przy każdym zamknięciu',
+    emptyTitle: 'Lista płac jest pusta',
     locked: (trainerLevel, restLevel, level) =>
       `Zatrudnianie odblokowuje się na poziomie ${trainerLevel} (trenerzy personalni), a pozostałe role na poziomie ${restLevel}. Obecny poziom: ${level}.`,
     arrears: amount => `Zaległe wypłaty: ${amount}. Nikt z zaległością nie przyjdzie do pracy.`,
@@ -226,6 +232,7 @@ export const pl: Strings = {
 
   recruit: {
     title: 'Rekrutacja',
+    hint: 'Porównaj tempo pracy, pensję i koszt zatrudnienia, zanim dopiszesz kogoś do grafiku.',
     refresh: price => `Odśwież ${price}`,
     jobHint: {
       reception: seconds => `skan co ${seconds} s`,
@@ -365,7 +372,7 @@ export const pl: Strings = {
     roles: {
       reception: 'Recepcjonista',
       cleaner: 'Sprzątacz',
-      repair: 'Naprawa',
+      repair: 'Technik',
       trainer: 'Trener personalny',
     },
 

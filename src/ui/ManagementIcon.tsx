@@ -1,14 +1,20 @@
 import type { CampaignId } from '../game/content/campaigns'
+import type { SponsorId } from '../game/content/sponsors'
 import type { UpgradeId } from '../game/content/upgrades'
+import type { StaffRole } from '../game/types'
 
 export type ManagementIconName =
   | CampaignId
+  | SponsorId
+  | StaffRole
   | UpgradeId
   | 'contract'
   | 'equipment'
   | 'marketing'
+  | 'recruit'
+  | 'sponsor'
+  | 'staff'
   | 'upgrade'
-  | 'reception'
   | 'furniture'
   | 'partition'
   | 'expansion'
@@ -41,6 +47,12 @@ export default function ManagementIcon({ name, className }: Props) {
         return <path d="M3 9v6m3-8v10m12-10v10m3-8v6M6 12h12" />
       case 'marketing':
         return <><path d="M4 13V8l12-4v13L4 13Z" /><path d="M8 14v5.5a2 2 0 0 0 4 0V15m6-7c1.4 1.2 1.4 3.8 0 5" /></>
+      case 'sponsor':
+        return <><path d="M4 7h16v11H4z" /><path d="M8 7V4h8v3m-9 4h10M9 14h6" /><path d="M7 18v2m10-2v2" /></>
+      case 'staff':
+        return <><circle cx="9" cy="8" r="3" /><path d="M3.5 19a5.5 5.5 0 0 1 11 0" /><circle cx="17.5" cy="9" r="2.2" /><path d="M15.5 14.5a4.3 4.3 0 0 1 5 4.5" /></>
+      case 'recruit':
+        return <><circle cx="9" cy="8" r="3" /><path d="M3.5 20a5.5 5.5 0 0 1 11 0M18 8v7m-3.5-3.5h7" /></>
       case 'contract':
         return <><path d="M6 3.5h8l4 4V21H6z" /><path d="M14 3.5V8h4M9 12h6M9 15.5h6" /></>
       case 'upgrade':
@@ -54,6 +66,7 @@ export default function ManagementIcon({ name, className }: Props) {
       case 'expansion':
         return <><path d="M9 4H4v5m11-5h5v5M9 20H4v-5m11 5h5v-5" /><path d="m4 4 5 5m11-5-5 5M4 20l5-5m11 5-5-5" /></>
       case 'cleaning':
+      case 'cleaner':
         return <><path d="m16.5 3-7 12" /><path d="M7 13.5 12.5 17 9 22H3l1-6.5zM12.5 6.5l3 1.8" /></>
       case 'repair':
         return <><path d="M14.5 6.5a5 5 0 0 0-6.2 6.2L3.5 17.5a2.1 2.1 0 0 0 3 3l4.8-4.8a5 5 0 0 0 6.2-6.2l-3 3-3-3z" /><path d="m5 19 1-1" /></>
@@ -63,6 +76,18 @@ export default function ManagementIcon({ name, className }: Props) {
         return <><circle cx="8" cy="8" r="3.2" /><circle cx="16" cy="8" r="3.2" /><circle cx="8" cy="16" r="3.2" /><circle cx="16" cy="16" r="3.2" /><path d="m12 12 6 9" /></>
       case 'patience':
         return <><path d="M6 3h12M6 21h12M7 3c0 5 2 6 5 9-3 3-5 4-5 9m10-18c0 5-2 6-5 9 3 3 5 4 5 9" /><path d="M9 18h6" /></>
+      case 'trainer':
+        return <><circle cx="12" cy="6" r="2.5" /><path d="M7 12.5 12 10l5 2.5M12 10v6m-4 5 4-5 4 5" /><path d="M5 9v5m-2-4v3m16-4v5m2-4v3" /></>
+      case 'juice-bar':
+        return <><path d="M6 8h12l-1 13H7zM8 4h7l2 4M10 12h4" /></>
+      case 'city-apparel':
+        return <path d="m8 4-5 4 3 4 2-1v9h8v-9l2 1 3-4-5-4a5 5 0 0 1-8 0Z" />
+      case 'supplements':
+        return <><path d="M7 7h10l1 13H6zM8 3h8v4H8z" /><path d="M9 12h6m-3-3v6" /></>
+      case 'energy-drink':
+        return <><path d="M8 3h8l1 18H7z" /><path d="m13 7-3 5h3l-2 5 4-6h-3z" /></>
+      case 'global':
+        return <><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3c3 3 4 6 4 9s-1 6-4 9c-3-3-4-6-4-9s1-6 4-9Z" /></>
       case 'flyers':
         return <><path d="M7 4h11v14H7zM4 7v14h11" /><path d="M10 8h5m-5 3h5m-5 3h3" /></>
       case 'social':

@@ -207,6 +207,12 @@ export const en = {
 
   staff: {
     title: 'Staff',
+    hint: 'Your hiring ledger: team capacity, daily payroll and who is ready to work.',
+    team: 'Team capacity',
+    slotsOpen: (open: number) => `${open} ${open === 1 ? 'slot' : 'slots'} open`,
+    payroll: 'Daily payroll',
+    payrollDue: 'Charged at every close',
+    emptyTitle: 'No payroll yet',
     locked: (trainerLevel: number, restLevel: number, level: number) =>
       `Hiring opens at level ${trainerLevel} (personal trainers) and the other roles at level ${restLevel}. You are level ${level}.`,
     arrears: (amount: string) =>
@@ -224,6 +230,7 @@ export const en = {
 
   recruit: {
     title: 'Recruit',
+    hint: 'Compare output, wage and signing cost before adding somebody to the rota.',
     refresh: (price: string) => `Refresh ${price}`,
     jobHint: {
       reception: (seconds: string) => `scan every ${seconds}s`,
@@ -364,7 +371,7 @@ export const en = {
     roles: {
       reception: 'Receptionist',
       cleaner: 'Cleaner',
-      repair: 'Repairs',
+      repair: 'Technician',
       trainer: 'Personal trainer',
     } satisfies Record<StaffRole, string>,
 
