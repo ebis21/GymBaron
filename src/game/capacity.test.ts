@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { initialState } from './economy'
 import { applyMarketing } from './marketing'
+import { campaignById } from './content/campaigns'
 import {
   arrivalsPerDay,
   machineCapacityPerDay,
@@ -152,5 +153,77 @@ describe('outlookFor', () => {
     })
     const { arrivals, servable } = outlookFor(ready, 'flyers')
     expect(arrivals).toBeLessThan(servable * 1.15)
+  })
+})
+
+describe('what an offer is worth', () => {
+  /** A gym nobody can serve: the fee is the whole of the arithmetic. */
+  const shut = () => gym({ decor: [], staff: [], machines: [] })
+
+  /** A busy, well-staffed gym with room to grow into. */
+  const busy = () => gym({
+    reputation: 60,
+    satisfaction: 80,
+    decor: [desk('d1', 1), desk('d2', 3)],
+    staff: [recep('r1'), recep('r2')],
+    machines: Array.from({ length: 12 }, (_, i) => machine(`m${i}`, 'bench')),
+  })
+
+  /**
+   * Capacity so far below the door that the queue is already full without any
+   * advertising. Extra reach buys literally nothing here, which is what makes
+   * it the honest test of whether the other two axes are counted.
+   */
+  const saturated = () => gym({
+    reputation: 100,
+    satisfaction: 80,
+    decor: [desk('d1', 1)],
+    staff: [recep('r1', 'rare')],
+    machines: [machine('m0', 'bench')],
+  })
+
+  it('is nothing but the bill when the gym can serve nobody', () => {
+    expect(outlookFor(shut(), 'flyers').net).toBeCloseTo(-campaignById('flyers').dailyCost, 5)
+  })
+
+  it('pays for itself when a busy gym has room for the extra crowd', () => {
+    expect(outlookFor(busy(), 'flyers').net).toBeGreaterThan(0)
+  })
+
+  it('never counts an arrival the gym could not have served', () => {
+    const capped = outlookFor(saturated(), 'tv').net
+    expect(capped).toBeCloseTo(-campaignById('tv').dailyCost, 5)
+  })
+
+  it('counts what a better class of client is worth on the whole crowd', () => {
+    // Reach is worthless at saturation, so anything above the bare fee here
+    // is the rarity table being sold rather than the queue.
+    const premium = outlookFor(saturated(), 'premium').net
+    expect(premium).toBeGreaterThan(-campaignById('premium').dailyCost)
+  })
+
+  it('counts the passes a referral push sells to the same crowd', () => {
+    const referral = outlookFor(saturated(), 'referral').net
+    expect(referral).toBeGreaterThan(-campaignById('referral').dailyCost)
+  })
+
+  it('prices an offer on top of whatever is already live', () => {
+    const alone = outlookFor(busy(), 'social').net
+    const stacked = outlookFor(
+      applyMarketing(busy(), { type: 'start', campaignId: 'flyers' }),
+      'social',
+    ).net
+
+    // Campaigns compound, so an offer bought on top of another multiplies a
+    // rate that is already lifted. While there is capacity left to fill, the
+    // second one is worth more than the first — that is the whole reason
+    // stacking exists, and the projection has to say so.
+    expect(stacked).toBeGreaterThan(alone)
+  })
+
+  it('is worth more to a gym people already like', () => {
+    const unknown = outlookFor(gym({ ...busy(), reputation: 5 }), 'social').net
+    const loved = outlookFor(gym({ ...busy(), reputation: 95 }), 'social').net
+    expect(loved).toBeGreaterThan(unknown)
   })
 })
