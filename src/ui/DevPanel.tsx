@@ -57,6 +57,7 @@ export default function DevPanel({ onTeleportToReception }: Props) {
       <span className="dev-panel-tag">DEV</span>
       <button onClick={() => cheat({ cash: state.cash + 1000 })}>+1000 kr</button>
       <button onClick={() => cheat({ cash: state.cash + 10000 })}>+10 000 kr</button>
+      <button onClick={() => cheat({ diamonds: state.diamonds + 10 })}>+10 💎</button>
       <button onClick={() => cheat({ level: state.level + 1, xp: 0 })}>{t.dev.levelUp}</button>
       <button onClick={() => cheat({ level: STAFF_UNLOCK_LEVEL, xp: 0 })}>
         {t.dev.staffLevel(STAFF_UNLOCK_LEVEL)}

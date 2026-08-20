@@ -1,7 +1,10 @@
 import { describe, it, expect } from 'vitest'
 import { serialize, deserialize } from './save'
 import { initialState } from './economy'
-import { SAVE_VERSION } from './constants'
+import { DAY_MS, SAVE_VERSION } from './constants'
+import { closeDay } from './dayClose'
+
+const closeDayForMigration = () => closeDay({ ...initialState(9, 0), dayMs: DAY_MS })
 
 describe('save round-trip', () => {
   it('restores an identical state', () => {
@@ -182,7 +185,7 @@ describe('payday breakdown on a stored receipt', () => {
     signups: 2, churn: 0, rent: 60, power: 6, memberUpkeep: 28, wages: 0,
     marketingSpend: 0, contractFees: 0, sponsorIncome: 0,
     bill: 94, net: 1206, cashBefore: 1000, cashAfter: 2206,
-    clientsServed: 12, clientsLost: 1,
+    clientsServed: 12, clientsLost: 1, diamondReward: 0,
   }
 
   it('fills the breakdown in rather than rejecting the save', () => {
@@ -223,5 +226,56 @@ describe('payday breakdown on a stored receipt', () => {
 
     expect(loaded.dayReport!.renewals).toBe(5200)
     expect(loaded.dayReport!.renewalCount).toBe(4)
+  })
+})
+
+describe('migration to version 10', () => {
+  it('adds neutral diamonds and social state to a version 9 save', () => {
+    const current = initialState(31, 0)
+    const v9 = JSON.stringify({
+      ...current,
+      version: 9,
+      cash: 7654,
+      diamonds: undefined,
+      diamondUpgrades: undefined,
+      lastDiamondRewardDay: undefined,
+      allianceIncomeMultiplier: undefined,
+      appliedSabotageIds: undefined,
+    })
+
+    const loaded = deserialize(v9, 0)
+    expect(loaded.version).toBe(SAVE_VERSION)
+    expect(loaded.cash).toBe(7654)
+    expect(loaded.diamonds).toBe(0)
+    expect(loaded.diamondUpgrades).toEqual({
+      queue_patience: 0,
+      repair_discount: 0,
+      xp_boost: 0,
+    })
+    expect(loaded.lastDiamondRewardDay).toBe(0)
+    expect(loaded.allianceIncomeMultiplier).toBe(1)
+    expect(loaded.appliedSabotageIds).toEqual([])
+  })
+
+  it('adds a zero diamond reward to an old receipt', () => {
+    const closed = closeDayForMigration()
+    const v9 = JSON.stringify({
+      ...closed,
+      version: 9,
+      diamonds: undefined,
+      diamondUpgrades: undefined,
+      lastDiamondRewardDay: undefined,
+      allianceIncomeMultiplier: undefined,
+      appliedSabotageIds: undefined,
+      dayReport: { ...closed.dayReport, diamondReward: undefined },
+    })
+    expect(deserialize(v9, 0).dayReport!.diamondReward).toBe(0)
+  })
+
+  it('rejects a current save with a forged multiplier', () => {
+    const corrupt = JSON.stringify({ ...initialState(41, 0), allianceIncomeMultiplier: 10 })
+    const loaded = deserialize(corrupt, 0)
+    expect(loaded.cash).toBe(500)
+    expect(loaded.allianceIncomeMultiplier).toBe(1)
   })
 })

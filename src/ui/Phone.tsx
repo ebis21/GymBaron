@@ -7,6 +7,7 @@ import { useI18n } from '../i18n'
 export type PhoneApp =
   | 'gym' | 'build' | 'shop' | 'stats' | 'staff' | 'upgrades'
   | 'marketing' | 'contracts' | 'sponsors'
+  | 'diamond-upgrades' | 'account' | 'multiplayer'
 
 interface Props {
   state: GameState
@@ -33,6 +34,9 @@ const APPS: Tile[] = [
   // No `minLevel`: the price of the first rung is the only gate, which is the
   // whole design of the track — see `buyUpgrade`.
   { id: 'upgrades', glyph: '⬆️', tint: 'sky' },
+  { id: 'diamond-upgrades', glyph: '💎', tint: 'diamond' },
+  { id: 'multiplayer', glyph: '🤝', tint: 'social' },
+  { id: 'account', glyph: '☁️', tint: 'cloud' },
   { id: 'stats', glyph: '📊', tint: 'sky' },
   // Trainers unlock long before the automation roles, and they are hired from
   // this same screen — so the app opens at the earliest level that can hire
@@ -84,6 +88,7 @@ export default function Phone({ state, open, active, onToggle, onOpen }: Props) 
           <span>{formatClock(state.dayMs)}</span>
           <span>{t.phone.day(state.day)}</span>
           <span>{money(state.cash)}</span>
+          <span>💎 {state.diamonds}</span>
         </div>
 
         <div className="phone-apps">

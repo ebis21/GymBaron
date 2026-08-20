@@ -66,6 +66,10 @@ export default function TopBar({ state, onOpenSettings }: Props) {
           <span className="topbar-label">{t.topbar.cash}</span>
           <span className={`topbar-value ${cashClass(state.cash)}`}>{money(state.cash)}</span>
         </div>
+        <div className="topbar-cell diamond-cell">
+          <span className="topbar-label">Diamenty</span>
+          <span className="topbar-value">💎 {state.diamonds}</span>
+        </div>
         <div className={`topbar-cell${paydayToday && duePasses > 0 ? ' payday' : ''}`}>
           <span className="topbar-label">{t.topbar.members}</span>
           <span className="topbar-value">
@@ -85,7 +89,12 @@ export default function TopBar({ state, onOpenSettings }: Props) {
         </div>
         <div className="topbar-cell">
           <span className="topbar-label">{t.topbar.gymClass}</span>
-          <span className="topbar-value">×{gymClass(state).toFixed(2)}</span>
+          <span className="topbar-value">
+            ×{gymClass(state).toFixed(2)}
+            {state.allianceIncomeMultiplier === 1.5 && (
+              <span className="topbar-sub">Sojusz ×1,5</span>
+            )}
+          </span>
         </div>
         <div className="topbar-cell">
           <span className="topbar-label">{t.topbar.reputation}</span>

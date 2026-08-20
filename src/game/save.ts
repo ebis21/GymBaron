@@ -4,6 +4,7 @@ import { SAVE_VERSION } from './constants'
 import { DOOR_QUEUE_Z, doorX } from './layout'
 import { floorPlanFrom, snapshotActiveFloor } from './floors'
 import { emptyUpgrades, UPGRADE_IDS } from './content/upgrades'
+import { emptyDiamondUpgrades } from './diamondUpgrades'
 import { initialMarketing, normalizeMarketing } from './marketing'
 import { initialContracts, normalizeContracts } from './contracts'
 import { initialSponsors, normalizeSponsors } from './sponsors'
@@ -237,6 +238,51 @@ function migrateV8(raw: Record<string, unknown>): Record<string, unknown> {
   }
 }
 
+/** Version 10 adds diamonds, their separate upgrade tracks and social receipts. */
+function migrateV9(raw: Record<string, unknown>): Record<string, unknown> {
+  const previousReport = raw.dayReport
+  const dayReport = typeof previousReport === 'object' && previousReport !== null
+    ? { ...previousReport, diamondReward: 0 }
+    : previousReport
+
+  return {
+    ...raw,
+    version: 10,
+    diamonds: 0,
+    diamondUpgrades: emptyDiamondUpgrades(),
+    lastDiamondRewardDay: 0,
+    allianceIncomeMultiplier: 1,
+    appliedSabotageIds: [],
+    dayReport,
+  }
+}
+
+function looksLikeV10(s: Record<string, unknown>): boolean {
+  if (typeof s.diamondUpgrades !== 'object' || s.diamondUpgrades === null) return false
+  const upgrades = s.diamondUpgrades as Record<string, unknown>
+  const levelsOkay = ['queue_patience', 'repair_discount', 'xp_boost'].every(id => (
+    typeof upgrades[id] === 'number' &&
+    Number.isInteger(upgrades[id]) &&
+    (upgrades[id] as number) >= 0 &&
+    (upgrades[id] as number) <= 3
+  ))
+  const report = s.dayReport
+  const reportOkay = report === null || (
+    typeof report === 'object' &&
+    ((report as Record<string, unknown>).diamondReward === undefined ||
+      typeof (report as Record<string, unknown>).diamondReward === 'number')
+  )
+
+  return (
+    typeof s.diamonds === 'number' && Number.isInteger(s.diamonds) && s.diamonds >= 0 &&
+    typeof s.lastDiamondRewardDay === 'number' && Number.isInteger(s.lastDiamondRewardDay) &&
+    (s.allianceIncomeMultiplier === 1 || s.allianceIncomeMultiplier === 1.5) &&
+    Array.isArray(s.appliedSabotageIds) &&
+    s.appliedSabotageIds.every(id => typeof id === 'string') &&
+    levelsOkay && reportOkay
+  )
+}
+
 /**
  * Re-seats the three feature sub-states over their current defaults. Runs on
  * every load, not only on migration — that is what makes a feature's own
@@ -255,7 +301,12 @@ function hydrateFeatures(s: Record<string, unknown>): Record<string, unknown> {
   const dayReport = typeof report === 'object' && report !== null
     ? (() => {
         const r = report as Record<string, unknown>
-        return { ...r, renewals: number(r.renewals), renewalCount: number(r.renewalCount) }
+        return {
+          ...r,
+          renewals: number(r.renewals),
+          renewalCount: number(r.renewalCount),
+          diamondReward: number(r.diamondReward),
+        }
       })()
     : report
 
@@ -304,6 +355,8 @@ export function deserialize(raw: string, now: number): GameState {
     if (state.version === 7) state = migrateV7(state)
     if (!looksLikeV8(state)) return initialState(now, now)
     if (state.version === 8) state = migrateV8(state)
+    if (state.version === 9) state = migrateV9(state)
+    if (!looksLikeV10(state)) return initialState(now, now)
 
     return hydrateFeatures(state) as unknown as GameState
   } catch {

@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { Capacitor } from '@capacitor/core'
 import { App as NativeApp } from '@capacitor/app'
-import type { DecorTypeId, GameState, MachineTypeId } from '../game/types'
+import type { DecorTypeId, DiamondUpgradeId, GameState, MachineTypeId } from '../game/types'
 import { initialState } from '../game/economy'
 import { machineType } from '../game/content/machines'
 import { decorType, WALL_PRICE } from '../game/content/decor'
@@ -35,6 +35,15 @@ import { applySponsors, type SponsorAction } from '../game/sponsors'
 import { loadRaw, saveRaw } from './storage'
 import { AUTOSAVE_MS, SAVE_KEY } from '../game/constants'
 import { switchActiveFloor, unlockNextFloor } from '../game/floors'
+import { buyDiamondUpgrade, repairPrice } from '../game/diamondUpgrades'
+import { getAccountService, type CloudSaveEvent } from '../cloud'
+import {
+  getMultiplayerApi,
+  onAfterMultiplayerWalletMutation,
+  onBeforeMultiplayerWalletMutation,
+  onMultiplayerInvalidated,
+} from '../multiplayer/runtime'
+import { applySabotageDelivery, setAllianceIncomeMultiplier } from '../game/social'
 
 export interface WelcomeBack {
   earned: number
@@ -60,6 +69,8 @@ interface GameStore {
   buyExpansion: () => void
   /** Buys the next rung of one upgrade track; ignored at the top of the ladder. */
   buyUpgrade: (id: UpgradeId) => void
+  /** Buys a permanent premium track using only earned diamonds. */
+  buyDiamondUpgrade: (id: DiamondUpgradeId) => void
   buyNextFloor: () => void
   switchFloor: (floor: number) => void
   /** Cashes up the day. Only offered once the clock has run out. */
@@ -93,17 +104,29 @@ interface GameStore {
 let rafId: number | null = null
 let lastFrameAt = 0
 let sinceSaveMs = 0
+let onlineServicesBound = false
+let lastSessionUserId: string | null = null
+let lastMultiplayerSyncAt = 0
 let lifecycleBound = false
 let hydration: Promise<void> | null = null
 let appActive = typeof document === 'undefined' || !document.hidden
 let lifecycleGeneration = 0
+
+const MULTIPLAYER_SYNC_MS = 60_000
 
 /** Control Centre and other brief interruptions still settle, but do not need
  * a full welcome-back receipt when the player returns immediately. */
 const WELCOME_BACK_MIN_MS = 30_000
 
 export const useGameStore = create<GameStore>((set, get) => {
-  const persist = (state: GameState): Promise<void> => saveRaw(SAVE_KEY, serialize(state))
+  const account = getAccountService()
+  const multiplayer = getMultiplayerApi()
+
+  const persist = async (state: GameState): Promise<void> => {
+    const raw = serialize(state)
+    await saveRaw(SAVE_KEY, raw)
+    void account.cloud.push(raw)
+  }
 
   /** Money out of the till, recorded as spend. */
   const charge = (state: GameState, price: number): GameState => ({
@@ -123,12 +146,139 @@ export const useGameStore = create<GameStore>((set, get) => {
     void persist({ ...next, lastSeenAt: Date.now() })
   }
 
+  const adoptCloudSave = (event: Extract<CloudSaveEvent, { type: 'adopt' }>) => {
+    const now = Date.now()
+    const loaded = deserialize(event.raw, now)
+    syncRoomSize(loaded)
+    const settled = settleOffline(loaded, now)
+    const state = ensurePool(settled.state)
+
+    set({
+      state,
+      ready: true,
+      welcomeBack: event.reason === 'first-login' && settled.awayMs > 0
+        ? { earned: settled.earned, awayMs: settled.awayMs }
+        : null,
+    })
+    // CloudSaveService has already written the downloaded raw value locally.
+    // Persist the offline settlement too, but do not push it back while the
+    // adoption event is still resolving its revision.
+    void saveRaw(SAVE_KEY, serialize(state))
+  }
+
+  let multiplayerSync: Promise<void> | null = null
+  const syncMultiplayer = (): Promise<void> => {
+    if (multiplayerSync) return multiplayerSync
+
+    let succeeded = false
+    multiplayerSync = (async () => {
+      const session = account.state().session
+      if (!session) {
+        const current = get().state
+        if (get().ready && current.allianceIncomeMultiplier !== 1) {
+          commit(setAllianceIncomeMultiplier(current, 1))
+        }
+        succeeded = true
+        return
+      }
+
+      try {
+        const [incomeMultiplier, events] = await Promise.all([
+          multiplayer.getNormalIncomeMultiplier(),
+          multiplayer.getPendingSabotages(),
+        ])
+
+        let current = get().state
+        let next = current
+        const acknowledged: string[] = []
+
+        next = setAllianceIncomeMultiplier(next, incomeMultiplier)
+
+        for (const event of events) {
+          if (next.appliedSabotageIds.includes(event.id)) {
+            acknowledged.push(event.id)
+            continue
+          }
+
+          const delivered = applySabotageDelivery(next, event.id)
+          next = delivered.state
+          if (delivered.shouldAcknowledge) acknowledged.push(event.id)
+        }
+
+        if (next !== current) commit(next)
+        for (const eventId of acknowledged) {
+          try { await multiplayer.acknowledgeSabotage(eventId) } catch { /* retry next poll */ }
+        }
+        succeeded = true
+      } catch {
+        // Being offline only postpones social refresh; the cached multiplier
+        // and the local simulation remain usable.
+      }
+    })().finally(() => {
+      if (succeeded) lastMultiplayerSyncAt = Date.now()
+      multiplayerSync = null
+    })
+
+    return multiplayerSync
+  }
+
+  const bindOnlineServices = () => {
+    if (onlineServicesBound) return
+    onlineServicesBound = true
+
+    account.onCloudEvent(event => {
+      if (event.type === 'adopt') adoptCloudSave(event)
+    })
+
+    account.subscribe(state => {
+      if (!get().ready) return
+      const userId = state.session?.userId ?? null
+      if (userId !== lastSessionUserId) {
+        lastSessionUserId = userId
+        lastMultiplayerSyncAt = 0
+        void syncMultiplayer()
+        return
+      }
+      if (userId && Date.now() - lastMultiplayerSyncAt >= MULTIPLAYER_SYNC_MS) {
+        void syncMultiplayer()
+      }
+    })
+
+    onMultiplayerInvalidated(syncMultiplayer)
+
+    let resumeAfterWalletMutation = false
+    onBeforeMultiplayerWalletMutation(async () => {
+      resumeAfterWalletMutation = rafId !== null
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId)
+        rafId = null
+        lastFrameAt = 0
+      }
+      const state = { ...get().state, lastSeenAt: Date.now() }
+      set({ state })
+      await persist(state)
+      const result = await account.cloud.flush()
+      if (result.outcome === 'offline' || result.outcome === 'error' || result.outcome === 'local-only') {
+        throw new Error(result.message ?? 'Nie udało się zsynchronizować salda przed operacją.')
+      }
+    })
+
+    onAfterMultiplayerWalletMutation(() => {
+      if (resumeAfterWalletMutation && get().ready && appActive) startLoop()
+      resumeAfterWalletMutation = false
+    })
+  }
+
   const frame = (now: number) => {
     rafId = requestAnimationFrame(frame)
 
     const dtMs = lastFrameAt === 0 ? 0 : now - lastFrameAt
     lastFrameAt = now
     if (dtMs <= 0) return
+
+    if (Date.now() - lastMultiplayerSyncAt >= MULTIPLAYER_SYNC_MS) {
+      void syncMultiplayer()
+    }
 
     const current = get().state
     if (current.gameOver || current.dayEnded) return
@@ -175,6 +325,7 @@ export const useGameStore = create<GameStore>((set, get) => {
     const state = { ...get().state, lastSeenAt: Date.now() }
     set({ state })
     void persist(state)
+    void account.cloud.flush()
   }
 
   const resumeLoop = () => {
@@ -236,9 +387,10 @@ export const useGameStore = create<GameStore>((set, get) => {
 
     start: () => {
       bindLifecycle()
-
+      bindOnlineServices()
       if (get().ready) {
         if (appActive) startLoop()
+        void account.start()
         return
       }
 
@@ -265,6 +417,8 @@ export const useGameStore = create<GameStore>((set, get) => {
         })
         void persist(state)
         if (appActive) startLoop()
+        await account.start()
+        void syncMultiplayer()
       })().finally(() => {
         hydration = null
       })
@@ -341,6 +495,8 @@ export const useGameStore = create<GameStore>((set, get) => {
     // payment are two separate steps.
     buyUpgrade: id => commit(buyUpgrade(get().state, id)),
 
+    buyDiamondUpgrade: id => commit(buyDiamondUpgrade(get().state, id)),
+
     buyNextFloor: () => commit(unlockNextFloor(get().state)),
 
     switchFloor: floor => {
@@ -372,7 +528,7 @@ export const useGameStore = create<GameStore>((set, get) => {
       const machine = state.machines.find(m => m.uid === machineUid)
       if (!machine || machine.durability >= 100) return
 
-      const cost = machineType(machine.type).repairCost
+      const cost = repairPrice(state, machineType(machine.type).repairCost)
       if (state.cash < cost) return
 
       const next: GameState = {
@@ -383,8 +539,7 @@ export const useGameStore = create<GameStore>((set, get) => {
         ),
         stats: { ...state.stats, totalSpent: state.stats.totalSpent + cost },
       }
-      set({ state: next })
-      void persist({ ...next, lastSeenAt: Date.now() })
+      commit(next)
     },
 
     wipe: uid => {
@@ -446,6 +601,7 @@ export const useGameStore = create<GameStore>((set, get) => {
       sinceSaveMs = 0
       set({ state: next })
       void persist({ ...next, lastSeenAt: Date.now() })
+      void syncMultiplayer()
     },
 
     dismissWelcome: () => set({ welcomeBack: null }),

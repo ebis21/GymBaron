@@ -14,7 +14,8 @@ import {
   MAX_QUEUE,
   TRAINER_SATISFACTION_MULT,
 } from './constants'
-import { earningsMult, luckMult, patienceMs } from './upgrades'
+import { earningsMult, luckMult } from './upgrades'
+import { queuePatienceMs } from './diamondUpgrades'
 import { DOOR_QUEUE_Z, doorX } from './layout'
 import { spawnStain, STAIN_CHANCE } from './stains'
 import { clientsAcrossFloors } from './floors'
@@ -265,7 +266,7 @@ export function advanceClients(state: GameState, dtMs: number): GameState {
   // Both upgrade tracks are read once for the whole sweep rather than per
   // client — they cannot change mid-tick, and the loop runs over every person
   // in the building on every frame.
-  const patience = patienceMs(state)
+  const patience = queuePatienceMs(state)
   const luck = luckMult(state)
   // A referral push is worth exactly what the luck track is worth at the
   // desk, so it rides the same parameter — and the same conversion ceiling.
@@ -407,7 +408,8 @@ export function scanClient(
   const earnings = earningsMult(state)
   const plainFee = isLilD
     ? 0
-    : entryFee(machine.type, client.kind, client.rarity, state.reputation, false, earnings)
+    : entryFee(machine.type, client.kind, client.rarity, state.reputation, false, earnings) *
+      state.allianceIncomeMultiplier
   const fee = isLilD
     ? LIL_D_FAKE_PAYMENT
     : entryFee(
@@ -417,7 +419,7 @@ export function scanClient(
         state.reputation,
         coach !== null,
         earnings,
-      )
+      ) * state.allianceIncomeMultiplier
   // A breakdown of `fee`, not income on top of it — see `DayLedger.trainerFees`.
   const trainerShare = isLilD ? 0 : fee - plainFee
   const cashDelta = isLilD ? -fee : fee

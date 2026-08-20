@@ -108,6 +108,30 @@ describe('closeDay', () => {
     expect(closeDay(atClosing()).stats.totalSpent).toBe(DAILY_RENT)
   })
 
+  it('awards and reports one diamond for a very good day', () => {
+    const state = atClosing({
+      satisfaction: 80,
+      today: { ...base().today, clientsServed: 10 },
+    })
+    const closed = closeDay(state)
+
+    expect(closed.diamonds).toBe(1)
+    expect(closed.dayReport!.diamondReward).toBe(1)
+    expect(closed.lastDiamondRewardDay).toBe(state.day)
+  })
+
+  it('awards the top tier once even if closing is called again', () => {
+    const state = atClosing({
+      satisfaction: 95,
+      today: { ...base().today, clientsServed: 20 },
+    })
+    const once = closeDay(state)
+    const twice = closeDay(once)
+
+    expect(once.diamonds).toBe(2)
+    expect(twice).toBe(once)
+  })
+
   // Closing is the player's own button now, so it has to defend itself: the
   // day may not be cashed up before it is over, nor twice on the same day.
   it('refuses to cash up before closing time', () => {

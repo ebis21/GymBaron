@@ -127,6 +127,13 @@ export default function DayReportModal({ report, onNextDay }: Props) {
           </strong>
         </div>
 
+        {report.diamondReward > 0 && (
+          <div className="receipt-diamonds">
+            <span>Nagroda za zadowolenie klientów</span>
+            <strong>+{report.diamondReward} 💎</strong>
+          </div>
+        )}
+
         <p className="receipt-cash">
           {t.report.cashLabel} {money(report.cashBefore)} →{' '}
           <strong>{money(report.cashAfter)}</strong>

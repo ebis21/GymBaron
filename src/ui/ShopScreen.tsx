@@ -9,6 +9,7 @@ import { expansionAt, nextExpansion } from '../game/content/expansion'
 import { assetFor } from '../assets/assetFor'
 import { useI18n } from '../i18n'
 import ManagementIcon, { type ManagementIconName } from './ManagementIcon'
+import { repairPrice } from '../game/diamondUpgrades'
 
 interface Props {
   state: GameState
@@ -113,7 +114,7 @@ export default function ShopScreen({
                       {t.shop.machineMeta(
                         money(machine.powerPerDay),
                         Math.round(machine.workoutMs / 1000),
-                        money(machine.repairCost),
+                        money(repairPrice(state, machine.repairCost)),
                       )}
                     </span>
                     <h3>{t.content.machines[machine.id]}</h3>

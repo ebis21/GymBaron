@@ -31,12 +31,17 @@ import { useI18n, useI18nStore } from './i18n'
 import { usePrefsStore } from './store/prefs'
 import FloorAccessModal from './ui/FloorAccessModal'
 import { floorName } from './game/floors'
+import DiamondUpgradeScreen from './ui/UpgradeScreen'
+import { repairPrice } from './game/diamondUpgrades'
+import AccountScreen from './ui/AccountScreen'
+import MultiplayerPanel from './ui/MultiplayerPanel'
 import { countOf, gymAlerts, type AlertKind } from './game/alerts'
 
 /** Which full-screen panel is over the room, if any. */
 type Tab =
-  | 'gym' | 'shop' | 'stats' | 'staff' | 'upgrades'
+  | 'gym' | 'shop' | 'stats' | 'staff' | 'upgrades' | 'diamond-upgrades'
   | 'marketing' | 'contracts' | 'sponsors'
+  | 'account' | 'multiplayer'
 
 interface Selection {
   kind: PlacedKind
@@ -137,6 +142,7 @@ export default function App() {
   const contracts = useGameStore(s => s.contracts)
   const sponsors = useGameStore(s => s.sponsors)
   const buyNextFloor = useGameStore(s => s.buyNextFloor)
+  const buyDiamondUpgrade = useGameStore(s => s.buyDiamondUpgrade)
   const switchFloor = useGameStore(s => s.switchFloor)
   const endDay = useGameStore(s => s.endDay)
 
@@ -568,10 +574,11 @@ export default function App() {
       const machine = state.machines.find(m => m.uid === focus.machineUid)
       if (!machine) return null
       const spec = machineType(machine.type)
+      const cost = repairPrice(state, spec.repairCost)
       return {
-        label: t.action.repair(money(spec.repairCost)),
+        label: t.action.repair(money(cost)),
         hint: t.content.machines[machine.type],
-        enabled: state.cash >= spec.repairCost,
+        enabled: state.cash >= cost,
         run: () => repair(focus.machineUid),
         hold: { ms: repairMs, uid: focus.machineUid },
         key: { ms: repairMs, uid: focus.machineUid },
@@ -747,6 +754,12 @@ export default function App() {
               onBuyWall={buyWall}
               onBuyExpansion={buyExpansion}
             />
+          ) : tab === 'diamond-upgrades' ? (
+            <DiamondUpgradeScreen state={state} onBuy={buyDiamondUpgrade} />
+          ) : tab === 'account' ? (
+            <AccountScreen />
+          ) : tab === 'multiplayer' ? (
+            <MultiplayerPanel onOpenAccount={() => setTab('account')} />
           ) : tab === 'staff' ? (
             state.level < HIRING_UNLOCK_LEVEL ? (
               <StaffLockedScreen state={state} />
