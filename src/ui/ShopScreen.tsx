@@ -5,6 +5,7 @@ import { ENTRY_FEE_BASE } from '../game/constants'
 import { expansionAt, nextExpansion } from '../game/content/expansion'
 import { assetFor } from '../assets/assetFor'
 import { money } from './format'
+import { repairPrice } from '../game/upgrades'
 
 interface Props {
   state: GameState
@@ -62,7 +63,7 @@ export default function ShopScreen({
                 <div className="shop-name">{m.name}</div>
                 <div className="shop-meta">
                   Prąd {money(m.powerPerDay)}/dzień · Trening {Math.round(m.workoutMs / 1000)} s ·
-                  Naprawa {money(m.repairCost)}
+                  Naprawa {money(repairPrice(state, m.repairCost))}
                 </div>
                 <div className="shop-mult">
                   ×{m.revenueMultiplier.toFixed(2)} · wejściówka{' '}

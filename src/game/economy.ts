@@ -14,6 +14,7 @@ import {
   SAVE_VERSION,
 } from './constants'
 import { machinesAcrossFloors } from './floors'
+import { emptyUpgrades, xpMultiplier } from './upgrades'
 
 export const emptyLedger = (): DayLedger => ({
   entryFees: 0,
@@ -39,6 +40,9 @@ export function initialState(seed: number, now: number): GameState {
   return {
     version: SAVE_VERSION,
     cash: START_CASH,
+    diamonds: 0,
+    upgrades: emptyUpgrades(),
+    lastDiamondRewardDay: 0,
     reputation: 0,
     satisfaction: 50,
     level: 1,
@@ -168,11 +172,19 @@ export function dailyCosts(state: GameState): DailyCosts {
 }
 
 export function addXp(state: GameState, amount: number): GameState {
-  let xp = state.xp + amount
+  let xp = state.xp + amount * xpMultiplier(state)
   let level = state.level
   while (xp >= XP_PER_LEVEL) {
     xp -= XP_PER_LEVEL
     level += 1
   }
-  return { ...state, xp, level }
+  return {
+    ...state,
+    xp,
+    level,
+    // One diamond per level, even when one large award crosses several
+    // thresholds. Loading or using the dev patch cannot mint them because all
+    // progression awards still flow through this function.
+    diamonds: state.diamonds + (level - state.level),
+  }
 }

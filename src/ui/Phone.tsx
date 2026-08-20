@@ -4,7 +4,7 @@ import { HIRING_UNLOCK_LEVEL } from '../game/constants'
 import { money } from './format'
 
 /** Everything reachable from the phone. `staff` is a placeholder for now. */
-export type PhoneApp = 'gym' | 'build' | 'shop' | 'stats' | 'staff'
+export type PhoneApp = 'gym' | 'build' | 'shop' | 'upgrades' | 'stats' | 'staff'
 
 interface Props {
   state: GameState
@@ -29,6 +29,7 @@ const APPS: Tile[] = [
   { id: 'gym', label: 'Sala', glyph: '🏋️', tint: 'coral' },
   { id: 'build', label: 'Buduj', glyph: '🔨', tint: 'gold' },
   { id: 'shop', label: 'Sklep', glyph: '🛒', tint: 'leaf' },
+  { id: 'upgrades', label: 'Ulepszenia', glyph: '💎', tint: 'diamond' },
   { id: 'stats', label: 'Statystyki', glyph: '📊', tint: 'sky' },
   // Trainers unlock long before the automation roles, and they are hired from
   // this same screen — so the app opens at the earliest level that can hire
@@ -60,6 +61,7 @@ export default function Phone({ state, open, active, onToggle, onOpen }: Props) 
           <span>{formatClock(state.dayMs)}</span>
           <span>Dzień {state.day}</span>
           <span>{money(state.cash)}</span>
+          <span>💎 {state.diamonds}</span>
         </div>
 
         <div className="phone-apps">

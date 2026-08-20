@@ -1,7 +1,10 @@
 import { describe, it, expect } from 'vitest'
 import { serialize, deserialize } from './save'
 import { initialState } from './economy'
-import { SAVE_VERSION } from './constants'
+import { DAY_MS, SAVE_VERSION } from './constants'
+import { closeDay } from './dayClose'
+
+const closeDayForMigration = () => closeDay({ ...initialState(9, 0), dayMs: DAY_MS })
 
 describe('save round-trip', () => {
   it('restores an identical state', () => {
@@ -132,5 +135,45 @@ describe('migration to version 7', () => {
 
     expect(loaded.activeFloor).toBe(0)
     expect(loaded.cash).toBe(500)
+  })
+})
+
+describe('migration to version 8', () => {
+  it('adds a neutral diamond wallet and upgrades to a version 7 save', () => {
+    const current = initialState(31, 0)
+    const v7 = JSON.stringify({
+      ...current,
+      version: 7,
+      cash: 7654,
+      diamonds: undefined,
+      upgrades: undefined,
+      lastDiamondRewardDay: undefined,
+    })
+
+    const loaded = deserialize(v7, 0)
+
+    expect(loaded.version).toBe(SAVE_VERSION)
+    expect(loaded.cash).toBe(7654)
+    expect(loaded.diamonds).toBe(0)
+    expect(loaded.upgrades).toEqual({
+      queue_patience: 0,
+      repair_discount: 0,
+      xp_boost: 0,
+    })
+    expect(loaded.lastDiamondRewardDay).toBe(0)
+  })
+
+  it('adds a zero reward to an old receipt', () => {
+    const closed = closeDayForMigration()
+    const v7 = JSON.stringify({
+      ...closed,
+      version: 7,
+      diamonds: undefined,
+      upgrades: undefined,
+      lastDiamondRewardDay: undefined,
+      dayReport: { ...closed.dayReport, diamondReward: undefined },
+    })
+
+    expect(deserialize(v7, 0).dayReport!.diamondReward).toBe(0)
   })
 })

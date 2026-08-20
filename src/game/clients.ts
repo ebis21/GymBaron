@@ -11,9 +11,9 @@ import {
   LIL_D_FAKE_PAYMENT,
   LIL_D_SPAWN_CHANCE,
   MAX_QUEUE,
-  PATIENCE_MS,
   TRAINER_SATISFACTION_MULT,
 } from './constants'
+import { queuePatienceMs } from './upgrades'
 import { DOOR_QUEUE_Z, doorX } from './layout'
 import { spawnStain, STAIN_CHANCE } from './stains'
 import { clientsAcrossFloors } from './floors'
@@ -205,7 +205,7 @@ export function advanceClients(state: GameState, dtMs: number): GameState {
     const phaseMs = client.phaseMs + dtMs
 
     if (client.phase === 'queue') {
-      if (phaseMs > PATIENCE_MS) {
+      if (phaseMs > queuePatienceMs(state)) {
         lost += 1
         reputation = clamp(reputation - REP_LOSS_ON_WALKOUT, 0, 100)
         satisfaction = clamp(satisfaction - SAT_LOSS_ON_WALKOUT, 0, 100)

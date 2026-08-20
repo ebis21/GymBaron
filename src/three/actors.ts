@@ -4,11 +4,11 @@ import { buildNpc, buildStaffNpc, animate, poseScan, type Rig } from './models/c
 import { stanceFor } from './models/stance'
 import { buildStain } from './models/stain'
 import { isAtStaffDoor, tileToWorld } from '../game/layout'
-import { PATIENCE_MS } from '../game/constants'
 import { STAIN_OLD_MS } from '../game/stains'
 import { queueAnchorFor } from '../game/clientMove'
 import { bookingFor } from '../game/staff'
 import { PALETTE, blockAt, sphere } from './style'
+import { queuePatienceMs } from '../game/upgrades'
 
 const BAR_WIDTH = 0.62
 const BAR_FULL = new THREE.Color(PALETTE.ghost)
@@ -250,7 +250,7 @@ export class ActorLayer {
 
     view.bar.visible = client.phase === 'queue'
     if (client.phase === 'queue') {
-      const remaining = Math.max(0, 1 - client.phaseMs / PATIENCE_MS)
+      const remaining = Math.max(0, 1 - client.phaseMs / queuePatienceMs(state))
       view.bar.position.set(client.x, 1.6, client.z)
       view.barFill.scale.x = Math.max(0.001, remaining)
       ;(view.barFill.material as THREE.MeshBasicMaterial).color.lerpColors(

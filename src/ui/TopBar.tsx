@@ -41,6 +41,10 @@ export default function TopBar({ state }: { state: GameState }) {
           <span className="topbar-label">Kasa</span>
           <span className={`topbar-value ${cashClass(state.cash)}`}>{money(state.cash)}</span>
         </div>
+        <div className="topbar-cell diamond-cell">
+          <span className="topbar-label">Diamenty</span>
+          <span className="topbar-value">💎 {state.diamonds}</span>
+        </div>
         <div className="topbar-cell">
           <span className="topbar-label">Członkowie</span>
           <span className="topbar-value">

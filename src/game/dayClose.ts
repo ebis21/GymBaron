@@ -6,6 +6,7 @@ import { applyChurn, chargeRenewals } from './members'
 import { wageFor } from './content/staff'
 import { onDuty } from './staff'
 import { ensurePool } from './recruit'
+import { dailyDiamondReward } from './upgrades'
 
 /**
  * Settles the payroll out of whatever is left after the bill, in hiring order,
@@ -67,6 +68,9 @@ export function closeDay(state: GameState): GameState {
   const payroll = payWages(churnedState, cash)
   const cashAfterWages = cash - payroll.paid
   const ledger = churnedState.today
+  const diamondReward = state.lastDiamondRewardDay === state.day
+    ? 0
+    : dailyDiamondReward(state)
 
   const report: DayReport = {
     day: state.day,
@@ -86,11 +90,14 @@ export function closeDay(state: GameState): GameState {
     cashAfter: cashAfterWages,
     clientsServed: ledger.clientsServed,
     clientsLost: ledger.clientsLost,
+    diamondReward,
   }
 
   return {
     ...churnedState,
     cash: cashAfterWages,
+    diamonds: churnedState.diamonds + diamondReward,
+    lastDiamondRewardDay: state.day,
     staff: payroll.staff,
     dayMs: DAY_MS,
     dayEnded: true,

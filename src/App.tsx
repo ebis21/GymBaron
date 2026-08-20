@@ -23,9 +23,11 @@ import DevPanel from './ui/DevPanel'
 import { money } from './ui/format'
 import FloorAccessModal from './ui/FloorAccessModal'
 import { floorName } from './game/floors'
+import UpgradeScreen from './ui/UpgradeScreen'
+import { repairPrice } from './game/upgrades'
 
 /** Which full-screen panel is over the room, if any. */
-type Tab = 'gym' | 'shop' | 'stats' | 'staff'
+type Tab = 'gym' | 'shop' | 'upgrades' | 'stats' | 'staff'
 
 const RARITY_NAME: Record<ClientRarity, string> = {
   common: 'Zwykły',
@@ -126,6 +128,7 @@ export default function App() {
 
   const buyExpansion = useGameStore(s => s.buyExpansion)
   const buyNextFloor = useGameStore(s => s.buyNextFloor)
+  const buyUpgrade = useGameStore(s => s.buyUpgrade)
   const switchFloor = useGameStore(s => s.switchFloor)
   const endDay = useGameStore(s => s.endDay)
 
@@ -481,10 +484,11 @@ export default function App() {
       const machine = state.machines.find(m => m.uid === focus.machineUid)
       if (!machine) return null
       const spec = machineType(machine.type)
+      const cost = repairPrice(state, spec.repairCost)
       return {
-        label: `Napraw ${money(spec.repairCost)}`,
+        label: `Napraw ${money(cost)}`,
         hint: spec.name,
-        enabled: state.cash >= spec.repairCost,
+        enabled: state.cash >= cost,
         run: () => repair(focus.machineUid),
         hold: { ms: REPAIR_HOLD_MS, uid: focus.machineUid },
         key: { ms: REPAIR_HOLD_MS, uid: focus.machineUid },
@@ -650,6 +654,8 @@ export default function App() {
               onBuyWall={buyWall}
               onBuyExpansion={buyExpansion}
             />
+          ) : tab === 'upgrades' ? (
+            <UpgradeScreen state={state} onBuy={buyUpgrade} />
           ) : tab === 'staff' ? (
             state.level < HIRING_UNLOCK_LEVEL ? (
               <div className="screen">

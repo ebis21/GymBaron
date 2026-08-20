@@ -43,6 +43,11 @@ export interface Machine {
 
 export type DecorTypeId = 'plant' | 'reception' | 'locker' | 'watercooler'
 
+/** Permanent boosts bought only with diamonds. */
+export type UpgradeId = 'queue_patience' | 'repair_discount' | 'xp_boost'
+
+export type UpgradeLevels = Record<UpgradeId, number>
+
 /**
  * Furniture that earns nothing. It still occupies a tile, so the player trades
  * floor space for the look of the place.
@@ -158,6 +163,8 @@ export interface DayReport {
   cashAfter: number
   clientsServed: number
   clientsLost: number
+  /** Premium-currency reward earned for this day's customer satisfaction. */
+  diamondReward: number
 }
 
 export interface GameStats {
@@ -187,6 +194,11 @@ export interface FloorPlan {
 export interface GameState {
   version: number
   cash: number
+  /** Earned in play (or gifted by an ally) and spendable only on upgrades. */
+  diamonds: number
+  upgrades: UpgradeLevels
+  /** Last day whose satisfaction reward was evaluated, including a zero reward. */
+  lastDiamondRewardDay: number
   reputation: number    // 0-100
   satisfaction: number  // 0-100
   level: number

@@ -175,6 +175,10 @@ body {
   color: var(--danger);
 }
 
+.diamond-cell .topbar-value {
+  color: #2879a5;
+}
+
 .day-bar {
   margin: 6px 2px 0;
   height: 12px;
@@ -742,6 +746,9 @@ body {
 }
 .phone-icon.plum {
   background: var(--plum);
+}
+.phone-icon.diamond {
+  background: linear-gradient(145deg, #baf2ff, #45aee2);
 }
 
 .phone-label {
@@ -1313,6 +1320,25 @@ body {
   color: var(--ink-soft);
 }
 
+.receipt-diamonds {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-top: 10px;
+  padding: 10px 14px;
+  color: #1d6388;
+  background: rgba(98, 193, 232, 0.2);
+  border: 2px solid rgba(69, 174, 226, 0.45);
+  border-radius: 14px;
+  font-size: 12px;
+}
+
+.receipt-diamonds strong {
+  color: #155372;
+  font-size: 18px;
+}
+
 .receipt-stats {
   display: flex;
   flex-wrap: wrap;
@@ -1610,6 +1636,150 @@ p.warn {
   color: var(--ink-soft);
 }
 
+/* --- diamond upgrades ----------------------------------------------------- */
+
+.upgrades-screen {
+  background:
+    radial-gradient(circle at 85% 4%, rgba(98, 193, 232, 0.22), transparent 28%),
+    var(--paper);
+}
+
+.upgrades-head {
+  align-items: flex-start;
+  padding-right: 32px;
+}
+
+.upgrades-head p {
+  max-width: 430px;
+  margin: 5px 0 0;
+  color: var(--ink-soft);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.diamond-balance {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 12px;
+  color: #155372;
+  background: #dff8ff;
+  border: 3px solid #45aee2;
+  border-radius: 15px;
+  box-shadow: 0 4px 0 #2879a5;
+  font-size: 20px;
+}
+
+.diamond-rules {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-bottom: 14px;
+}
+
+.diamond-rules span {
+  padding: 5px 9px;
+  color: #155372;
+  background: rgba(98, 193, 232, 0.15);
+  border-radius: 999px;
+  font-size: 10px;
+}
+
+.upgrade-list {
+  display: grid;
+  gap: 12px;
+}
+
+.upgrade-card {
+  padding: 14px;
+  background: var(--cream);
+  border: 3px solid rgba(168, 106, 61, 0.42);
+  border-radius: 17px;
+}
+
+.upgrade-card.maxed {
+  border-color: #45aee2;
+  background: #f0fbff;
+}
+
+.upgrade-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.upgrade-card h3 {
+  margin: 0 0 2px;
+  font-size: 16px;
+}
+
+.upgrade-card-head div > span,
+.upgrade-card small {
+  color: var(--ink-soft);
+  font-size: 10px;
+}
+
+.upgrade-effect {
+  padding: 4px 8px;
+  color: #155372;
+  background: #dff8ff;
+  border-radius: 999px;
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.upgrade-pips {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 5px;
+  margin: 10px 0;
+}
+
+.upgrade-pips span {
+  height: 7px;
+  background: #d5cabb;
+  border-radius: 999px;
+}
+
+.upgrade-pips span.filled {
+  background: linear-gradient(90deg, #62c1e8, #2c8fc0);
+}
+
+.upgrade-card p {
+  margin: 0 0 12px;
+  color: var(--ink-soft);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.upgrade-card small {
+  display: block;
+  margin-top: 8px;
+  text-align: center;
+}
+
+@media (max-width: 430px) {
+  .topbar {
+    gap: 3px;
+    padding-inline: 3px;
+  }
+
+  .topbar-label {
+    font-size: 8px;
+    letter-spacing: 0;
+  }
+
+  .topbar-value {
+    font-size: 14px;
+  }
+
+  .clock-cell .clock {
+    font-size: 18px;
+  }
+}
+
 /* --- desktop ------------------------------------------------------------- */
 
 @media (min-width: 720px) {
@@ -1631,5 +1801,9 @@ p.warn {
 
   .joystick {
     display: none;
+  }
+
+  .upgrade-list {
+    grid-template-columns: repeat(3, 1fr);
   }
 }

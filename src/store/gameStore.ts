@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { DecorTypeId, GameState, MachineTypeId } from '../game/types'
+import type { DecorTypeId, GameState, MachineTypeId, UpgradeId } from '../game/types'
 import { initialState } from '../game/economy'
 import { machineType } from '../game/content/machines'
 import { decorType, WALL_PRICE } from '../game/content/decor'
@@ -28,6 +28,7 @@ import { refreshPool, ensurePool } from '../game/recruit'
 import { loadRaw, saveRaw } from './storage'
 import { AUTOSAVE_MS, SAVE_KEY } from '../game/constants'
 import { switchActiveFloor, unlockNextFloor } from '../game/floors'
+import { buyUpgrade as purchaseUpgrade, repairPrice } from '../game/upgrades'
 
 export interface WelcomeBack {
   earned: number
@@ -52,6 +53,7 @@ interface GameStore {
   scan: (clientUid: string, trainerUid?: string | null) => void
   buyExpansion: () => void
   buyNextFloor: () => void
+  buyUpgrade: (id: UpgradeId) => void
   switchFloor: (floor: number) => void
   /** Cashes up the day. Only offered once the clock has run out. */
   endDay: () => void
@@ -245,6 +247,8 @@ export const useGameStore = create<GameStore>((set, get) => {
 
     buyNextFloor: () => commit(unlockNextFloor(get().state)),
 
+    buyUpgrade: id => commit(purchaseUpgrade(get().state, id)),
+
     switchFloor: floor => {
       const current = get().state
       const switched = switchActiveFloor(current, floor)
@@ -274,7 +278,7 @@ export const useGameStore = create<GameStore>((set, get) => {
       const machine = state.machines.find(m => m.uid === machineUid)
       if (!machine || machine.durability >= 100) return
 
-      const cost = machineType(machine.type).repairCost
+      const cost = repairPrice(state, machineType(machine.type).repairCost)
       if (state.cash < cost) return
 
       const next: GameState = {
@@ -285,8 +289,7 @@ export const useGameStore = create<GameStore>((set, get) => {
         ),
         stats: { ...state.stats, totalSpent: state.stats.totalSpent + cost },
       }
-      set({ state: next })
-      persist(next)
+      commit(next)
     },
 
     wipe: uid => {

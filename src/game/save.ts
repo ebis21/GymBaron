@@ -3,6 +3,7 @@ import { initialState } from './economy'
 import { SAVE_VERSION } from './constants'
 import { DOOR_QUEUE_Z, doorX } from './layout'
 import { floorPlanFrom, snapshotActiveFloor } from './floors'
+import { emptyUpgrades } from './upgrades'
 
 export function serialize(state: GameState): string {
   // The engine works on a top-level mirror of the active room. Refresh its
@@ -178,6 +179,49 @@ function looksLikeV7(s: Record<string, unknown>): boolean {
   )
 }
 
+/** Version 8 adds the earned diamond wallet and its permanent upgrades. */
+function migrateV7(raw: Record<string, unknown>): Record<string, unknown> {
+  const previousReport = raw.dayReport
+  const dayReport = typeof previousReport === 'object' && previousReport !== null
+    ? { ...previousReport, diamondReward: 0 }
+    : previousReport
+
+  return {
+    ...raw,
+    version: 8,
+    diamonds: 0,
+    upgrades: emptyUpgrades(),
+    lastDiamondRewardDay: 0,
+    dayReport,
+  }
+}
+
+function looksLikeV8(s: Record<string, unknown>): boolean {
+  if (typeof s.upgrades !== 'object' || s.upgrades === null) return false
+  const upgrades = s.upgrades as Record<string, unknown>
+  const levelsOkay = ['queue_patience', 'repair_discount', 'xp_boost'].every(id => (
+    typeof upgrades[id] === 'number' &&
+    Number.isInteger(upgrades[id]) &&
+    (upgrades[id] as number) >= 0 &&
+    (upgrades[id] as number) <= 3
+  ))
+  const report = s.dayReport
+  const reportOkay = report === null || (
+    typeof report === 'object' &&
+    typeof (report as Record<string, unknown>).diamondReward === 'number'
+  )
+
+  return (
+    typeof s.diamonds === 'number' &&
+    Number.isInteger(s.diamonds) &&
+    s.diamonds >= 0 &&
+    typeof s.lastDiamondRewardDay === 'number' &&
+    Number.isInteger(s.lastDiamondRewardDay) &&
+    levelsOkay &&
+    reportOkay
+  )
+}
+
 /**
  * Returns a fresh state on unparseable, malformed, or future-version input
  * rather than throwing — a corrupt save must never brick the app.
@@ -202,6 +246,8 @@ export function deserialize(raw: string, now: number): GameState {
     if (!looksLikeV6(state)) return initialState(now, now)
     if (state.version === 6) state = migrateV6(state)
     if (!looksLikeV7(state)) return initialState(now, now)
+    if (state.version === 7) state = migrateV7(state)
+    if (!looksLikeV8(state)) return initialState(now, now)
 
     return state as unknown as GameState
   } catch {
