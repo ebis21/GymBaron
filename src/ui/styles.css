@@ -1633,3 +1633,120 @@ p.warn {
     display: none;
   }
 }
+
+/* --- account ------------------------------------------------------------- */
+
+.account-card {
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  background: var(--cream);
+  border: 3px solid var(--wood);
+  border-radius: 14px;
+  box-shadow: 0 3px 0 var(--wood);
+}
+
+.account-email {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+.account-sync {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+
+/* The dot carries the state at a glance; the words carry it for everyone. */
+.account-sync-dot {
+  width: 9px;
+  height: 9px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--ink-soft);
+}
+
+.account-sync.is-synced .account-sync-dot {
+  background: var(--leaf);
+}
+
+.account-sync.is-syncing .account-sync-dot {
+  background: var(--sky);
+}
+
+.account-sync.is-offline .account-sync-dot {
+  background: var(--gold);
+}
+
+.account-sync.is-error .account-sync-dot {
+  background: var(--danger);
+}
+
+.account-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.account-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--wood-dark);
+}
+
+.account-input {
+  width: 100%;
+  padding: 11px 12px;
+  font: inherit;
+  /* 16px keeps iOS Safari from zooming the whole gym on focus. */
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ink);
+  background: var(--paper);
+  border: 3px solid var(--wood);
+  border-radius: 12px;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.account-input:focus {
+  outline: none;
+  border-color: var(--sky);
+}
+
+.account-input:disabled {
+  opacity: 0.6;
+}
+
+.account-error,
+.account-notice {
+  margin: 0 0 10px;
+  padding: 9px 11px;
+  font-size: 12.5px;
+  font-weight: 700;
+  line-height: 1.45;
+  border-radius: 12px;
+}
+
+.account-error {
+  color: var(--danger-dark);
+  background: rgba(217, 64, 58, 0.12);
+  border: 2px solid rgba(217, 64, 58, 0.35);
+}
+
+.account-notice {
+  color: var(--leaf-dark);
+  background: rgba(97, 185, 84, 0.14);
+  border: 2px solid rgba(97, 185, 84, 0.4);
+}
