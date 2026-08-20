@@ -19,6 +19,7 @@ import { emptyDiamondUpgrades, xpMultiplier } from './diamondUpgrades'
 import { initialMarketing } from './marketing'
 import { initialContracts } from './contracts'
 import { initialSponsors } from './sponsors'
+import { initialPremiumState } from './premium'
 
 export const emptyLedger = (): DayLedger => ({
   entryFees: 0,
@@ -52,6 +53,7 @@ export function initialState(seed: number, now: number): GameState {
     lastDiamondRewardDay: 0,
     allianceIncomeMultiplier: 1,
     appliedSabotageIds: [],
+    premium: initialPremiumState(),
     reputation: 0,
     satisfaction: 50,
     level: 1,
@@ -217,7 +219,7 @@ export function entryFee(
 
 /** Face value of a pass at the gym's current class. */
 export function passPrice(state: GameState): number {
-  return MEMBER_FEE * gymClass(state) * state.allianceIncomeMultiplier
+  return MEMBER_FEE * gymClass(state) * state.allianceIncomeMultiplier * state.premium.incomeMultiplier
 }
 
 export interface DailyCosts {

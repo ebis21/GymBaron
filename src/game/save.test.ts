@@ -279,3 +279,36 @@ describe('migration to version 10', () => {
     expect(loaded.allianceIncomeMultiplier).toBe(1)
   })
 })
+
+describe('migration to version 11', () => {
+  it('adds neutral premium state without changing the gym', () => {
+    const current = initialState(55, 0)
+    const v10 = JSON.stringify({
+      ...current,
+      version: 10,
+      cash: 4321,
+      premium: undefined,
+    })
+
+    const loaded = deserialize(v10, 0)
+    expect(loaded.version).toBe(SAVE_VERSION)
+    expect(loaded.cash).toBe(4321)
+    expect(loaded.premium).toEqual({
+      luckMultiplier: 1,
+      incomeMultiplier: 1,
+      ownedProductIds: [],
+      appliedTransactionIds: [],
+    })
+  })
+
+  it('rejects a current save with a forged premium multiplier', () => {
+    const current = initialState(56, 0)
+    const corrupt = JSON.stringify({
+      ...current,
+      premium: { ...current.premium, incomeMultiplier: 99 },
+    })
+    const loaded = deserialize(corrupt, 0)
+    expect(loaded.cash).toBe(500)
+    expect(loaded.premium.incomeMultiplier).toBe(1)
+  })
+})

@@ -8,6 +8,8 @@ import { emptyDiamondUpgrades } from './diamondUpgrades'
 import { initialMarketing, normalizeMarketing } from './marketing'
 import { initialContracts, normalizeContracts } from './contracts'
 import { initialSponsors, normalizeSponsors } from './sponsors'
+import { initialPremiumState } from './premium'
+import { PREMIUM_PRODUCTS } from '../storefront/catalog'
 
 export function serialize(state: GameState): string {
   // The engine works on a top-level mirror of the active room. Refresh its
@@ -283,6 +285,29 @@ function looksLikeV10(s: Record<string, unknown>): boolean {
   )
 }
 
+/** Version 11 persists store receipts and the three lifetime premium rewards. */
+function migrateV10(raw: Record<string, unknown>): Record<string, unknown> {
+  return {
+    ...raw,
+    version: 11,
+    premium: initialPremiumState(),
+  }
+}
+
+function looksLikeV11(s: Record<string, unknown>): boolean {
+  if (typeof s.premium !== 'object' || s.premium === null) return false
+  const premium = s.premium as Record<string, unknown>
+  const productIds = new Set(PREMIUM_PRODUCTS.map(product => product.id))
+  return (
+    (premium.luckMultiplier === 1 || premium.luckMultiplier === 1.5) &&
+    (premium.incomeMultiplier === 1 || premium.incomeMultiplier === 2) &&
+    Array.isArray(premium.ownedProductIds) &&
+    premium.ownedProductIds.every(id => typeof id === 'string' && productIds.has(id as never)) &&
+    Array.isArray(premium.appliedTransactionIds) &&
+    premium.appliedTransactionIds.every(id => typeof id === 'string')
+  )
+}
+
 /**
  * Re-seats the three feature sub-states over their current defaults. Runs on
  * every load, not only on migration — that is what makes a feature's own
@@ -357,6 +382,8 @@ export function deserialize(raw: string, now: number): GameState {
     if (state.version === 8) state = migrateV8(state)
     if (state.version === 9) state = migrateV9(state)
     if (!looksLikeV10(state)) return initialState(now, now)
+    if (state.version === 10) state = migrateV10(state)
+    if (!looksLikeV11(state)) return initialState(now, now)
 
     return hydrateFeatures(state) as unknown as GameState
   } catch {
