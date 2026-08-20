@@ -252,10 +252,14 @@ function pickJob(state: GameState, s: Staff, claimed: Set<string>): string | nul
  * meant patience counted for nothing: the person about to leave was skipped
  * for whoever happened to have been spawned first.
  */
-export function nextToServe(state: GameState): Client | null {
+export function nextToServe(state: GameState, receptionUid?: string): Client | null {
   let worst: Client | null = null
   for (const c of state.clients) {
     if (c.phase !== 'queue') continue
+    // Legacy saves and hand-built states have no assignment yet, so either
+    // desk may still take them. Once movement has routed a visitor, only the
+    // receptionist at that counter may scan them.
+    if (receptionUid !== undefined && c.receptionUid && c.receptionUid !== receptionUid) continue
     if (worst === null || c.phaseMs > worst.phaseMs) worst = c
   }
   return worst
@@ -323,7 +327,7 @@ export function workStaff(state: GameState, dtMs: number): GameState {
     // the card. What stops this being free money is the payroll — a trainer
     // costs a wage every evening and can only see one visit at a time, so
     // hiring a sixth one earns nothing.
-    const waiting = nextToServe(next)
+    const waiting = nextToServe(next, s.targetUid)
     const coach = waiting ? freeTrainers(next)[0] ?? null : null
     const served = waiting ? scanClient(next, waiting.uid, coach?.uid ?? null) : next
 

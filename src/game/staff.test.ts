@@ -387,6 +387,43 @@ describe('workStaff', () => {
     expect(s.clients.find(c => c.uid === 'fresh')!.phase).toBe('queue')
   })
 
+  it('serves only the queue assigned to its own reception desk', () => {
+    let s = gym({
+      staff: [receptionist({ targetUid: 'd2', x: at(6, 0).x, z: at(6, 0).z })],
+      decor: [desk(), desk({ uid: 'd2', x: 6 })],
+      machines: [machine()],
+      clients: [
+        client({ uid: 'desperate', receptionUid: 'd1', phaseMs: PATIENCE_MS - 1 }),
+        client({ uid: 'own-line', receptionUid: 'd2', phaseMs: 0 }),
+      ],
+    })
+
+    s = workStaff(s, SCAN_MS)
+
+    expect(s.clients.find(c => c.uid === 'desperate')!.phase).toBe('queue')
+    expect(s.clients.find(c => c.uid === 'own-line')!.phase).toBe('toMachine')
+  })
+
+  it('lets two staffed desks scan their two queues in parallel', () => {
+    let s = gym({
+      staff: [
+        receptionist({ uid: 'e1', targetUid: 'd1' }),
+        receptionist({ uid: 'e2', targetUid: 'd2', x: at(6, 0).x, z: at(6, 0).z }),
+      ],
+      decor: [desk(), desk({ uid: 'd2', x: 6 })],
+      machines: [machine(), machine({ uid: 'm2', x: 5 })],
+      clients: [
+        client({ uid: 'c1', receptionUid: 'd1' }),
+        client({ uid: 'c2', receptionUid: 'd2' }),
+      ],
+    })
+
+    s = workStaff(s, SCAN_MS)
+
+    expect(s.clients.every(c => c.phase === 'toMachine')).toBe(true)
+    expect(s.machines.every(m => m.occupiedBy !== null)).toBe(true)
+  })
+
   it('never scans from a desk somebody else claimed', () => {
     const s = gym({
       staff: [receptionist({ targetUid: 'd-old' })],

@@ -132,7 +132,7 @@ export const pl: Strings = {
     furnitureHint: 'Poza recepcją nic nie zarabiają i zajmują pole w sali — kupujesz je dla wyglądu.',
     deskSection: 'Recepcja',
     deskHint:
-      'Każde biurko to jedno stanowisko: jeden recepcjonista na jedno biurko, a wszyscy skanują tę samą kolejkę. To najczęstszy sufit przepustowości — dostawisz biurko i zatrudnisz kogoś, obsłużysz więcej ludzi dziennie.',
+      'Każde biurko to osobne stanowisko z własną kolejką i jednym recepcjonistą. Dostaw i obsadź kolejne, a nowi klienci rozdzielą się między stanowiska — dzięki temu obsłużysz więcej osób dziennie.',
     deskCount: (desks: number, staff: number) =>
       `Masz ${desks} ${desks === 1 ? 'biurko' : 'biurek'} i ${staff} ${staff === 1 ? 'recepcjonistę' : 'recepcjonistów'}.`,
     deskIdle: (n: number) => `${n} ${n === 1 ? 'biurko stoi puste' : 'biurek stoi pustych'} — zatrudnij obsługę.`,
@@ -147,6 +147,7 @@ export const pl: Strings = {
       `Więcej pól pod sprzęt. Wszystko, co już stoi, zostaje na swoim polu — sala rozrasta się dookoła. Teraz masz ${w} × ${h} pól.`,
     expansionMeta: (w, h, extra) => `${w} × ${h} pól · o ${extra} pól więcej`,
     biggest: 'Największa sala — nie ma czego dokupić',
+    buy: price => `Kup · ${price}`,
     needsLevel: level => `Wymaga poziomu ${level}`,
     short: amount => `Brakuje ${amount}`,
     machineMeta: (power, seconds, repair) =>
@@ -250,7 +251,7 @@ export const pl: Strings = {
     current: value => `Teraz ${value}`,
     step: (from, to) => `${from} → ${to}`,
     maxed: 'Ulepszone do końca',
-    buy: price => price,
+    buy: price => `Ulepsz · ${price}`,
     seconds: value => `${value}s`,
     mult: value => `×${value}`,
     blurb: {

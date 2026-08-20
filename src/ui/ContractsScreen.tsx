@@ -5,6 +5,7 @@ import type { SupplierId } from '../game/content/suppliers'
 import { blockedBy, signed, suppliers } from '../game/contracts'
 import { assetFor } from '../assets/assetFor'
 import { useI18n } from '../i18n'
+import ManagementIcon from './ManagementIcon'
 
 interface Props {
   state: GameState
@@ -12,91 +13,101 @@ interface Props {
   onContract: (action: ContractAction) => void
 }
 
+const MONOGRAM: Record<SupplierId, string> = {
+  ferrum: 'FW',
+  apex: 'AA',
+}
+
 /**
- * Equipment supplier contracts.
- *
- * OWNER: `feat/v2-equipment-contracts`. Nobody else edits this file.
- *
- * Every deal is shown with the kit it unlocks, signed or not. A ladder the
- * player cannot see the top of is not a ladder — it is a surprise, and the
- * whole reason to sign Ferrum is knowing that Apex is up there.
- *
- * The kit itself is folded away, though. Printed flat, two suppliers put ten
- * machines and their small print on one scrolling screen, and the decision the
- * screen exists for — sign this, or not yet — was somewhere in the middle of
- * it. Collapsed, each supplier is a name, a price and a fee; the catalogue is
- * one tap away, and only ever one of them is open at a time.
+ * Equipment supplier contracts, presented as a small physical catalogue.
+ * The commercial decision stays visible while each machine list folds open
+ * beneath it, so a long catalogue never buries the sign or cancel action.
  */
 export default function ContractsScreen({ state, onContract }: Props) {
   const { t, money } = useI18n()
   const deals = suppliers()
-
-  /** The supplier whose catalogue is unfolded, or null for all folded. */
   const [open, setOpen] = useState<SupplierId | null>(null)
 
   return (
-    <div className="screen">
-      <header className="screen-head">
-        <h2>{t.contracts.title}</h2>
+    <div className="screen management-screen management-contracts">
+      <header className="management-hero">
+        <div className="management-hero-mark">
+          <ManagementIcon name="contract" />
+        </div>
+        <div className="management-hero-copy">
+          <h2>{t.contracts.title}</h2>
+          <p>{t.contracts.hint}</p>
+        </div>
+        <div className="management-wallet">
+          <span>{t.topbar.cash}</span>
+          <strong>{money(state.cash)}</strong>
+        </div>
       </header>
-      <p className="hint">{t.contracts.hint}</p>
 
-      <div className="deal-list">
+      <div className="supplier-grid">
         {deals.map(deal => {
           const names = t.contracts.supplier[deal.id]
           const held = signed(state, deal.id)
           const blocker = blockedBy(state, deal.id)
           const unfolded = open === deal.id
-
-          // One reason, the one that actually stands in the way. `blockedBy`
-          // returns them in the order the player has to clear them, so the
-          // label always names the next thing to do rather than the last.
-          const reason =
-            blocker === 'level'
-              ? t.contracts.needsLevel(deal.minLevel)
-              : blocker === 'requires' && deal.requires !== null
-                ? t.contracts.needsSupplier(t.contracts.supplier[deal.requires].name)
-                : blocker === 'cash'
-                  ? t.contracts.short(money(deal.signingFee - state.cash))
-                  : null
+          const reason = blocker === 'level'
+            ? t.contracts.needsLevel(deal.minLevel)
+            : blocker === 'requires' && deal.requires !== null
+              ? t.contracts.needsSupplier(t.contracts.supplier[deal.requires].name)
+              : blocker === 'cash'
+                ? t.contracts.short(money(deal.signingFee - state.cash))
+                : null
 
           return (
             <section
-              className={`deal${held ? ' held' : ''}${!held && reason ? ' locked' : ''}`}
+              className={`management-card supplier-card supplier-${deal.id}${held ? ' is-held' : ''}${!held && reason ? ' is-locked' : ''}`}
               key={deal.id}
             >
-              <div className="deal-head">
-                <div className="deal-name">
-                  {names.name}
-                  {held && <span className="deal-tag">{t.contracts.held}</span>}
+              <div className="supplier-head">
+                <div className="supplier-mark" aria-hidden="true">{MONOGRAM[deal.id]}</div>
+                <div className="management-card-title">
+                  <span className="management-eyebrow">{t.contracts.unlocks(deal.catalogue.length)}</span>
+                  <h3>{names.name}</h3>
                 </div>
-                <div className="deal-meta">
-                  {t.contracts.unlocks(deal.catalogue.length)} ·{' '}
-                  {t.contracts.dailyFee(money(deal.dailyFee))}
-                </div>
-                {reason && !held && <div className="deal-reason">{reason}</div>}
+                {held && <span className="management-state complete">{t.contracts.held}</span>}
               </div>
 
-              <div className="deal-actions">
+              <p className="management-card-copy">{names.blurb}</p>
+
+              <div className="supplier-terms">
+                <div>
+                  <span>{t.contracts.signingFee}</span>
+                  <strong>{money(deal.signingFee)}</strong>
+                </div>
+                <div>
+                  <span>{t.contracts.reportLine}</span>
+                  <strong>{t.contracts.dailyFee(money(deal.dailyFee))}</strong>
+                </div>
+              </div>
+
+              {reason && !held && <div className="management-notice danger">{reason}</div>}
+
+              <div className="supplier-actions">
                 <button
-                  className="deal-more"
+                  className="supplier-toggle"
                   aria-expanded={unfolded}
                   onClick={() => setOpen(unfolded ? null : deal.id)}
                 >
-                  {t.contracts.kit}
-                  <span className="deal-caret">{unfolded ? '▴' : '▾'}</span>
+                  <ManagementIcon name="equipment" />
+                  <span>{t.contracts.kit}</span>
+                  <span className="supplier-caret" aria-hidden="true">{unfolded ? '−' : '+'}</span>
                 </button>
 
                 {held ? (
                   <button
-                    className="btn ghost tiny"
+                    className="btn ghost management-cta"
                     onClick={() => onContract({ type: 'cancel', supplier: deal.id })}
                   >
                     {t.contracts.cancel}
                   </button>
                 ) : (
                   <button
-                    className="btn tiny"
+                    className="btn management-cta"
                     disabled={reason !== null}
                     onClick={() => onContract({ type: 'sign', supplier: deal.id })}
                   >
@@ -106,41 +117,29 @@ export default function ContractsScreen({ state, onContract }: Props) {
               </div>
 
               {unfolded && (
-                <div className="deal-body">
-                  <p className="deal-blurb">{names.blurb}</p>
-
-                  <ul className="deal-kit">
-                    {/* The catalogue is already the spec — weakest rung first,
-                        which is the order the player climbs it in. */}
-                    {deal.catalogue.map(spec => {
-                      const Icon = assetFor(spec.id)
-
-                      return (
-                        <li className="deal-kit-row" key={spec.id}>
-                          <Icon />
-                          <span className="deal-kit-name">{t.content.machines[spec.id]}</span>
-                          {/* The multiplier alone. What it does to the door fee
-                              and to the class is the shop's explanation to give,
-                              and it gives it beside the buy button. */}
-                          <span className="deal-kit-mult">
-                            ×{spec.revenueMultiplier.toFixed(2)}
-                          </span>
-                          <span className="deal-kit-price">{money(spec.price)}</span>
-                        </li>
-                      )
-                    })}
-                  </ul>
-                </div>
+                <ul className="supplier-kit">
+                  {deal.catalogue.map(spec => {
+                    const Icon = assetFor(spec.id)
+                    return (
+                      <li className="supplier-kit-row" key={spec.id}>
+                        <div className="supplier-kit-art"><Icon /></div>
+                        <div>
+                          <strong>{t.content.machines[spec.id]}</strong>
+                          <span>×{spec.revenueMultiplier.toFixed(2)}</span>
+                        </div>
+                        <b>{money(spec.price)}</b>
+                      </li>
+                    )
+                  })}
+                </ul>
               )}
             </section>
           )
         })}
       </div>
 
-      {/* Only once something can actually be cancelled: until then it answers
-          a fear nobody has yet, and this screen is short on purpose. */}
       {deals.some(deal => signed(state, deal.id)) && (
-        <p className="hint">{t.contracts.keepsKit}</p>
+        <p className="management-footnote">{t.contracts.keepsKit}</p>
       )}
     </div>
   )

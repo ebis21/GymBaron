@@ -1413,6 +1413,825 @@ a:focus-visible,
   background: var(--leaf);
 }
 
+/* --- management catalogue ------------------------------------------------
+ *
+ * Shop, upgrades, advertising and supplier contracts are one family of
+ * decisions, but they are not one generic list. This scoped system gives each
+ * app the same tactile catalogue chrome while leaving the older `.shop-*` and
+ * `.stat-*` primitives alone for sponsors, recruitment and reports.
+ */
+
+.management-screen {
+  --management-accent: var(--leaf);
+  --management-accent-dark: var(--leaf-dark);
+  --card-accent: var(--management-accent-dark);
+  padding-bottom: 30px;
+}
+
+.management-upgrades {
+  --management-accent: var(--sky);
+  --management-accent-dark: #347fa1;
+}
+
+.management-marketing {
+  --management-accent: var(--coral);
+  --management-accent-dark: var(--coral-dark);
+}
+
+.management-contracts {
+  --management-accent: var(--gold);
+  --management-accent-dark: #9a6515;
+}
+
+.management-hero {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 22px;
+  padding: 16px;
+  color: var(--paper);
+  background: #3c2b20;
+  border: 4px solid var(--wood-dark);
+  border-radius: 18px;
+  box-shadow: inset 0 0 0 2px rgba(255, 253, 247, 0.1), 0 5px 0 rgba(125, 74, 38, 0.22);
+}
+
+/* The ruled edge makes the header feel like a tabbed ledger, without adding
+   translucent layers or decorative gradients over a busy game canvas. */
+.management-hero::after {
+  content: '';
+  position: absolute;
+  right: 12px;
+  bottom: 8px;
+  left: 12px;
+  border-bottom: 2px dashed rgba(255, 253, 247, 0.16);
+}
+
+.management-hero-mark {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 58px;
+  height: 58px;
+  color: #2f241d;
+  background: var(--management-accent);
+  border: 3px solid var(--paper);
+  border-radius: 16px;
+  box-shadow: 0 4px 0 var(--management-accent-dark);
+  transform: rotate(-2deg);
+}
+
+.management-hero-mark svg {
+  width: 32px;
+  height: 32px;
+}
+
+.management-hero-copy {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+}
+
+.management-hero-copy h2 {
+  margin: 0;
+  font-size: clamp(20px, 3.2vw, 27px);
+  line-height: 1.05;
+  color: #fff;
+}
+
+.management-hero-copy p {
+  max-width: 560px;
+  margin: 6px 0 0;
+  font-size: 11.5px;
+  font-weight: 700;
+  line-height: 1.45;
+  color: rgba(255, 253, 247, 0.78);
+}
+
+.management-wallet {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  min-width: 112px;
+  padding: 9px 11px;
+  color: var(--ink);
+  background: var(--cream);
+  border: 3px solid var(--management-accent);
+  border-radius: 12px;
+  box-shadow: 0 3px 0 var(--management-accent-dark);
+  font-variant-numeric: tabular-nums;
+}
+
+.management-wallet span {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-soft);
+}
+
+.management-wallet strong {
+  margin-top: 1px;
+  font-size: 16px;
+  line-height: 1.1;
+}
+
+.management-section + .management-section {
+  margin-top: 28px;
+}
+
+.management-section-head {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 3px dashed rgba(168, 106, 61, 0.28);
+}
+
+.management-section-icon {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  color: var(--management-accent-dark);
+  background: var(--cream);
+  border: 2px solid var(--wood);
+  border-radius: 11px;
+  box-shadow: 0 2px 0 rgba(125, 74, 38, 0.25);
+}
+
+.management-section-icon svg {
+  width: 23px;
+  height: 23px;
+}
+
+.management-section-head h2 {
+  margin: 1px 0 0;
+  font-size: 15px;
+  line-height: 1.15;
+  text-transform: uppercase;
+  letter-spacing: 0.055em;
+  color: var(--wood-dark);
+}
+
+.management-section-head p {
+  max-width: 650px;
+  margin: 4px 0 0;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.4;
+  color: var(--ink-soft);
+}
+
+.management-grid,
+.supplier-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.management-card {
+  --card-accent: var(--management-accent-dark);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 15px;
+  overflow: hidden;
+  background: var(--paper);
+  border: 3px solid rgba(168, 106, 61, 0.58);
+  border-radius: 16px;
+  box-shadow: 0 4px 0 rgba(125, 74, 38, 0.18);
+}
+
+.management-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 5px;
+  background: var(--card-accent);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .management-card {
+    transition: transform 130ms ease, box-shadow 130ms ease, border-color 130ms ease;
+  }
+
+  .management-card:hover {
+    border-color: var(--wood);
+    box-shadow: 0 6px 0 rgba(125, 74, 38, 0.2);
+    transform: translateY(-2px);
+  }
+}
+
+.management-card.is-locked {
+  background: #f5f0e7;
+  border-color: #b7aa9b;
+}
+
+.management-card.is-locked::before {
+  background: #9f9182;
+}
+
+.management-card.is-complete,
+.management-card.is-held,
+.management-card.is-live {
+  border-color: var(--leaf-dark);
+  box-shadow: 0 0 0 2px rgba(70, 148, 59, 0.13), 0 4px 0 rgba(70, 148, 59, 0.22);
+}
+
+.management-card.is-complete::before,
+.management-card.is-held::before,
+.management-card.is-live::before {
+  background: var(--leaf-dark);
+}
+
+.management-card-head,
+.supplier-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.management-card-icon {
+  display: grid;
+  place-items: center;
+  width: 50px;
+  height: 50px;
+  flex: none;
+  color: var(--card-accent);
+  background: var(--cream);
+  border: 2px solid currentColor;
+  border-radius: 13px;
+}
+
+.management-card-icon > svg {
+  width: 29px;
+  height: 29px;
+}
+
+.management-card-icon.machine-art {
+  color: var(--wood);
+  background: var(--cream);
+}
+
+.management-card-icon.machine-art > svg {
+  width: 45px;
+  height: 45px;
+  padding: 2px;
+}
+
+.management-card-title {
+  min-width: 0;
+}
+
+.management-card-title h3 {
+  margin: 2px 0 0;
+  font-size: 15px;
+  line-height: 1.2;
+  color: var(--ink);
+}
+
+.management-eyebrow {
+  display: block;
+  font-size: 9px;
+  font-weight: 900;
+  line-height: 1.35;
+  text-transform: uppercase;
+  letter-spacing: 0.055em;
+  color: var(--ink-soft);
+}
+
+.management-card-copy {
+  margin: 10px 0 0;
+  font-size: 11.5px;
+  font-weight: 700;
+  line-height: 1.45;
+  color: var(--ink-soft);
+}
+
+.management-state {
+  align-self: start;
+  padding: 4px 8px;
+  font-size: 9px;
+  line-height: 1;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #fff;
+  background: var(--card-accent);
+  border-radius: 999px;
+}
+
+.management-state.complete,
+.management-state.live {
+  background: var(--leaf-dark);
+}
+
+.product-value,
+.upgrade-step,
+.campaign-metrics {
+  margin-top: 12px;
+  padding: 9px 10px;
+  color: var(--ink);
+  background: var(--cream);
+  border: 2px solid rgba(168, 106, 61, 0.3);
+  border-radius: 10px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.product-value {
+  font-weight: 900;
+  line-height: 1.35;
+}
+
+.management-notice {
+  margin-top: 10px;
+  padding: 8px 9px;
+  font-size: 10.5px;
+  font-weight: 800;
+  line-height: 1.4;
+  border: 2px solid;
+  border-radius: 10px;
+}
+
+.management-notice.warning {
+  color: #6f5019;
+  background: #fff3cf;
+  border-color: #d8a73d;
+}
+
+.management-notice.danger {
+  color: var(--danger-dark);
+  background: #fff0ec;
+  border-color: rgba(217, 64, 58, 0.45);
+}
+
+.management-cta {
+  width: 100%;
+  min-height: 43px;
+  margin-top: auto;
+  padding: 9px 12px;
+  font-size: 12.5px;
+}
+
+.product-value + .management-cta,
+.product-value + .management-notice,
+.management-card-copy + .management-cta,
+.management-notice + .management-cta,
+.upgrade-rungs + .management-cta,
+.campaign-metrics + .management-cta {
+  margin-top: 12px;
+}
+
+.compact-product-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.utility-card .management-card-copy {
+  min-height: 32px;
+}
+
+/* Upgrade tracks --------------------------------------------------------- */
+
+.tone-cleaning { --card-accent: #378a7a; }
+.tone-repair { --card-accent: #a05631; }
+.tone-earnings { --card-accent: #a66e09; }
+.tone-luck { --card-accent: #4c8d3c; }
+.tone-patience { --card-accent: #6450a4; }
+
+.upgrade-card {
+  min-height: 280px;
+}
+
+.upgrade-step strong {
+  font-size: 16px;
+  letter-spacing: 0.01em;
+}
+
+.upgrade-rungs {
+  display: flex;
+  gap: 5px;
+  margin-top: 11px;
+}
+
+.upgrade-rungs span {
+  flex: 1;
+  height: 9px;
+  background: #ded5c9;
+  border: 2px solid #b9aa99;
+  border-radius: 3px;
+}
+
+.upgrade-rungs span.done {
+  background: var(--card-accent);
+  border-color: var(--card-accent);
+}
+
+.upgrade-rungs span.next {
+  background: var(--gold);
+  border-color: var(--card-accent);
+}
+
+.management-complete-mark {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  min-height: 43px;
+  margin-top: auto;
+  color: #fff;
+  background: var(--leaf-dark);
+  border: 3px solid #357c2c;
+  border-radius: 12px;
+  box-shadow: 0 3px 0 #357c2c;
+}
+
+/* Advertising board ----------------------------------------------------- */
+
+.management-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.management-summary-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 12px;
+  background: var(--cream);
+  border: 3px solid rgba(168, 106, 61, 0.5);
+  border-radius: 14px;
+  box-shadow: 0 3px 0 rgba(125, 74, 38, 0.15);
+}
+
+.management-summary-card > span {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.065em;
+  color: var(--ink-soft);
+}
+
+.management-summary-card > strong {
+  margin-top: 3px;
+  font-size: 19px;
+  line-height: 1.1;
+}
+
+.management-summary-card > small {
+  margin-top: 4px;
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 1.35;
+  color: var(--ink-soft);
+}
+
+.active-campaigns {
+  grid-column: 1 / -1;
+  border-color: var(--leaf-dark);
+}
+
+.active-campaign-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+  margin-top: 8px;
+}
+
+.active-campaign {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  align-items: center;
+  column-gap: 7px;
+  padding: 7px 8px;
+  background: var(--paper);
+  border: 2px solid rgba(70, 148, 59, 0.34);
+  border-radius: 9px;
+}
+
+.active-campaign svg {
+  grid-row: 1 / 3;
+  width: 25px;
+  height: 25px;
+  color: var(--leaf-dark);
+}
+
+.active-campaign strong {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.active-campaign small {
+  font-size: 9px;
+  color: var(--ink-soft);
+}
+
+.tone-flyers { --card-accent: #a16c1e; }
+.tone-social { --card-accent: #347fa1; }
+.tone-billboards { --card-accent: #6c579e; }
+.tone-influencer { --card-accent: #bd4c62; }
+.tone-tv { --card-accent: #3c586d; }
+
+.campaign-card {
+  min-height: 300px;
+}
+
+.campaign-metrics {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.campaign-metrics strong {
+  font-size: 15px;
+}
+
+.campaign-metrics span {
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 1.35;
+  color: var(--ink-soft);
+}
+
+/* Supplier catalogue ---------------------------------------------------- */
+
+.supplier-card {
+  --card-accent: #846047;
+  align-self: start;
+}
+
+.supplier-apex {
+  --card-accent: #535f73;
+}
+
+.supplier-mark {
+  display: grid;
+  place-items: center;
+  width: 50px;
+  height: 50px;
+  color: #fff;
+  background: var(--card-accent);
+  border: 3px double var(--paper);
+  border-radius: 50%;
+  font-size: 14px;
+  letter-spacing: 0.04em;
+}
+
+.supplier-terms {
+  display: grid;
+  grid-template-columns: 0.8fr 1.2fr;
+  gap: 7px;
+  margin-top: 12px;
+}
+
+.supplier-terms > div {
+  min-width: 0;
+  padding: 8px;
+  background: var(--cream);
+  border: 2px solid rgba(168, 106, 61, 0.28);
+  border-radius: 9px;
+}
+
+.supplier-terms span,
+.supplier-terms strong {
+  display: block;
+}
+
+.supplier-terms span {
+  font-size: 8.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-soft);
+}
+
+.supplier-terms strong {
+  margin-top: 2px;
+  font-size: 10.5px;
+  line-height: 1.3;
+}
+
+.supplier-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 0.7fr) minmax(0, 1.3fr);
+  align-items: stretch;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.supplier-actions .management-cta {
+  margin-top: 0;
+}
+
+.supplier-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 43px;
+  padding: 7px 9px;
+  font: inherit;
+  font-size: 11px;
+  color: var(--wood-dark);
+  background: var(--cream);
+  border: 3px solid var(--wood);
+  border-radius: 12px;
+  box-shadow: 0 3px 0 var(--wood);
+  cursor: pointer;
+}
+
+.supplier-toggle:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 var(--wood);
+}
+
+.supplier-toggle svg {
+  width: 20px;
+  height: 20px;
+}
+
+.supplier-caret {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  margin-left: auto;
+  color: #fff;
+  background: var(--wood-dark);
+  border-radius: 50%;
+}
+
+.supplier-kit {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin: 13px 0 0;
+  padding: 12px 0 0;
+  list-style: none;
+  border-top: 3px dashed rgba(168, 106, 61, 0.3);
+}
+
+.supplier-kit-row {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  background: var(--cream);
+  border: 2px solid rgba(168, 106, 61, 0.22);
+  border-radius: 9px;
+}
+
+.supplier-kit-art {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  background: var(--paper);
+  border-radius: 8px;
+}
+
+.supplier-kit-art svg {
+  width: 33px;
+  height: 33px;
+}
+
+.supplier-kit-row > div:nth-child(2) {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.supplier-kit-row strong {
+  overflow: hidden;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.supplier-kit-row span {
+  font-size: 9.5px;
+  color: var(--ink-soft);
+}
+
+.supplier-kit-row b {
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.management-footnote {
+  margin: 16px 0 0;
+  padding: 10px 12px;
+  font-size: 10.5px;
+  line-height: 1.4;
+  color: var(--ink-soft);
+  background: var(--cream);
+  border-left: 4px solid var(--leaf-dark);
+  border-radius: 8px;
+}
+
+@media (max-width: 600px) {
+  .management-hero {
+    grid-template-columns: 48px minmax(0, 1fr);
+    gap: 10px;
+    padding: 13px;
+  }
+
+  .management-hero-mark {
+    width: 46px;
+    height: 46px;
+    border-radius: 13px;
+  }
+
+  .management-hero-mark svg {
+    width: 27px;
+    height: 27px;
+  }
+
+  .management-hero-copy h2 {
+    font-size: 20px;
+  }
+
+  .management-hero-copy p {
+    font-size: 10.5px;
+  }
+
+  .management-wallet {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    min-width: 0;
+    padding: 8px 10px;
+  }
+
+  .management-grid,
+  .supplier-grid,
+  .compact-product-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .upgrade-card,
+  .campaign-card {
+    min-height: 0;
+  }
+
+  .active-campaign-list {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 390px) {
+  .management-summary-grid,
+  .supplier-terms,
+  .supplier-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .active-campaigns {
+    grid-column: auto;
+  }
+
+  .management-card {
+    padding: 13px;
+  }
+
+  .management-card-head,
+  .supplier-head {
+    grid-template-columns: 44px minmax(0, 1fr);
+  }
+
+  .management-card-icon,
+  .supplier-mark {
+    width: 44px;
+    height: 44px;
+  }
+
+  .management-card-head .management-state,
+  .supplier-head .management-state {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+
+  .supplier-actions .management-cta,
+  .supplier-toggle {
+    width: 100%;
+  }
+}
+
 /* --- modals -------------------------------------------------------------- */
 
 .overlay,

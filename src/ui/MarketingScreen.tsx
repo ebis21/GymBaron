@@ -1,10 +1,11 @@
 import type { GameState } from '../game/types'
 import { DAY_MS } from '../game/constants'
-import { CAMPAIGNS, type CampaignId } from '../game/content/campaigns'
+import { CAMPAIGNS } from '../game/content/campaigns'
 import type { MarketingAction } from '../game/marketing'
 import { dailyMarketingCost, spawnRateMultiplier } from '../game/marketing'
 import { outlookFor, servablePerDay } from '../game/capacity'
 import { useI18n } from '../i18n'
+import ManagementIcon from './ManagementIcon'
 
 interface Props {
   state: GameState
@@ -12,20 +13,12 @@ interface Props {
   onMarketing: (action: MarketingAction) => void
 }
 
-const GLYPH: Record<CampaignId, string> = {
-  flyers: '📬',
-  social: '📱',
-  billboards: '🏙️',
-  influencer: '🤳',
-  tv: '📺',
-}
-
 /**
  * Advertising campaigns.
  *
  * OWNER: `feat/v2-marketing`. Nobody else edits this file.
  *
- * The rows borrow the shop's visual language because advertising is another
+ * The offers share the shop's visual language because advertising is another
  * purchase decision. Two things sit above them: what is already live, since
  * campaigns stack and the player is buying a multiplier on top of a multiplier,
  * and what the gym can actually serve — the number that decides whether any of
@@ -44,44 +37,55 @@ export default function MarketingScreen({ state, onMarketing }: Props) {
   const totalCost = dailyMarketingCost(state)
 
   return (
-    <div className="screen">
-      <header className="screen-head">
-        <h2>{t.marketing.title}</h2>
+    <div className="screen management-screen management-marketing">
+      <header className="management-hero">
+        <div className="management-hero-mark">
+          <ManagementIcon name="marketing" />
+        </div>
+        <div className="management-hero-copy">
+          <h2>{t.marketing.title}</h2>
+          <p>{t.marketing.hint}</p>
+        </div>
+        <div className="management-wallet">
+          <span>{t.topbar.cash}</span>
+          <strong>{money(state.cash)}</strong>
+        </div>
       </header>
-      <p className="hint">{t.marketing.hint}</p>
 
-      <div className="stat-grid">
+      <div className="management-summary-grid">
         {running.length > 0 && (
-          <>
-            <div className="stat-card">
-              <div className="k">{t.marketing.activeTitle}</div>
-              <div className="v">
-                {running.map(r => t.marketing.campaigns[r.id].name).join(' · ')}
-              </div>
-              <div className="shop-meta">
-                {running
-                  .map(r => t.marketing.remainingClosings(
-                    Math.max(1, Math.ceil(r.remainingMs / DAY_MS)),
-                  ))
-                  .join(' · ')}
-              </div>
+          <div className="management-summary-card active-campaigns">
+            <span>{t.marketing.activeTitle}</span>
+            <div className="active-campaign-list">
+              {running.map(r => (
+                <div className="active-campaign" key={r.id}>
+                  <ManagementIcon name={r.id} />
+                  <strong>{t.marketing.campaigns[r.id].name}</strong>
+                  <small>
+                    {t.marketing.remainingClosings(
+                      Math.max(1, Math.ceil(r.remainingMs / DAY_MS)),
+                    )}
+                  </small>
+                </div>
+              ))}
             </div>
-            <div className="stat-card">
-              <div className="k">{t.marketing.trafficTitle}</div>
-              <div className="v">{t.marketing.effect(spawnRateMultiplier(state))}</div>
-              <div className="shop-meta">{t.marketing.totalBilling(money(totalCost))}</div>
-            </div>
-          </>
+          </div>
         )}
 
-        <div className="stat-card">
-          <div className="k">{t.marketing.capacityTitle}</div>
-          <div className="v">{servable}</div>
-          <div className="shop-meta">{t.marketing.capacity(servable)}</div>
+        <div className="management-summary-card">
+          <span>{t.marketing.trafficTitle}</span>
+          <strong>{t.marketing.effect(spawnRateMultiplier(state))}</strong>
+          <small>{t.marketing.totalBilling(money(totalCost))}</small>
+        </div>
+
+        <div className="management-summary-card">
+          <span>{t.marketing.capacityTitle}</span>
+          <strong>{servable}</strong>
+          <small>{t.marketing.capacity(servable)}</small>
         </div>
       </div>
 
-      <div className="shop-list" style={{ marginTop: 14 }}>
+      <div className="management-grid campaign-grid">
         {CAMPAIGNS.map(campaign => {
           const isRunning = running.some(r => r.id === campaign.id)
           // Priced against everything that would then be live, exactly as
@@ -106,32 +110,41 @@ export default function MarketingScreen({ state, onMarketing }: Props) {
               : t.marketing.shortMachines(arrivals, Math.round(outlook.servable))
 
           return (
-            <div
-              className={`shop-row${reason ? ' locked' : ''}`}
+            <article
+              className={`management-card campaign-card tone-${campaign.id}${reason ? ' is-locked' : ''}${isRunning ? ' is-live' : ''}`}
               key={campaign.id}
             >
-              <div className="inv-glyph">{GLYPH[campaign.id]}</div>
-
-              <div className="shop-info">
-                <div className="shop-name">{t.marketing.campaigns[campaign.id].name}</div>
-                <div className="shop-meta">{t.marketing.campaigns[campaign.id].blurb}</div>
-                <div className="shop-mult">{t.marketing.effect(campaign.spawnMultiplier)}</div>
-                <div className="shop-meta">
-                  {t.marketing.schedule(campaign.durationDays, money(campaign.dailyCost))}
+              <div className="management-card-head">
+                <div className="management-card-icon">
+                  <ManagementIcon name={campaign.id} />
                 </div>
-                {!isRunning && <div className="shop-meta">{t.marketing.projected(arrivals)}</div>}
-                {advice && <div className="shop-reason">{advice}</div>}
-                {reason && <div className="shop-reason">{reason}</div>}
+                <div className="management-card-title">
+                  <span className="management-eyebrow">
+                    {t.marketing.schedule(campaign.durationDays, money(campaign.dailyCost))}
+                  </span>
+                  <h3>{t.marketing.campaigns[campaign.id].name}</h3>
+                </div>
+                {isRunning && <span className="management-state live">{t.marketing.running}</span>}
               </div>
 
+              <p className="management-card-copy">{t.marketing.campaigns[campaign.id].blurb}</p>
+
+              <div className="campaign-metrics">
+                <strong>{t.marketing.effect(campaign.spawnMultiplier)}</strong>
+                {!isRunning && <span>{t.marketing.projected(arrivals)}</span>}
+              </div>
+
+              {advice && <div className="management-notice warning">{advice}</div>}
+              {reason && !isRunning && <div className="management-notice danger">{reason}</div>}
+
               <button
-                className={`btn${isRunning ? ' primary' : ''}`}
+                className="btn management-cta"
                 disabled={isRunning || closed || short}
                 onClick={() => onMarketing({ type: 'start', campaignId: campaign.id })}
               >
                 {isRunning ? t.marketing.running : t.marketing.start}
               </button>
-            </div>
+            </article>
           )
         })}
       </div>
