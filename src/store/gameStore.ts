@@ -44,6 +44,8 @@ import {
   onMultiplayerInvalidated,
 } from '../multiplayer/runtime'
 import { applySabotageDelivery, setAllianceIncomeMultiplier } from '../game/social'
+import { applyPremiumPurchase } from '../game/premium'
+import type { StorePurchaseReceipt } from '../storefront/types'
 
 export interface WelcomeBack {
   earned: number
@@ -91,6 +93,8 @@ interface GameStore {
   marketing: (action: MarketingAction) => void
   contracts: (action: ContractAction) => void
   sponsors: (action: SponsorAction) => void
+  /** Applies native-store receipts idempotently and persists the rewards. */
+  redeemPremiumPurchases: (receipts: StorePurchaseReceipt[]) => void
   advanceDay: () => void
   dismissWelcome: () => void
   restart: () => void
@@ -594,6 +598,12 @@ export const useGameStore = create<GameStore>((set, get) => {
       commit(applySponsors(state, action))
     },
 
+    redeemPremiumPurchases: receipts => {
+      let next = get().state
+      for (const receipt of receipts) next = applyPremiumPurchase(next, receipt)
+      commit(next)
+    },
+
     advanceDay: () => {
       const next = nextDay(get().state)
       if (next === get().state) return
@@ -608,7 +618,12 @@ export const useGameStore = create<GameStore>((set, get) => {
 
     restart: () => {
       const now = Date.now()
-      const fresh = ensurePool(initialState(now, now))
+      const fresh = ensurePool({
+        ...initialState(now, now),
+        // Lifetime purchases survive a gym restart. Keeping the receipt log
+        // also prevents consumables from being replayed by a restore attempt.
+        premium: get().state.premium,
+      })
       // A fresh gym is the base room again, whatever the last one grew to.
       syncRoomSize(fresh)
       sinceSaveMs = 0

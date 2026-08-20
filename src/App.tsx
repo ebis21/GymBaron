@@ -31,17 +31,15 @@ import { useI18n, useI18nStore } from './i18n'
 import { usePrefsStore } from './store/prefs'
 import FloorAccessModal from './ui/FloorAccessModal'
 import { floorName } from './game/floors'
-import DiamondUpgradeScreen from './ui/UpgradeScreen'
 import { repairPrice } from './game/diamondUpgrades'
-import AccountScreen from './ui/AccountScreen'
-import MultiplayerPanel from './ui/MultiplayerPanel'
 import { countOf, gymAlerts, type AlertKind } from './game/alerts'
+import ClubLauncher from './ui/ClubLauncher'
+import BaronClub from './ui/BaronClub'
 
 /** Which full-screen panel is over the room, if any. */
 type Tab =
-  | 'gym' | 'shop' | 'stats' | 'staff' | 'upgrades' | 'diamond-upgrades'
+  | 'gym' | 'shop' | 'stats' | 'staff' | 'upgrades'
   | 'marketing' | 'contracts' | 'sponsors'
-  | 'account' | 'multiplayer'
 
 interface Selection {
   kind: PlacedKind
@@ -143,6 +141,7 @@ export default function App() {
   const sponsors = useGameStore(s => s.sponsors)
   const buyNextFloor = useGameStore(s => s.buyNextFloor)
   const buyDiamondUpgrade = useGameStore(s => s.buyDiamondUpgrade)
+  const redeemPremiumPurchases = useGameStore(s => s.redeemPremiumPurchases)
   const switchFloor = useGameStore(s => s.switchFloor)
   const endDay = useGameStore(s => s.endDay)
 
@@ -156,6 +155,7 @@ export default function App() {
   // landscape. The large edge grip remains visible and is the single way to
   // reveal the same menu on every viewport.
   const [phoneOpen, setPhoneOpen] = useState(false)
+  const [clubOpen, setClubOpen] = useState(false)
   const [focus, setFocus] = useState<Focus>(null)
   const [recruiting, setRecruiting] = useState(false)
   const [floorAccessOpen, setFloorAccessOpen] = useState(false)
@@ -184,6 +184,7 @@ export default function App() {
    * handlers, canvas picks and the Three scene all consume this same flag. */
   const interactionBlocked =
     tab !== 'gym' ||
+    clubOpen ||
     bag !== null ||
     talking !== null ||
     settingsOpen ||
@@ -429,6 +430,7 @@ export default function App() {
   // exits the Activity; predictive back is routed through the same callback by
   // the official Capacitor App plugin.
   backActionRef.current = () => {
+    if (clubOpen) return setClubOpen(false)
     if (settingsOpen) return setSettingsOpen(false)
     if (floorAccessOpen) return setFloorAccessOpen(false)
     if (bag) return setBag(null)
@@ -615,7 +617,7 @@ export default function App() {
   actionRef.current = action
 
   return (
-    <div className={`app${tab === 'gym' ? '' : ' panelled'}${talking ? ' talking' : ''}`}>
+    <div className={`app${tab === 'gym' ? '' : ' panelled'}${talking ? ' talking' : ''}${clubOpen ? ' clubbed' : ''}`}>
       <GymScene3D
         state={state}
         buildMode={buildMode}
@@ -754,12 +756,6 @@ export default function App() {
               onBuyWall={buyWall}
               onBuyExpansion={buyExpansion}
             />
-          ) : tab === 'diamond-upgrades' ? (
-            <DiamondUpgradeScreen state={state} onBuy={buyDiamondUpgrade} />
-          ) : tab === 'account' ? (
-            <AccountScreen />
-          ) : tab === 'multiplayer' ? (
-            <MultiplayerPanel onOpenAccount={() => setTab('account')} />
           ) : tab === 'staff' ? (
             state.level < HIRING_UNLOCK_LEVEL ? (
               <StaffLockedScreen state={state} />
@@ -860,6 +856,24 @@ export default function App() {
         onToggle={() => setPhoneOpen(o => !o)}
         onOpen={openApp}
       />
+
+      {!clubOpen && (
+        <ClubLauncher
+          onOpen={() => {
+            setPhoneOpen(false)
+            setClubOpen(true)
+          }}
+        />
+      )}
+
+      {clubOpen && (
+        <BaronClub
+          state={state}
+          onBuyDiamondUpgrade={buyDiamondUpgrade}
+          onRedeemPremiumPurchases={redeemPremiumPurchases}
+          onClose={() => setClubOpen(false)}
+        />
+      )}
 
       {bag && (
         <InventoryPanel

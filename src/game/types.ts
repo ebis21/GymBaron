@@ -4,6 +4,7 @@ import type { SupplierMachineTypeId } from './content/suppliers'
 import type { MarketingState } from './marketing'
 import type { ContractState } from './contracts'
 import type { SponsorState } from './sponsors'
+import type { PremiumState } from '../storefront/types'
 
 /** The six the gym opened with. Available without signing anything. */
 export type BaseMachineTypeId =
@@ -246,6 +247,8 @@ export interface GameState {
   allianceIncomeMultiplier: 1 | 1.5
   /** Durable inbox receipts: a failed network acknowledgement must not summon twice. */
   appliedSabotageIds: string[]
+  /** Store-confirmed rewards and permanent premium multipliers. */
+  premium: PremiumState
   reputation: number    // 0-100
   satisfaction: number  // 0-100
   level: number

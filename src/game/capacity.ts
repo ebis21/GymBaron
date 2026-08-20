@@ -117,6 +117,8 @@ const doorFee = (state: GameState, luck: number): number =>
   * averageRarityMultiplier(luck)
   * reputationBonus(state.reputation)
   * earningsMult(state)
+  * state.allianceIncomeMultiplier
+  * state.premium.incomeMultiplier
 
 /** A day's takings from `served` walk-ins, at the door and at the desk. */
 const takings = (state: GameState, served: number, luck: number, deskLuck: number): number =>
@@ -146,8 +148,8 @@ export function outlookFor(state: GameState, campaignId: CampaignId): TrafficOut
   const servedNow = Math.min(arrivalsPerDay(state), servable)
   const servedWith = Math.min(arrivals, servable)
 
-  const luck = luckMult(state) * marketingLuck(state)
-  const deskLuck = luckMult(state) * marketingSignupBoost(state)
+  const luck = luckMult(state) * state.premium.luckMultiplier * marketingLuck(state)
+  const deskLuck = luckMult(state) * state.premium.luckMultiplier * marketingSignupBoost(state)
 
   const net =
     takings(

@@ -129,7 +129,10 @@ function acceptingArrivals(state: GameState): boolean {
 function enqueue(state: GameState, kind: ClientKind, memberUid: string | null): GameState {
   // Advertising can buy a better class of visitor as well as more of them,
   // and it stacks on the player's own luck track rather than replacing it.
-  const [rarity, seed] = rollRarity(state.seed, luckMult(state) * marketingLuck(state))
+  const [rarity, seed] = rollRarity(
+    state.seed,
+    luckMult(state) * state.premium.luckMultiplier * marketingLuck(state),
+  )
   const client: Client = {
     uid: `c${state.nextUid}`,
     kind,
@@ -267,7 +270,7 @@ export function advanceClients(state: GameState, dtMs: number): GameState {
   // client — they cannot change mid-tick, and the loop runs over every person
   // in the building on every frame.
   const patience = queuePatienceMs(state)
-  const luck = luckMult(state)
+  const luck = luckMult(state) * state.premium.luckMultiplier
   // A referral push is worth exactly what the luck track is worth at the
   // desk, so it rides the same parameter — and the same conversion ceiling.
   const deskLuck = luck * marketingSignupBoost(state)
@@ -409,7 +412,7 @@ export function scanClient(
   const plainFee = isLilD
     ? 0
     : entryFee(machine.type, client.kind, client.rarity, state.reputation, false, earnings) *
-      state.allianceIncomeMultiplier
+      state.allianceIncomeMultiplier * state.premium.incomeMultiplier
   const fee = isLilD
     ? LIL_D_FAKE_PAYMENT
     : entryFee(
@@ -419,7 +422,7 @@ export function scanClient(
         state.reputation,
         coach !== null,
         earnings,
-      ) * state.allianceIncomeMultiplier
+      ) * state.allianceIncomeMultiplier * state.premium.incomeMultiplier
   // A breakdown of `fee`, not income on top of it — see `DayLedger.trainerFees`.
   const trainerShare = isLilD ? 0 : fee - plainFee
   const cashDelta = isLilD ? -fee : fee
