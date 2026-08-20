@@ -1,0 +1,360 @@
+.multiplayer-screen {
+  width: min(880px, 100%);
+  margin: 0 auto;
+  padding: 4px 2px 24px;
+  display: grid;
+  gap: 14px;
+  color: var(--ink);
+}
+
+.multiplayer-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.multiplayer-heading .section-title,
+.multiplayer-card h3,
+.friend-operations h4 {
+  margin: 0;
+}
+
+.multiplayer-eyebrow {
+  margin: 0 0 2px;
+  color: var(--plum-dark);
+  font-size: 11px;
+  letter-spacing: .11em;
+  text-transform: uppercase;
+}
+
+.multiplayer-card,
+.friend-floor-card {
+  padding: 14px;
+  border: 3px solid rgba(168, 106, 61, .55);
+  border-radius: 16px;
+  background: var(--paper);
+  box-shadow: 0 4px 0 rgba(125, 74, 38, .17);
+}
+
+.multiplayer-card.attention {
+  border-color: var(--coral);
+}
+
+.multiplayer-card.alliance-card,
+.friend-row.allied {
+  border-color: var(--plum);
+  background: color-mix(in srgb, var(--paper) 88%, var(--plum) 12%);
+}
+
+.multiplayer-notice {
+  margin: 0;
+  padding: 10px 12px;
+  border: 2px solid;
+  border-radius: 12px;
+  font-size: 13px;
+}
+
+.multiplayer-notice.success {
+  color: var(--leaf-dark);
+  background: #effae9;
+}
+
+.multiplayer-notice.error {
+  color: var(--danger-dark);
+  background: #fff0eb;
+}
+
+.multiplayer-inline-form,
+.multiplayer-actions {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.multiplayer-inline-form .grow {
+  flex: 1 1 220px;
+}
+
+.multiplayer-field {
+  display: grid;
+  gap: 4px;
+  color: var(--ink-soft);
+  font-size: 11px;
+}
+
+.multiplayer-screen input,
+.multiplayer-screen select {
+  min-width: 0;
+  padding: 9px 10px;
+  border: 2px solid rgba(168, 106, 61, .55);
+  border-radius: 10px;
+  outline: none;
+  background: white;
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+}
+
+.multiplayer-screen input:focus,
+.multiplayer-screen select:focus {
+  border-color: var(--sky);
+  box-shadow: 0 0 0 3px rgba(98, 193, 232, .2);
+}
+
+.multiplayer-list {
+  margin-top: 10px;
+  display: grid;
+  gap: 9px;
+}
+
+.multiplayer-list.compact {
+  padding-top: 8px;
+  border-top: 2px dashed rgba(168, 106, 61, .25);
+}
+
+.multiplayer-row,
+.friend-row-main,
+.loan-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.multiplayer-row > span:first-child,
+.friend-row-main > span:first-child,
+.loan-row > div:first-child {
+  display: grid;
+  gap: 2px;
+}
+
+.multiplayer-row small,
+.friend-row small,
+.loan-row small,
+.loan-row span,
+.sabotage-warning span {
+  display: block;
+  color: var(--ink-soft);
+  font-size: 11px;
+}
+
+.friend-row {
+  padding: 11px;
+  border: 2px solid rgba(168, 106, 61, .28);
+  border-radius: 13px;
+  background: var(--cream);
+}
+
+.friend-operations {
+  margin-top: 10px;
+  padding-top: 10px;
+  display: grid;
+  gap: 10px;
+  border-top: 2px dashed rgba(168, 106, 61, .3);
+}
+
+.operation-block {
+  display: grid;
+  gap: 6px;
+}
+
+.operation-block h4 {
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+
+.sabotage-warning {
+  padding: 10px;
+  display: grid;
+  gap: 5px;
+  border: 2px solid rgba(217, 64, 58, .45);
+  border-radius: 11px;
+  background: #fff1ec;
+}
+
+.text-button {
+  justify-self: start;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--danger-dark);
+  font: inherit;
+  font-size: 11px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.text-button:disabled {
+  opacity: .5;
+  cursor: default;
+}
+
+.loan-row {
+  padding: 9px 0;
+  border-bottom: 2px dashed rgba(168, 106, 61, .22);
+}
+
+.loan-row:last-child {
+  border-bottom: 0;
+}
+
+.multiplayer-empty,
+.pending-line {
+  margin: 9px 0 0;
+  color: var(--ink-soft);
+  font-size: 12px;
+}
+
+.friend-gym-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.friend-gym-stats > div {
+  padding: 10px;
+  display: grid;
+  gap: 2px;
+  text-align: center;
+  border: 2px solid rgba(168, 106, 61, .3);
+  border-radius: 12px;
+  background: var(--paper);
+}
+
+.friend-gym-stats span {
+  color: var(--ink-soft);
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.friend-gym-stats strong {
+  font-size: 18px;
+}
+
+.friend-floor-tabs {
+  display: flex;
+  gap: 7px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.friend-floor-meta {
+  margin-bottom: 10px;
+  display: flex;
+  align-items: baseline;
+  gap: 7px 12px;
+  flex-wrap: wrap;
+}
+
+.friend-floor-meta span {
+  color: var(--ink-soft);
+  font-size: 11px;
+}
+
+.friend-gym-grid {
+  width: min(100%, 620px);
+  margin: 0 auto;
+  display: grid;
+  gap: 2px;
+  padding: 7px;
+  border: 4px solid var(--wood);
+  border-radius: 10px;
+  background: #d7bd91;
+  aspect-ratio: 1.35;
+}
+
+.friend-gym-cell {
+  position: relative;
+  min-height: 30px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(125, 74, 38, .17);
+  background: #f4dfb8;
+}
+
+.friend-gym-cell.wall-n {
+  border-top: 4px solid var(--wood-dark);
+}
+
+.friend-gym-cell.wall-w {
+  border-left: 4px solid var(--wood-dark);
+}
+
+.friend-gym-item {
+  width: min(72%, 44px);
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  border: 2px solid;
+  border-radius: 7px;
+  color: white;
+  font-size: clamp(8px, 1.8vw, 11px);
+  line-height: 1;
+  box-shadow: 0 2px 0 rgba(74, 53, 36, .25);
+}
+
+.friend-gym-item.machine,
+.friend-gym-legend i.machine {
+  border-color: #287ca2;
+  background: var(--sky);
+}
+
+.friend-gym-item.decor,
+.friend-gym-legend i.decor {
+  border-color: var(--leaf-dark);
+  background: var(--leaf);
+}
+
+.friend-gym-legend {
+  margin-top: 10px;
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  color: var(--ink-soft);
+  font-size: 10px;
+}
+
+.friend-gym-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.friend-gym-legend i {
+  width: 12px;
+  height: 12px;
+  display: inline-block;
+  border: 2px solid;
+  border-radius: 3px;
+}
+
+.friend-gym-legend i.wall {
+  height: 4px;
+  border: 0;
+  border-radius: 0;
+  background: var(--wood-dark);
+}
+
+@media (max-width: 620px) {
+  .multiplayer-row,
+  .friend-row-main,
+  .loan-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .multiplayer-actions {
+    align-self: stretch;
+  }
+
+  .friend-gym-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .friend-gym-grid {
+    padding: 4px;
+    gap: 1px;
+  }
+}
