@@ -711,11 +711,6 @@ a:focus-visible,
   display: inline-block;
 }
 
-/* Only the touch rail uses this one — see the fold note in the touch block. */
-.phone-handle-close {
-  display: none;
-}
-
 .phone-shell {
   flex: none;
   width: 240px;
@@ -2121,21 +2116,19 @@ p.warn {
 /* --- touch/mobile ------------------------------------------------------- */
 
 /*
- * On a phone the slide-out handset consumed most of the playfield and put a
- * second gesture between the player and every screen. It becomes a rail down
- * the left edge instead: icon-only tiles under the topbar, folded away by the
- * handle underneath them. A bottom dock was tried first and was worse — nine
- * tiles across two rows ate a third of the room, could not be dismissed, and
- * landed squarely on the walk stick. The same layout is used on touch tablets
- * even when their CSS width happens to cross the desktop breakpoint.
+ * Touch keeps the phone as the same right-edge drawer used on desktop. The
+ * larger grip is easy to find with a thumb, while a two-column app grid makes
+ * the menu read like a phone instead of a strip of anonymous icons. Its height
+ * is capped to the space below the measured topbar, so short landscape screens
+ * scroll inside the handset rather than pushing controls off the playfield.
+ * The same layout is used on touch tablets even when their CSS width happens
+ * to cross the desktop breakpoint.
  */
 @media (max-width: 719px), (hover: none) and (pointer: coarse) {
   /*
-   * Where the topbar actually ends, plus room to breathe. The rail and the
-   * panels both hang from this line, and they have to hang from the same one:
-   * the rail's fold handle floats over the panel's top corner, and a debt
-   * banner that moved one without the other would drop the handle into the
-   * middle of the screen.
+   * Where the topbar actually ends, plus room to breathe. The phone and the
+   * panels both read this line so a taller topbar or debt banner never leaves
+   * either one stranded underneath the HUD.
    */
   .app {
     --below-topbar: calc(var(--safe-top) + var(--topbar-h) + 11px);
@@ -2216,107 +2209,106 @@ p.warn {
 
   .phone,
   .phone.open {
-    /* One tile, its gap and the rail's own padding, named once so the four-row
-       height below stays arithmetic instead of a magic number.
-
-       56, up from 46: at the old size the glyph inside was 20px and every app
-       on the rail read as the same grey smudge at arm's length. This is still
-       under a third of the narrowest screen the rail has to sit on. */
-    --rail-tile: 56px;
-    --rail-gap: 4px;
-    --rail-pad: 3px;
-    --rail-rows: 4;
-    --rail-max-height: 242px;
-    top: var(--below-topbar);
-    right: auto;
+    --phone-handle-width: 68px;
+    --phone-drawer-content-width: min(
+      276px,
+      calc(
+        100vw - var(--safe-left) - var(--safe-right) - var(--phone-handle-width) - 12px
+      )
+    );
+    --phone-drawer-width: calc(
+      var(--phone-drawer-content-width) + var(--safe-right)
+    );
+    --phone-drawer-max-height: min(
+      520px,
+      calc(100dvh - var(--below-topbar) - var(--safe-bottom) - 12px)
+    );
+    top: calc(
+      var(--below-topbar) +
+        (100dvh - var(--below-topbar) - var(--safe-bottom)) / 2
+    );
+    right: 0;
     bottom: auto;
-    left: calc(6px + var(--safe-left));
+    left: auto;
     display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 4px;
+    flex-direction: row;
+    align-items: center;
+    gap: 0;
     padding: 0;
-    transform: none;
+    transform: translate(
+      calc(100% - var(--phone-handle-width) - var(--safe-right)),
+      -50%
+    );
+    transition: transform 300ms cubic-bezier(0.22, 1, 0.3, 1);
     pointer-events: none;
   }
 
-  .phone-speaker,
-  .phone-status,
-  .phone-home {
-    display: none;
+  .phone.open {
+    transform: translate(0, -50%);
   }
 
   /*
-   * The desktop grip, re-cut as the fold control. It sits under the rail rather
-   * than beside it so it stays in the same thumb sweep as the tiles, and it is
-   * the one part that survives the fold — collapsed, this button is the whole
-   * phone.
+   * The grip remains visible at the right edge when the drawer is folded. It is
+   * deliberately larger than the desktop control: in landscape it is reached
+   * with the hand that is not steering the joystick.
    */
   .phone-handle {
-    order: 1;
-    /* Stretches to the rail while the rail is there; the minimum is what it
-       falls back to once folded, when this button is the only target left. */
-    width: auto;
-    min-width: 56px;
-    height: 48px;
-    font-size: 18px;
-    border: 3px solid var(--wood);
-    border-radius: 14px;
-    box-shadow: 0 3px 0 rgba(125, 74, 38, 0.3);
+    order: 0;
+    width: var(--phone-handle-width);
+    min-width: var(--phone-handle-width);
+    height: 88px;
+    font-size: 30px;
+    border: 4px solid var(--wood);
+    border-right: 0;
+    border-radius: 20px 0 0 20px;
+    box-shadow: -4px 5px 0 rgba(125, 74, 38, 0.3);
     pointer-events: auto;
   }
 
-  /*
-   * Folded sideways into the edge, a chevron says which way the phone goes and
-   * the room behind it is still in view. Folded upward into a rail it said
-   * nothing: the tiles it dismisses are above it, not beside it, and players
-   * read the turned arrow as decoration and left the rail up. A close mark is
-   * the one glyph nobody has to be taught.
-   */
   .phone.open .phone-handle-glyph {
-    display: none;
-  }
-
-  .phone.open .phone-handle-close {
     display: inline-block;
-    font-size: 17px;
   }
 
   .phone-shell {
-    width: auto;
-    padding: 4px;
-    border: 3px solid #17121f;
-    border-radius: 18px;
-    box-shadow: 0 5px 18px rgba(23, 18, 31, 0.32);
+    display: flex;
+    flex-direction: column;
+    width: var(--phone-drawer-width);
+    max-height: var(--phone-drawer-max-height);
+    padding: 10px calc(10px + var(--safe-right)) 12px 10px;
+    overflow: hidden;
+    border: 5px solid #17121f;
+    border-right: 0;
+    border-radius: 30px 0 0 30px;
+    box-shadow: 0 8px 28px rgba(23, 18, 31, 0.38);
+    visibility: visible;
+    transition: visibility 0s linear;
     pointer-events: auto;
   }
 
   .phone:not(.open) .phone-shell {
-    display: none;
+    display: flex;
+    visibility: hidden;
+    transition-delay: 300ms;
+    pointer-events: none;
+  }
+
+  .phone.open .phone-shell {
+    transition-delay: 0s;
   }
 
   .phone-apps {
-    grid-template-columns: var(--rail-tile);
-    /* Locked rather than content-sized: a level badge on one tile must not be
-       able to push the fifth app up into view and break the row count. */
-    grid-auto-rows: var(--rail-tile);
-    gap: var(--rail-gap);
-    padding: var(--rail-pad);
-    border-radius: 15px;
-    /* Exactly four rows and the three gaps between them. The other five apps
-       are a flick away, which is what keeps the rail clear of the stick. */
-    max-height: var(--rail-max-height);
+    min-height: 0;
+    flex: 1 1 auto;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-auto-rows: 78px;
+    gap: 7px;
+    padding: 9px 8px;
+    border-radius: 20px;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
-    /* The canvas underneath treats a stray drag as aiming at the room, so a
-       flick that runs off the end of the list has to stop here. */
     overscroll-behavior: contain;
     touch-action: pan-y;
     scrollbar-width: none;
-    /* With the scrollbar gone the fade is the only thing saying there is more
-       below, so it stays on at both ends of the scroll rather than blinking. */
-    -webkit-mask-image: linear-gradient(180deg, #000 calc(100% - 15px), transparent);
-    mask-image: linear-gradient(180deg, #000 calc(100% - 15px), transparent);
   }
 
   .phone-apps::-webkit-scrollbar {
@@ -2326,13 +2318,13 @@ p.warn {
   .phone-app,
   .phone-app.soon {
     grid-column: auto;
-    width: var(--rail-tile);
+    width: auto;
     min-width: 0;
-    min-height: var(--rail-tile);
+    min-height: 78px;
     flex-direction: column;
     justify-content: center;
-    gap: 0;
-    padding: 0;
+    gap: 5px;
+    padding: 7px 4px;
     border-radius: 16px;
   }
 
@@ -2343,24 +2335,22 @@ p.warn {
     border-radius: 15px;
   }
 
-  /* Nothing legible fits beside an icon this size, and the button already
-     carries the app's name in `aria-label`, so the visible copy goes. */
   .phone-label {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip: rect(0 0 0 0);
-    clip-path: inset(50%);
-    white-space: nowrap;
+    position: static;
+    width: auto;
+    height: auto;
+    max-width: 100%;
+    overflow: visible;
+    clip: auto;
+    clip-path: none;
+    font-size: 10.5px;
+    text-overflow: ellipsis;
+    white-space: normal;
   }
 
-  /* Across the foot of the tile: a corner badge on a square this small covers
-     the glyph it is meant to be qualifying. */
   .phone-lock,
   .phone-soon {
     position: absolute;
-    bottom: 1px;
     left: 50%;
     margin: 0;
     padding: 0 4px;
@@ -2368,6 +2358,17 @@ p.warn {
     letter-spacing: 0;
     white-space: nowrap;
     transform: translateX(-50%);
+  }
+
+  .phone-lock {
+    top: 4px;
+    bottom: auto;
+    left: calc(50% + 20px);
+    font-size: 7.5px;
+  }
+
+  .phone-soon {
+    bottom: 2px;
   }
 
   .alert-bar {
@@ -2509,14 +2510,9 @@ p.warn {
     padding: 14px;
   }
 
-  /*
-   * Opening an app folds the rail, but its handle still floats over the panel's
-   * top-left corner the way the desktop grip floats over the right edge. The
-   * screen starts below it rather than underneath it.
-   */
   .app.panelled .screen {
-    /* The handle's own height plus a hair — they grew together. */
-    padding-top: 50px;
+    padding-top: 14px;
+    padding-right: 78px;
   }
 
   .btn {
@@ -2591,37 +2587,10 @@ p.warn {
   }
 }
 
-/* Small portrait phones need the same height-aware rail treatment as short
-   landscape. On a 320×568 viewport the four-row rail otherwise reaches the
-   joystick by a few pixels, making two unrelated targets fight for a thumb. */
+/* Small portrait phones leave a little more room around the walk stick. The
+   phone drawer already caps itself to the measured space above it. */
 @media (max-height: 660px) and (orientation: portrait) and (max-width: 719px),
   (max-height: 660px) and (orientation: portrait) and (hover: none) and (pointer: coarse) {
-  .phone,
-  .phone.open {
-    --rail-tile: 48px;
-    --rail-gap: 3px;
-    --rail-rows: 3;
-    --rail-max-height: 156px;
-  }
-
-  .phone-apps {
-    max-height: min(
-      var(--rail-max-height),
-      calc(100dvh - var(--below-topbar) - var(--safe-bottom) - 236px)
-    );
-  }
-
-  .phone-handle {
-    min-width: 48px;
-    height: 44px;
-  }
-
-  .phone-icon {
-    width: 42px;
-    height: 42px;
-    font-size: 22px;
-  }
-
   .joystick {
     bottom: calc(76px + var(--safe-bottom));
     width: 104px;
@@ -2670,45 +2639,43 @@ p.warn {
     margin-top: 2px;
   }
 
-  /* Two rows, not four: the stick starts about 160px down a screen this short,
-     and a four-row rail would be sitting in it. */
+  /* Preserve the large grip and two-column layout in landscape. Only the
+     drawer's internal rows tighten slightly; overflow stays inside the phone. */
   .phone,
   .phone.open {
-    /* Still 44px square — the tiles are the one thing that may not shrink past
-       what a thumb can hit. Only the count and the chrome give way. */
-    --rail-tile: 44px;
-    --rail-gap: 3px;
-    --rail-rows: 2;
-    --rail-max-height: 97px;
-    gap: 3px;
-  }
-
-  .phone-apps {
-    /* Two rows only if two rows fit. What is subtracted is everything the rail
-       may not have: whatever the topbar turned out to be, the square the stick
-       sweeps (158), and its own handle plus a finger of clearance (60). A
-       320px-tall landscape screen ends up showing one tile and the top of the
-       next, which still reads as a list worth scrolling. */
-    max-height: min(
-      var(--rail-max-height),
-      calc(100dvh - var(--below-topbar) - var(--safe-bottom) - 158px - 60px)
+    --phone-drawer-content-width: min(
+      286px,
+      calc(
+        100vw - var(--safe-left) - var(--safe-right) - var(--phone-handle-width) - 12px
+      )
+    );
+    --phone-drawer-max-height: calc(
+      100dvh - var(--below-topbar) - var(--safe-bottom) - 8px
     );
   }
 
-  .phone-handle {
-    height: 44px;
-    font-size: 14px;
+  .phone-apps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-auto-rows: 72px;
+    -webkit-mask-image: linear-gradient(180deg, #000 calc(100% - 14px), transparent);
+    mask-image: linear-gradient(180deg, #000 calc(100% - 14px), transparent);
+  }
+
+  .phone-app,
+  .phone-app.soon {
+    min-height: 72px;
+    gap: 3px;
+    padding-block: 5px;
   }
 
   .phone-shell {
-    padding: 3px;
-    border-radius: 15px;
+    padding-block: 8px 10px;
   }
 
   .phone-icon {
-    width: 32px;
-    height: 32px;
-    font-size: 17px;
+    width: 46px;
+    height: 46px;
+    font-size: 25px;
   }
 
   .panel {

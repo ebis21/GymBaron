@@ -78,12 +78,12 @@ const HAS_KEYBOARD =
   typeof window !== 'undefined' && window.matchMedia?.('(hover: hover)').matches === true
 
 /**
- * The touch layout from `styles.css`, where the phone is a rail down the left
- * edge rather than a handset parked in the right one. It decides only where the
- * phone starts: folded on desktop, because the grip is obvious and the room
- * matters more, and open on touch, because a collapsed rail is a single small
- * chevron and a first-time player would never find the game behind it. The
- * player's own toggle wins from then on, and nothing persists across a reload.
+ * The touch layout from `styles.css` keeps the handset on the right, but makes
+ * its grip and two-column menu easier to hit. It decides only where the phone
+ * starts: folded on desktop, because the grip is obvious and the room matters
+ * more, and open on touch so a first-time player immediately sees where every
+ * game screen lives. The player's own toggle wins from then on, and nothing
+ * persists across a reload.
  */
 const TOUCH_LAYOUT =
   typeof window !== 'undefined' &&
