@@ -18,7 +18,7 @@ import { earningsMult, luckMult, patienceMs } from './upgrades'
 import { DOOR_QUEUE_Z, doorX } from './layout'
 import { spawnStain, STAIN_CHANCE } from './stains'
 import { clientsAcrossFloors } from './floors'
-import { spawnRateMultiplier } from './marketing'
+import { marketingLuck, marketingSignupBoost, spawnRateMultiplier } from './marketing'
 
 /**
  * Chance per second that a client walks in, at zero and at full reputation.
@@ -126,7 +126,9 @@ function acceptingArrivals(state: GameState): boolean {
 }
 
 function enqueue(state: GameState, kind: ClientKind, memberUid: string | null): GameState {
-  const [rarity, seed] = rollRarity(state.seed, luckMult(state))
+  // Advertising can buy a better class of visitor as well as more of them,
+  // and it stacks on the player's own luck track rather than replacing it.
+  const [rarity, seed] = rollRarity(state.seed, luckMult(state) * marketingLuck(state))
   const client: Client = {
     uid: `c${state.nextUid}`,
     kind,
@@ -263,6 +265,9 @@ export function advanceClients(state: GameState, dtMs: number): GameState {
   // in the building on every frame.
   const patience = patienceMs(state)
   const luck = luckMult(state)
+  // A referral push is worth exactly what the luck track is worth at the
+  // desk, so it rides the same parameter — and the same conversion ceiling.
+  const deskLuck = luck * marketingSignupBoost(state)
 
   const machines = state.machines.map(m => ({ ...m }))
   const byUid = new Map(machines.map(m => [m.uid, m]))
@@ -337,7 +342,7 @@ export function advanceClients(state: GameState, dtMs: number): GameState {
     if (client.kind === 'walkin' && client.special !== 'lil-d') {
       const [roll, nextSeed] = nextRandom(seed)
       seed = nextSeed
-      if (roll < signupChance(satisfaction, luck)) signups += 1
+      if (roll < signupChance(satisfaction, deskLuck)) signups += 1
     }
   }
 

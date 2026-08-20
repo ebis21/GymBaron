@@ -2,7 +2,7 @@ import type { GameState } from '../game/types'
 import { DAY_MS } from '../game/constants'
 import { CAMPAIGNS, type CampaignId } from '../game/content/campaigns'
 import type { MarketingAction } from '../game/marketing'
-import { dailyMarketingCost, spawnRateMultiplier } from '../game/marketing'
+import { dailyMarketingCost, spawnRateMultiplier, unmetRequirement } from '../game/marketing'
 import { outlookFor, servablePerDay } from '../game/capacity'
 import { useI18n } from '../i18n'
 
@@ -14,10 +14,14 @@ interface Props {
 
 const GLYPH: Record<CampaignId, string> = {
   flyers: '📬',
+  referral: '🤝',
   social: '📱',
   billboards: '🏙️',
+  premium: '💎',
+  openDay: '🎉',
   influencer: '🤳',
   tv: '📺',
+  national: '🌍',
 }
 
 /**
@@ -31,10 +35,16 @@ const GLYPH: Record<CampaignId, string> = {
  * and what the gym can actually serve — the number that decides whether any of
  * this is worth paying for.
  *
- * Every offer stays clickable even when the gym cannot cope with it. The
- * warning is advice, not a lock: a player who is about to buy machines this
- * afternoon is entitled to run the ad first, and the one thing worse than an
- * unheeded warning is a button that refuses without saying what would fix it.
+ * Every unlocked offer stays clickable even when the gym cannot cope with it.
+ * The overshoot warning is advice, not a lock: a player who is about to buy
+ * machines this afternoon is entitled to run the ad first, and the one thing
+ * worse than an unheeded warning is a button that refuses without saying what
+ * would fix it.
+ *
+ * An unlock is the one hard stop, and locked offers stay in the ladder rather
+ * than being hidden. A player who can see the national campaign three rungs
+ * above them knows what the next stretch of the game is for; one who cannot
+ * see it only knows the list is short.
  */
 export default function MarketingScreen({ state, onMarketing }: Props) {
   const { t, money } = useI18n()
@@ -88,22 +98,33 @@ export default function MarketingScreen({ state, onMarketing }: Props) {
           // `applyMarketing` prices it — so the reason shown is the real one.
           const owed = totalCost + campaign.dailyCost
           const short = !isRunning && state.cash < owed
+          const lock = unmetRequirement(state, campaign.id)
           const outlook = outlookFor(state, campaign.id)
           const arrivals = Math.round(outlook.arrivals)
+          const net = Math.round(outlook.net)
 
+          // The unlock comes before the closing time on purpose: "come back
+          // tomorrow" is wrong advice for an offer tomorrow will not open.
           const reason = isRunning
             ? t.marketing.alreadyRunning
-            : closed
-              ? t.marketing.closed
-              : short
-                ? t.marketing.short(money(owed - state.cash))
-                : null
+            : lock !== null
+              ? t.marketing.locked[lock](campaign.requires![lock]!)
+              : closed
+                ? t.marketing.closed
+                : short
+                  ? t.marketing.short(money(owed - state.cash))
+                  : null
 
-          const advice = isRunning || outlook.shortOf === null
+          const advice = isRunning || lock !== null || outlook.shortOf === null
             ? null
             : outlook.shortOf === 'reception'
               ? t.marketing.shortReception(arrivals, Math.round(outlook.servable))
               : t.marketing.shortMachines(arrivals, Math.round(outlook.servable))
+
+          // A locked offer gets its requirement and nothing else. Projecting
+          // the takings of something the player cannot buy is noise on a list
+          // that is already nine rows long.
+          const projecting = !isRunning && lock === null
 
           return (
             <div
@@ -119,14 +140,21 @@ export default function MarketingScreen({ state, onMarketing }: Props) {
                 <div className="shop-meta">
                   {t.marketing.schedule(campaign.durationDays, money(campaign.dailyCost))}
                 </div>
-                {!isRunning && <div className="shop-meta">{t.marketing.projected(arrivals)}</div>}
+                {projecting && <div className="shop-meta">{t.marketing.projected(arrivals)}</div>}
+                {projecting && (
+                  <div className={`shop-net ${net >= 0 ? 'good' : 'bad'}`}>
+                    {net >= 0
+                      ? t.marketing.gain(money(net))
+                      : t.marketing.loss(money(Math.abs(net)))}
+                  </div>
+                )}
                 {advice && <div className="shop-reason">{advice}</div>}
                 {reason && <div className="shop-reason">{reason}</div>}
               </div>
 
               <button
                 className={`btn${isRunning ? ' primary' : ''}`}
-                disabled={isRunning || closed || short}
+                disabled={isRunning || closed || short || lock !== null}
                 onClick={() => onMarketing({ type: 'start', campaignId: campaign.id })}
               >
                 {isRunning ? t.marketing.running : t.marketing.start}

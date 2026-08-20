@@ -8,6 +8,8 @@ import {
   DAY_MS, MAX_QUEUE, MEMBER_DISCOUNT, PATIENCE_MS, TRAINER_FEE_MULT,
 } from './constants'
 import type { Client, GameState, Machine, Member, Staff } from './types'
+import { CLIENT_RARITIES } from './content/rarity'
+import type { CampaignId } from './content/campaigns'
 
 const machine = (over: Partial<Machine> = {}): Machine =>
   ({ uid: 'm1', type: 'dumbbells', x: 0, y: 0, rotation: 0, durability: 100, occupiedBy: null, brokenMs: 0, ...over })
@@ -465,5 +467,73 @@ describe('reputation from workouts', () => {
       PATIENCE_MS + 1,
     )
     expect(50 - walkout.reputation).toBeGreaterThan(gained(50))
+  })
+})
+
+describe('what a live campaign changes on the floor', () => {
+  const running = (s: GameState, id: CampaignId): GameState => ({
+    ...s,
+    marketing: { running: [{ id, remainingMs: DAY_MS }], billable: [] },
+  })
+
+  /** Average rarity tier of everyone who walked in, as an index into the table. */
+  const averageTier = (s: GameState): number => {
+    const tiers = s.clients.map(c => CLIENT_RARITIES.indexOf(c.rarity))
+    return tiers.reduce((sum, t) => sum + t, 0) / tiers.length
+  }
+
+  /** Spawns a crowd one at a time, clearing the queue so the cap never bites. */
+  const crowd = (start: GameState): GameState => {
+    let s = start
+    const seen: GameState['clients'] = []
+    for (let i = 0; i < 600; i += 1) {
+      s = spawnWalkins({ ...s, clients: [] }, 1000)
+      seen.push(...s.clients)
+    }
+    return { ...s, clients: seen }
+  }
+
+  /**
+   * Thresholds rather than a bare comparison, because a campaign also changes
+   * how *many* people arrive, and that alone walks the seed differently. The
+   * untouched table averages tier 0.9 and doubling luck averages 1.8, so a gap
+   * this wide over six hundred arrivals can only be the rarity roll.
+   */
+  it('pulls a better class of client while a premium campaign runs', () => {
+    const plain = crowd(gym())
+    const premium = crowd(running(gym(), 'premium'))
+
+    expect(plain.clients.length).toBeGreaterThan(50)
+    expect(premium.clients.length).toBeGreaterThan(50)
+    expect(averageTier(plain)).toBeLessThan(1)
+    expect(averageTier(premium)).toBeGreaterThan(1.3)
+  })
+
+  /** Finishes the same number of workouts and counts the passes sold. */
+  const workouts = (start: GameState): number => {
+    let s = start
+    for (let i = 0; i < 500; i += 1) {
+      s = advanceClients({
+        ...s,
+        machines: [machine({ occupiedBy: 'c1' })],
+        clients: [client({ phase: 'workout', machineUid: 'm1' })],
+      }, 99_000)
+    }
+    return s.today.signups
+  }
+
+  it('converts more of the same crowd while a referral campaign runs', () => {
+    const plain = workouts({ ...gym(), satisfaction: 50 })
+    const referral = workouts(running({ ...gym(), satisfaction: 50 }, 'referral'))
+
+    expect(plain).toBeGreaterThan(0)
+    expect(referral).toBeGreaterThan(plain)
+  })
+
+  it('leaves both alone once the campaign has expired', () => {
+    const plain = crowd(gym())
+    const expired = crowd({ ...gym(), marketing: { running: [], billable: ['premium'] } })
+
+    expect(averageTier(expired)).toBe(averageTier(plain))
   })
 })

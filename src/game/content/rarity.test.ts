@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { rollRarity } from './rarity'
+import { averageRarityMultiplier, rollRarity } from './rarity'
 
 describe('rollRarity', () => {
   it('keeps the top tiers scarce', () => {
@@ -72,5 +72,26 @@ describe('rollRarity — the luck upgrade', () => {
 
   it('never draws the secret tier, which has no weight', () => {
     expect(distribution(4).secret).toBeUndefined()
+  })
+})
+
+describe('the average visitor', () => {
+  it('is worth what the untouched weights say at the door', () => {
+    // 50/40/20/6/2 against the tier multipliers, by hand.
+    const expected = (50 * 1.2 + 40 * 1.6 + 20 * 2 + 6 * 2.4 + 2 * 3.2) / 118
+    expect(averageRarityMultiplier(1)).toBeCloseTo(expected, 10)
+  })
+
+  it('is worth more the luckier the gym is', () => {
+    const plain = averageRarityMultiplier(1)
+    for (const luck of [1.5, 2, 4]) {
+      expect(averageRarityMultiplier(luck)).toBeGreaterThan(plain)
+    }
+    expect(averageRarityMultiplier(4)).toBeGreaterThan(averageRarityMultiplier(2))
+  })
+
+  it('never counts the secret visitor, who pays through their own rules', () => {
+    // Every tier at once would drag the average toward `secret`'s 1.0.
+    expect(averageRarityMultiplier(1)).toBeGreaterThan(1.2)
   })
 })

@@ -1219,6 +1219,26 @@ a:focus-visible,
   color: var(--coral-dark);
 }
 
+/*
+ * The projected daily profit, and the one line on a campaign row the player
+ * actually decides on. Colour does the work a second sentence would: a row is
+ * either paying for itself or it is not, and the eye should find that before
+ * it reads a word.
+ */
+.shop-net {
+  margin-top: 4px;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.shop-net.good {
+  color: var(--leaf-dark);
+}
+
+.shop-net.bad {
+  color: var(--danger-dark);
+}
+
 /* --- contracts ----------------------------------------------------------- */
 
 /*
