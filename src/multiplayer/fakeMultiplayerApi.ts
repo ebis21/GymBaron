@@ -13,6 +13,7 @@ import type {
   MultiplayerOverview,
   OutgoingFriendRequest,
   PlayerId,
+  PlayerProfile,
   PlayerSummary,
   ProposeLoanCommand,
   RepayLoanCommand,
@@ -24,6 +25,7 @@ import type {
 } from './types'
 import {
   SABOTAGE_COST,
+  normalizePlayerNickname,
   normalizePlayerQuery,
   requireIdempotencyKey,
   requirePlayerId,
@@ -269,10 +271,31 @@ export class FakeMultiplayerApi implements MultiplayerApi {
     }
   }
 
+  async getPlayerProfile(): Promise<PlayerProfile> {
+    const nickname = this.player(this.currentUserId).profile.username.trim()
+    return { nickname: nickname || null }
+  }
+
+  async setPlayerNickname(rawNickname: string): Promise<PlayerProfile> {
+    const current = this.player(this.currentUserId)
+    if (current.profile.username.trim()) fail('MP_NICKNAME_ALREADY_SET')
+    const nickname = normalizePlayerNickname(rawNickname)
+    const taken = [...this.players.values()].some(player => (
+      player.profile.id !== this.currentUserId &&
+      player.profile.username.trim() !== '' &&
+      player.profile.username.localeCompare(nickname, undefined, { sensitivity: 'accent' }) === 0
+    ))
+    if (taken) fail('MP_NICKNAME_TAKEN')
+    current.profile.username = nickname
+    current.gym.owner = copy(current.profile)
+    return { nickname }
+  }
+
   async searchPlayers(rawQuery: string): Promise<PlayerSummary[]> {
     const query = normalizePlayerQuery(rawQuery)
     return [...this.players.values()]
       .filter(player => player.profile.id !== this.currentUserId)
+      .filter(player => player.profile.username.trim() !== '')
       .filter(player => player.profile.username.toLocaleLowerCase('pl-PL').startsWith(query))
       .sort((left, right) => left.profile.username.localeCompare(right.profile.username, 'pl'))
       .slice(0, 20)

@@ -26,6 +26,16 @@ required. The state must contain numeric `cash`, integer `diamonds`, integer
 state migration has populated `diamonds`, diamond transfers fail closed with
 `MP_INVALID_SAVE_BALANCE`.
 
+### Nickname onboarding
+
+Migration `20260821090000_player_nickname_onboarding.sql` adds the explicit
+one-time nickname step. New profiles start with no public name, and legacy
+email-derived placeholders remain private until the player completes the same
+step. `get_player_profile()` reports whether onboarding is complete and
+`set_player_nickname(text)` atomically validates and reserves a 3–20 character
+case-insensitive name. Direct profile updates are revoked, and `search_players`
+only includes profiles with `nickname_set_at` populated.
+
 The existing `game_saves_bump_revision` trigger wins over the explicit
 `revision = revision + 1` assignment, so each changed save advances exactly
 one revision. A financial RPC changes both participants' revisions when both

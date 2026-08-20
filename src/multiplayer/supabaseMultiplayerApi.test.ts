@@ -41,6 +41,23 @@ const overview = {
 }
 
 describe('SupabaseMultiplayerApi', () => {
+  it('loads an unfinished profile and sends the normalized nickname once chosen', async () => {
+    const calls: Array<{ name: string; args: Record<string, unknown> }> = []
+    const api = new SupabaseMultiplayerApi(clientWith({
+      get_player_profile: { data: { nickname: null }, error: null },
+      set_player_nickname: { data: { nickname: 'Iron Baron' }, error: null },
+    }, calls))
+
+    await expect(api.getPlayerProfile()).resolves.toEqual({ nickname: null })
+    await expect(api.setPlayerNickname('  Iron   Baron ')).resolves.toEqual({
+      nickname: 'Iron Baron',
+    })
+    expect(calls).toEqual([
+      { name: 'get_player_profile', args: {} },
+      { name: 'set_player_nickname', args: { p_nickname: 'Iron Baron' } },
+    ])
+  })
+
   it('validates and maps the multiplayer overview', async () => {
     const api = new SupabaseMultiplayerApi(clientWith({
       get_multiplayer_overview: { data: overview, error: null },

@@ -8,6 +8,11 @@ export interface PlayerSummary {
   username: string
 }
 
+export interface PlayerProfile {
+  /** Null until the one-time nickname onboarding has been completed. */
+  nickname: string | null
+}
+
 export interface IncomingFriendRequest {
   id: EntityId
   sender: PlayerSummary
@@ -161,6 +166,9 @@ export interface SabotageEvent {
 }
 
 export interface MultiplayerApi {
+  getPlayerProfile(): Promise<PlayerProfile>
+  setPlayerNickname(nickname: string): Promise<PlayerProfile>
+
   searchPlayers(query: string): Promise<PlayerSummary[]>
   getOverview(): Promise<MultiplayerOverview>
 

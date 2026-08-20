@@ -40,6 +40,41 @@ function seed(overrides: Partial<FakeMultiplayerSeed> = {}): FakeMultiplayerSeed
   }
 }
 
+describe('player nickname onboarding', () => {
+  it('starts an unnamed player as private and publishes the chosen nickname', async () => {
+    const api = new FakeMultiplayerApi(seed({
+      currentUserId: ALICE.id,
+      players: [
+        { profile: { ...ALICE, username: '' } },
+        { profile: BOB },
+      ],
+    }))
+
+    expect(await api.getPlayerProfile()).toEqual({ nickname: null })
+    await expect(api.setPlayerNickname('  Iron   Alice ')).resolves.toEqual({
+      nickname: 'Iron Alice',
+    })
+    expect(await api.getPlayerProfile()).toEqual({ nickname: 'Iron Alice' })
+    await expect(api.setPlayerNickname('Another name')).rejects.toMatchObject({
+      code: 'MP_NICKNAME_ALREADY_SET',
+    })
+  })
+
+  it('reserves nicknames case-insensitively and hides unnamed players from search', async () => {
+    const api = new FakeMultiplayerApi(seed({
+      currentUserId: ALICE.id,
+      players: [
+        { profile: { ...ALICE, username: '' } },
+        { profile: { ...BOB, username: 'Baron' } },
+        { profile: { ...CAROL, username: '' } },
+      ],
+    }))
+
+    await expect(api.setPlayerNickname('baron')).rejects.toMatchObject({ code: 'MP_NICKNAME_TAKEN' })
+    expect(await api.searchPlayers('ca')).toEqual([])
+  })
+})
+
 describe('friendship and alliance rules', () => {
   it('rejects self requests and requires an accepted friendship for an alliance', async () => {
     const api = new FakeMultiplayerApi(seed())

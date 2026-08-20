@@ -37,7 +37,10 @@ function SyncBadge({ status, at }: { status: SyncStatus; at: number | null }) {
  * wherever the phone UI wants it. `service` exists so the screen can be driven
  * by a fake in a story or a test.
  */
-export default function AccountScreen({ service }: { service?: AccountService } = {}) {
+export default function AccountScreen({
+  service,
+  nickname,
+}: { service?: AccountService; nickname?: string | null } = {}) {
   const account = useAccount(service)
   const { state } = account
   const { t } = useI18n()
@@ -70,6 +73,12 @@ export default function AccountScreen({ service }: { service?: AccountService } 
       <div className="screen">
         <h2 className="section-title">{copy.title}</h2>
         <div className="account-card">
+          {nickname && (
+            <div className="account-nickname">
+              <span>{copy.publicNickname}</span>
+              <strong>{nickname}</strong>
+            </div>
+          )}
           <div className="account-email">{state.session.email ?? copy.signedIn}</div>
           <SyncBadge status={state.sync.status} at={state.sync.lastSyncedAt} />
           {state.sync.pending ? (
