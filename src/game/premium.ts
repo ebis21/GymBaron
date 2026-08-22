@@ -86,10 +86,22 @@ export function applyPremiumPurchase(
   }
 
   switch (receipt.productId) {
-    case 'credits_pack':
-      return remember({ ...state, cash: state.cash + 10_000 }, receipt)
-    case 'diamonds_pack':
-      return remember({ ...state, diamonds: state.diamonds + 25 }, receipt)
+    case 'credits_5000':
+      return remember({ ...state, cash: state.cash + 5_000 }, receipt)
+    case 'credits_20000':
+      return remember({ ...state, cash: state.cash + 20_000 }, receipt)
+    case 'credits_100000':
+      return remember({ ...state, cash: state.cash + 100_000 }, receipt)
+    case 'credits_1000000':
+      return remember({ ...state, cash: state.cash + 1_000_000 }, receipt)
+    case 'diamonds_5':
+      return remember({ ...state, diamonds: state.diamonds + 5 }, receipt)
+    case 'diamonds_15':
+      return remember({ ...state, diamonds: state.diamonds + 15 }, receipt)
+    case 'diamonds_45':
+      return remember({ ...state, diamonds: state.diamonds + 45 }, receipt)
+    case 'diamonds_200':
+      return remember({ ...state, diamonds: state.diamonds + 200 }, receipt)
     case 'machines_pack': {
       let next = state
       for (const type of ['apex-bench', 'apex-treadmill', 'apex-rig'] as const) {

@@ -4616,9 +4616,20 @@ p.warn {
 
 .premium-product-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
   margin-top: 14px;
+}
+
+.premium-product-column {
+  min-width: 0;
+  display: grid;
+  grid-template-rows: repeat(2, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.premium-product-column.is-currency {
+  grid-template-rows: repeat(4, minmax(122px, 1fr));
 }
 
 .premium-product-card {
@@ -4702,6 +4713,44 @@ p.warn {
   font-size: 11px;
 }
 
+.premium-product-column.is-currency .premium-product-card {
+  min-height: 122px;
+  padding: 12px;
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  grid-template-rows: minmax(44px, 1fr) auto;
+  gap: 7px 10px;
+}
+
+.premium-product-column.is-currency .premium-product-glyph {
+  width: 44px;
+  height: 44px;
+  align-self: center;
+  font-size: 23px;
+  border-radius: 14px;
+}
+
+.premium-product-column.is-currency .premium-product-copy {
+  min-width: 0;
+  align-self: center;
+}
+
+.premium-product-column.is-currency .premium-product-kind,
+.premium-product-column.is-currency .premium-product-copy p {
+  display: none;
+}
+
+.premium-product-column.is-currency .premium-product-copy h3 {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.15;
+}
+
+.premium-product-column.is-currency .premium-buy {
+  grid-column: 1 / -1;
+  min-height: 34px;
+}
+
 .premium-store-footer {
   margin-top: 16px;
   display: flex;
@@ -4717,6 +4766,12 @@ p.warn {
   font-size: 10px;
   text-align: right;
   color: var(--ink-soft);
+}
+
+@media (max-width: 1080px) {
+  .premium-product-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 /* --- one-time player nickname ------------------------------------------ */
@@ -4820,7 +4875,6 @@ p.warn {
   .baron-club { border-width: 0; border-radius: 0; }
   .club-topbar { border-bottom-width: 3px; }
   .club-tile-grid { grid-template-columns: 1fr; }
-  .premium-product-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (max-width: 520px) {
@@ -4828,7 +4882,9 @@ p.warn {
   .club-back { grid-row: 2; grid-column: 1 / -1; justify-self: start; }
   .club-hero { flex-direction: column; }
   .club-wallet { justify-content: flex-start; }
-  .premium-product-grid { grid-template-columns: 1fr; }
+  .premium-product-grid {
+    grid-template-columns: 1fr;
+  }
   .premium-store-notice { grid-template-columns: auto minmax(0, 1fr); }
   .premium-store-notice .btn { grid-column: 1 / -1; }
   .nickname-onboarding { justify-content: flex-start; }

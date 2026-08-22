@@ -32,43 +32,107 @@ export interface PremiumProduct {
  */
 export const PREMIUM_PRODUCTS: readonly PremiumProduct[] = [
   {
-    id: 'credits_pack',
-    storeProductId: 'gymbaron.credits.10000',
+    id: 'credits_5000',
+    storeProductId: 'gymbaron.credits.5000',
     suggestedPricePln: 4.99,
     kind: 'consumable',
     accent: 'gold',
     glyph: '🪙',
-    title: { en: '10,000 credits', pl: '10 000 kredytów' },
+    title: { en: '5,000 credits', pl: '5 000 kredytów' },
     description: {
-      en: 'A direct cash injection for equipment, wages and expansion.',
-      pl: 'Zastrzyk gotówki na sprzęt, wypłaty i rozbudowę.',
+      en: 'A quick cash boost for everyday gym expenses.',
+      pl: 'Szybki zastrzyk gotówki na codzienne wydatki siłowni.',
     },
   },
   {
-    id: 'diamonds_pack',
-    storeProductId: 'gymbaron.diamonds.25',
+    id: 'credits_20000',
+    storeProductId: 'gymbaron.credits.20000',
+    suggestedPricePln: 14.99,
+    kind: 'consumable',
+    accent: 'gold',
+    glyph: '🪙',
+    title: { en: '20,000 credits', pl: '20 000 kredytów' },
+    description: {
+      en: 'Cash for equipment, wages and a solid expansion.',
+      pl: 'Gotówka na sprzęt, wypłaty i solidną rozbudowę.',
+    },
+  },
+  {
+    id: 'credits_100000',
+    storeProductId: 'gymbaron.credits.100000',
+    suggestedPricePln: 29.99,
+    kind: 'consumable',
+    accent: 'gold',
+    glyph: '🪙',
+    title: { en: '100,000 credits', pl: '100 000 kredytów' },
+    description: {
+      en: 'A major investment fund for the next stage of the gym.',
+      pl: 'Duży fundusz inwestycyjny na kolejny etap siłowni.',
+    },
+  },
+  {
+    id: 'credits_1000000',
+    storeProductId: 'gymbaron.credits.1000000',
+    suggestedPricePln: 499.99,
+    kind: 'consumable',
+    accent: 'gold',
+    glyph: '🪙',
+    title: { en: '1,000,000 credits', pl: '1 000 000 kredytów' },
+    description: {
+      en: 'A million-credit treasury for the biggest expansion plans.',
+      pl: 'Milionowy skarbiec na największe plany rozbudowy.',
+    },
+  },
+  {
+    id: 'diamonds_5',
+    storeProductId: 'gymbaron.diamonds.5',
+    suggestedPricePln: 3.99,
+    kind: 'consumable',
+    accent: 'diamond',
+    glyph: '💎',
+    title: { en: '5 diamonds', pl: '5 diamentów' },
+    description: {
+      en: 'A starter pack for the permanent diamond upgrade tracks.',
+      pl: 'Pakiet startowy do stałych ulepszeń za diamenty.',
+    },
+  },
+  {
+    id: 'diamonds_15',
+    storeProductId: 'gymbaron.diamonds.15',
     suggestedPricePln: 9.99,
     kind: 'consumable',
     accent: 'diamond',
     glyph: '💎',
-    title: { en: '25 diamonds', pl: '25 diamentów' },
+    title: { en: '15 diamonds', pl: '15 diamentów' },
     description: {
       en: 'Premium currency for the permanent diamond upgrade tracks.',
       pl: 'Waluta premium do stałych ulepszeń za diamenty.',
     },
-    badge: { en: 'Popular', pl: 'Popularne' },
   },
   {
-    id: 'machines_pack',
-    storeProductId: 'gymbaron.machines.premium3',
-    suggestedPricePln: 14.99,
+    id: 'diamonds_45',
+    storeProductId: 'gymbaron.diamonds.45',
+    suggestedPricePln: 29.99,
     kind: 'consumable',
-    accent: 'machine',
-    glyph: '🏋️',
-    title: { en: '3 premium machines', pl: '3 maszyny premium' },
+    accent: 'diamond',
+    glyph: '💎',
+    title: { en: '45 diamonds', pl: '45 diamentów' },
     description: {
-      en: 'Apex Bench, Apex Treadmill and Apex Rig delivered directly to the inventory.',
-      pl: 'Ławka Apex, bieżnia Apex i platforma Apex dostarczone prosto do ekwipunku.',
+      en: 'A larger diamond reserve for permanent upgrade tracks.',
+      pl: 'Większy zapas diamentów do stałych ścieżek ulepszeń.',
+    },
+  },
+  {
+    id: 'diamonds_200',
+    storeProductId: 'gymbaron.diamonds.200',
+    suggestedPricePln: 99.99,
+    kind: 'consumable',
+    accent: 'diamond',
+    glyph: '💎',
+    title: { en: '200 diamonds', pl: '200 diamentów' },
+    description: {
+      en: 'A premium diamond vault for long upgrade campaigns.',
+      pl: 'Skarbiec diamentów na długie kampanie ulepszeń.',
     },
   },
   {
@@ -115,7 +179,42 @@ export const PREMIUM_PRODUCTS: readonly PremiumProduct[] = [
       pl: 'Czworo legendarnych pracowników: recepcja, sprzątanie, naprawy i trening. Bez losowania.',
     },
   },
+  {
+    id: 'machines_pack',
+    storeProductId: 'gymbaron.machines.premium3',
+    suggestedPricePln: 14.99,
+    kind: 'consumable',
+    accent: 'machine',
+    glyph: '🏋️',
+    title: { en: '3 premium machines', pl: '3 maszyny premium' },
+    description: {
+      en: 'Apex Bench, Apex Treadmill and Apex Rig delivered directly to the inventory.',
+      pl: 'Ławka Apex, bieżnia Apex i platforma Apex dostarczone prosto do ekwipunku.',
+    },
+  },
 ] as const
+
+export const PREMIUM_PRODUCT_COLUMNS = [
+  {
+    id: 'credits',
+    productIds: ['credits_5000', 'credits_20000', 'credits_100000', 'credits_1000000'],
+  },
+  {
+    id: 'diamonds',
+    productIds: ['diamonds_5', 'diamonds_15', 'diamonds_45', 'diamonds_200'],
+  },
+  {
+    id: 'boosts',
+    productIds: ['luck_forever', 'double_income_forever'],
+  },
+  {
+    id: 'extras',
+    productIds: ['legendary_team', 'machines_pack'],
+  },
+] as const satisfies ReadonlyArray<{
+  id: string
+  productIds: readonly PremiumProductId[]
+}>
 
 export function premiumProduct(id: PremiumProductId): PremiumProduct {
   const product = PREMIUM_PRODUCTS.find(item => item.id === id)
