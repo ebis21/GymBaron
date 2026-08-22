@@ -4617,12 +4617,19 @@ p.warn {
 .premium-product-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  grid-template-rows: repeat(2, minmax(260px, auto));
-  grid-template-areas:
-    "credits diamonds luck staff"
-    "credits diamonds income machine";
   gap: 12px;
   margin-top: 14px;
+}
+
+.premium-product-column {
+  min-width: 0;
+  display: grid;
+  grid-template-rows: repeat(2, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.premium-product-column.is-currency {
+  grid-template-rows: repeat(4, minmax(122px, 1fr));
 }
 
 .premium-product-card {
@@ -4645,13 +4652,6 @@ p.warn {
   height: 6px;
   background: #d6a53b;
 }
-
-.premium-product-card.is-gold { grid-area: credits; }
-.premium-product-card.is-diamond { grid-area: diamonds; }
-.premium-product-card.is-luck { grid-area: luck; }
-.premium-product-card.is-income { grid-area: income; }
-.premium-product-card.is-staff { grid-area: staff; }
-.premium-product-card.is-machine { grid-area: machine; }
 
 .premium-product-card.is-diamond::before { background: #45aee2; }
 .premium-product-card.is-luck::before { background: #53ad45; }
@@ -4713,6 +4713,44 @@ p.warn {
   font-size: 11px;
 }
 
+.premium-product-column.is-currency .premium-product-card {
+  min-height: 122px;
+  padding: 12px;
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  grid-template-rows: minmax(44px, 1fr) auto;
+  gap: 7px 10px;
+}
+
+.premium-product-column.is-currency .premium-product-glyph {
+  width: 44px;
+  height: 44px;
+  align-self: center;
+  font-size: 23px;
+  border-radius: 14px;
+}
+
+.premium-product-column.is-currency .premium-product-copy {
+  min-width: 0;
+  align-self: center;
+}
+
+.premium-product-column.is-currency .premium-product-kind,
+.premium-product-column.is-currency .premium-product-copy p {
+  display: none;
+}
+
+.premium-product-column.is-currency .premium-product-copy h3 {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.15;
+}
+
+.premium-product-column.is-currency .premium-buy {
+  grid-column: 1 / -1;
+  min-height: 34px;
+}
+
 .premium-store-footer {
   margin-top: 16px;
   display: flex;
@@ -4733,11 +4771,6 @@ p.warn {
 @media (max-width: 1080px) {
   .premium-product-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    grid-template-rows: repeat(3, minmax(260px, auto));
-    grid-template-areas:
-      "credits diamonds"
-      "luck staff"
-      "income machine";
   }
 }
 
@@ -4851,14 +4884,6 @@ p.warn {
   .club-wallet { justify-content: flex-start; }
   .premium-product-grid {
     grid-template-columns: 1fr;
-    grid-template-rows: none;
-    grid-template-areas:
-      "credits"
-      "diamonds"
-      "luck"
-      "income"
-      "staff"
-      "machine";
   }
   .premium-store-notice { grid-template-columns: auto minmax(0, 1fr); }
   .premium-store-notice .btn { grid-column: 1 / -1; }

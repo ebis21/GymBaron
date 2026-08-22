@@ -2,7 +2,8 @@ import { useEffect, useState, useSyncExternalStore } from 'react'
 import { useAccount } from '../cloud'
 import { useI18n } from '../i18n'
 import {
-  PREMIUM_PRODUCTS,
+  PREMIUM_PRODUCT_COLUMNS,
+  premiumProduct,
   type PremiumProductId,
 } from '../storefront/catalog'
 import {
@@ -95,40 +96,48 @@ export default function PremiumStoreScreen({
       )}
 
       <div className="premium-product-grid">
-        {PREMIUM_PRODUCTS.map(product => {
-          const storeProduct = snapshot.products[product.id]
-          const owned = product.kind === 'non-consumable' && ownedProductIds.includes(product.id)
-          const disabled = !ready || !storeProduct || !account.session || busy !== null || owned
-          return (
-            <article className={`premium-product-card is-${product.accent}`} key={product.id}>
-              {product.badge && (
-                <span className="premium-product-badge">{product.badge[language]}</span>
-              )}
-              <div className="premium-product-glyph" aria-hidden="true">{product.glyph}</div>
-              <div className="premium-product-copy">
-                <span className="premium-product-kind">
-                  {product.kind === 'consumable' ? copy.consumable : copy.permanent}
-                </span>
-                <h3>{product.title[language]}</h3>
-                <p>{product.description[language]}</p>
-              </div>
-              <button
-                className="btn primary block premium-buy"
-                type="button"
-                disabled={disabled}
-                onClick={() => void purchase(product.id)}
-              >
-                {busy === product.id
-                  ? '…'
-                  : owned
-                    ? copy.owned
-                    : ready && storeProduct
-                      ? `${copy.buy} · ${storeProduct.localizedPrice}`
-                      : copy.unavailable}
-              </button>
-            </article>
-          )
-        })}
+        {PREMIUM_PRODUCT_COLUMNS.map(column => (
+          <div
+            className={`premium-product-column is-${column.id}${column.productIds.length === 4 ? ' is-currency' : ''}`}
+            key={column.id}
+          >
+            {column.productIds.map(productId => {
+              const product = premiumProduct(productId)
+              const storeProduct = snapshot.products[product.id]
+              const owned = product.kind === 'non-consumable' && ownedProductIds.includes(product.id)
+              const disabled = !ready || !storeProduct || !account.session || busy !== null || owned
+              return (
+                <article className={`premium-product-card is-${product.accent}`} key={product.id}>
+                  {product.badge && (
+                    <span className="premium-product-badge">{product.badge[language]}</span>
+                  )}
+                  <div className="premium-product-glyph" aria-hidden="true">{product.glyph}</div>
+                  <div className="premium-product-copy">
+                    <span className="premium-product-kind">
+                      {product.kind === 'consumable' ? copy.consumable : copy.permanent}
+                    </span>
+                    <h3>{product.title[language]}</h3>
+                    <p>{product.description[language]}</p>
+                  </div>
+                  <button
+                    className="btn primary block premium-buy"
+                    type="button"
+                    disabled={disabled}
+                    onClick={() => void purchase(product.id)}
+                  >
+                    {busy === product.id
+                      ? '…'
+                      : owned
+                        ? copy.owned
+                        : ready && storeProduct
+                          ? `${copy.buy} · ${storeProduct.localizedPrice}`
+                          : copy.unavailable}
+                  </button>
+                </article>
+              )
+            })}
+          </div>
+        ))}
       </div>
 
       <footer className="premium-store-footer">
